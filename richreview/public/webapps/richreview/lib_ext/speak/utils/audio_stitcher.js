@@ -44,8 +44,9 @@
                 }
             ).then(
                 function(final_wav){
-                    var url = encodeBlob(final_wav);
-                    if (cb) cb(url);
+                    var blob = encodeBlob(final_wav);
+                    var url = (window.URL || window.webkitURL).createObjectURL(blob);
+                    if (cb) cb([url, blob]);
                 }
             );
 
@@ -96,7 +97,6 @@
                     stream: stream_buffer,
                     byte_array: new Uint8Array(stream_buffer)
                 };
-                //console.log(encodeBlob(wav));
 
                 return wav;
             });
@@ -203,7 +203,7 @@
             }
 
             /* return blob */
-            return (window.URL || window.webkitURL).createObjectURL(new Blob([view], { type: "audio/l16" }));
+            return new Blob([view], { type: "audio/l16" });
         };
 
         function writeString(view, offset, string){

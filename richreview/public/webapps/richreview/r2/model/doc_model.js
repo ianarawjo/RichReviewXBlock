@@ -1150,7 +1150,10 @@
 
             // * For now, compile immediately...
             this.speak_ctrl.compile();
-            this.speak_ctrl.play();
+            this.speak_ctrl.renderAudioAnon().then((function(audio) {
+                console.log("Audio rendered to url ", audio.url);
+                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            }).bind(r2App.annots[this.GetAnnotId()]));
 
             // R2 update dom
             this.__contentschanged = true;
@@ -1173,8 +1176,8 @@
             this.dom_textbox.style.boxShadow = "none";
             $(this.dom).css("pointer-events", 'none');
             if(this.__contentschanged){
-                console.log('>>>>__contentschanged:', this.ExportToTextChange());
-                r2Sync.PushToUploadCmd(this.ExportToTextChange());
+                //console.log('>>>>__contentschanged:', this.ExportToTextChange());
+                //r2Sync.PushToUploadCmd(this.ExportToTextChange());
                 this.__contentschanged = false;
             }
         }.bind(this));
@@ -1732,6 +1735,7 @@
         return r2.util.normalizeUrl(this._audiofileurl);
     };
     r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob){
+        console.log("Annot URL set to ", url);
         this._audiofileurl = url;
         this._reacordingaudioblob = blob;
     };

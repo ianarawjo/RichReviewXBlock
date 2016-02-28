@@ -126,7 +126,7 @@
             if(status == pub.Status.PLAYING){
                 cmd_q.push(createCmd(Cmd.PAUSE));
             }
-            if(cur_cmd === null || cur_cmd.param_id !== id){
+            if(cur_cmd === null || cur_cmd.param_id !== id || cur_cmd.param_url !== url){
                 cmd_q.push(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
             }
             cmd_q.push(createCmd(Cmd.PLAY, id, url, time));

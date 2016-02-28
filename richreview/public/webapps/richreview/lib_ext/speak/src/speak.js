@@ -42,11 +42,12 @@
             // Internal data structures
             var Audio = (function() {
                 var AudioResource = class AudioResource {
-                    constructor(url) {
+                    constructor(url, blob) {
                         this.url = url; // TODO: Cloud storage.
+                        this.blob = blob;
                     }
                     play(start_time) {
-                        if (typeof start_time === undefined) start_time = 0;
+                        if (typeof start_time === "undefined") start_time = 0;
                         var url = this.url;
                         return new Promise(function(resolve, reject) {
                             r2.audioPlayer.play(Math.random() * 10, url,
@@ -59,27 +60,29 @@
                 };
                 var resources = [];
                 return {
-                    for : function(url) {
+                    for : function(url, blob) {
                         if (url in resources) return resources[url];
                         else {
-                            var r = new AudioResource(url);
+                            var r = new AudioResource(url, blob);
                             resources[url] = r;
                             return r;
                         }
                     },
                     stitch : function(talkens) { // Returns stitched audio resource as a Promise.
-                        return r2.audiosynth.stitch(talkens).then(function(url) {
+                        return r2.audiosynth.stitch(talkens).then(function(rsc) {
+                            var url = rsc.url; var blob = rsc.blob;
                             return new Promise(function(resolve, reject) {
                                 if (!url) reject("Audio.stitch: Null url.");
-                                else resolve(Audio.for(url));
+                                else resolve(Audio.for(url, blob));
                             });
                         });
                     },
                     synthesize : function(talkens, options) {
-                        return r2.audiosynth.synthesize(talkens, options).then(function(url) {
+                        return r2.audiosynth.synthesize(talkens, options).then(function(rsc) {
+                            var url = rsc.url; var blob = rsc.blob;
                             return new Promise(function(resolve, reject) {
                                 if (!url) reject("Audio.synthesize: Null url.");
-                                else resolve(Audio.for(url));
+                                else resolve(Audio.for(url, blob));
                             });
                         });
                     }
@@ -367,30 +370,26 @@
 
             /** Audio Operations */
             /**
-             * Play the audio.
+             * Render the audio.
              * @param  {int} idx           - The index of the talken to begin playing at. Defaults to 0.
-             * @return {Promise | null}    - On success, returns Promise which resolves when audio is finished playing. On failure returns null.
+             * @return {Promise | null}    - On success, returns Promise containing URL to audio resource.
              */
-            pub.play = (idx) => {
-                return _play(idx, 'natural');
+            pub.renderAudio = () => {
+                return _render('natural');
             };
-            pub.playAnon = (idx) => {
-                return _play(idx, 'anon');
+            pub.renderAudioAnon = (idx) => {
+                return _render('anon');
             };
-            var _play = (idx, mode) => {
-                if (typeof idx === undefined || !idx) idx = 0;
+            var _render = (mode) => {
                 if (_stitching) {
-                    console.warn("Error @ r2.speak.play: Audio is currently being stitched from a previous play() call. Please wait.");
+                    console.warn("Error @ r2.speak.render: Audio is currently being stitched from a previous play() call. Please wait.");
                     return null;
                 }
                 if (!edited || edited.length === 0) {
-                    console.warn("Error @ r2.speak.play: No compiled talkens found. Call compile() before play(), or insert a transcript.");
-                    return null;
-                } else if (idx >= edited.length || idx < 0) {
-                    console.warn("Error @ r2.speak.play: Invalid index ", idx);
+                    console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
                 } else if (mode != 'natural' && mode != 'anon') {
-                    console.warn("Error @ r2.speak.play: Unrecognized mode.");
+                    console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }
 
@@ -403,7 +402,8 @@
 
                 // Compile the audio
                 var after_stitching = function(stitched_resource) {
-                    let index = idx;
+
+                    console.log("stitched talkens: ", stitched_resource);
 
                     // Repair talken urls to point to stitched resource:
                     var _bgn = 0; // running time
@@ -421,19 +421,19 @@
                     // No longer stitching!
                     _stitching = false;
 
-                    // Play stitched resource at idx
-                    var start_time = edited[index].bgn;
-                    return stitched_resource.play(start_time);
+                    return new Promise(function(resolve, reject) {
+                        resolve(stitched_resource);
+                    });
                 };
 
                 if (mode == 'natural')
                     return Audio.stitch(talkens).then(after_stitching).catch(function(err) {
-                        console.warn("Error @ r2.speak.play: Audio stitch failed.", err);
+                        console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
                 else if (mode == 'anon')
-                    return Audio.synthesize(talkens, 'prosody,duration').then(after_stitching).catch(function(err) {
-                        console.warn("Error @ r2.speak.play: Audio stitch failed.", err);
+                    return Audio.synthesize(talkens, '').then(after_stitching).catch(function(err) {
+                        console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
             };
@@ -456,7 +456,7 @@
         var toTimestamps = (talkens) => {
             var ts = [];
             talkens.forEach((t) => {
-                if (typeof t.audio === undefined || !t.audio || !t.audio.url)
+                if (typeof t.audio === "undefined" || !t.audio || !t.audio.url)
                     ts.push([ t.word, 0, 0 ]);
                 else
                     ts.push([ t.word, t.bgn, t.end ]);
@@ -475,13 +475,12 @@
         };
 
         /**
-         * Generate transcript with SSML given transcript from text box and array of talkens.
-         * @param  {string} text      - The edited transcript from the text box (can include punctuation!)
-         * @param  {[Talken]} talkens - An array of talkens
+         * Generate transcript with SSML given transcript from text box (as edited array of talkens).
+         * @param  {[Talken]} talkens - An array of (edited) talkens
          * @return {string}           - SSML transcript, to be sent to a speech synthesizer like IBM Watsom.
          */
-        var toSSML = (text, talkens) => {
-            var words = text.trim().split(' ');
+        var toSSML = (talkens) => {
+            var words = toTranscript(talkens).split(' ');
             var breaks = [];
             var wpms = {};
 
@@ -499,7 +498,7 @@
                 var ts = talkens[i];
                 var prev_ts = talkens[i-1];
 
-                if (ts[0] != word) {
+                if (ts.word != word) {
                     console.log('Error: toSSML: word in timestamp does not match displayed text.');
                     continue;
                 }
@@ -534,7 +533,7 @@
          * @return {Promise}     - Returns url to the TTS audio blob.
          */
         var getTTSAudioFromWatson = (ssml, voice) => {
-            if (typeof voice === undefined) voice = "en-US_MichaelVoice";
+            if (typeof voice === "undefined") voice = "en-US_MichaelVoice";
 
             var $dummy_ta = $('<textarea>');
             $dummy_ta.val(ssml);
@@ -545,7 +544,8 @@
             // 2. Change from GET to POST request.
             // 3. Make voice (e.g. Michael) customizable!
             // 4. MAYBE: Split ssml into multiple chunks if it's long...
-            var tts_audiourl = 'http://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice + '&accept=audio/wav';
+            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice + '&accept=audio/wav';
+            console.log("Getting TTS from url ", tts_audiourl);
 
             // Request Watson TTS server
             return new Promise(function(resolve, reject) {
@@ -555,9 +555,9 @@
                 xhr.onreadystatechange = function(e) {
                   if (this.readyState == 4 && this.status == 200) {
                     var blob = this.response;
-                    resolve(URL.createObjectURL(blob));
+                    resolve([URL.createObjectURL(blob), blob]);
                   }
-                  else reject(this.status);
+                  else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
                 };
                 xhr.send();
             });
@@ -573,9 +573,10 @@
         pub.stitch = (talkens) => {
             var snippets = talkens.map((t) => ({'url':t.audio.url, 't_bgn':t.bgn, 't_end':t.end}));
             return new Promise(function(resolve, reject) {
-                r2.audioStitcher.run(snippets, function(url) {
+                r2.audioStitcher.run(snippets, function(rsc) {
+                    var url = rsc[0]; var blob = rsc[1];
                     if (!url) reject("r2.audiosynth.stitch: URL is null.");
-                    else resolve(url);
+                    else resolve({'url':url, 'blob':blob});
                 });
             });
         };
@@ -586,7 +587,7 @@
          */
         pub.isStitchable = (talkens) => {
             for (var t of talkens)
-                if (typeof t.audio === undefined) return false;
+                if (typeof t.audio === "undefined") return false;
             return true;
         };
 
@@ -596,7 +597,7 @@
          * @return {Promise}          - Returns the TTS audio (in a Promise).
          */
         pub.synthesize = (talkens, config) => {
-            if (typeof config === undefined) // default config
+            if (typeof config === "undefined") // default config
                 config = { mode:'TTS', transfer:'prosody,duration' };
 
             // Convert the array of talkens to SSML transcript (a transcript string with some XML, maybe)
@@ -604,18 +605,23 @@
 
             // Download text-to-speech audio from reputable synthesizer
             // (1) If no post-processing is needed, just return Watson's response.
-            if (!config.transfer || typeof config.transfer === undefined || config.transfer.length === 0)
-                return getTTSAudioFromWatson(ssml);
+            if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0)
+                return getTTSAudioFromWatson(ssml).then(function(rsc) {
+                    var aud = { 'url':rsc[0], 'blob':rsc[1] };
+                    return new Promise(function(resolve, reject) {
+                        resolve(aud);
+                    });
+                });
 
             // (2) Perform post-processing.
             var src_ts = toTimestamps(talkens);
             var transcript = toTranscript(talkens);
             var srcwav, twav;
-            return stitch(talkens).then(function(url) {
-                srcwav = url;
+            return stitch(talkens).then(function(rsc) {
+                srcwav = rsc.url;
                 return getTTSAudioFromWatson(ssml);
-            }).then(function(url) {
-                twav = url;
+            }).then(function(rsc) {
+                twav = rsc[0]; // url
                 return Praat.calcTimestamps(twav, transcript);
             }).then(function(target_ts) {          // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
@@ -626,7 +632,7 @@
             }).then(function(resynth_blob) { // Transfer blob data to URL
                 var url = (window.URL || window.webkitURL).createObjectURL(resynth_blob);
                 return new Promise(function(resolve, reject) {
-                    resolve(url);
+                    resolve({ 'url':url, 'blob':resynth_blob });
                 });
             }).catch(function(err) {
                 console.log('Error @ synthesize: ', err);
@@ -646,7 +652,7 @@
             var mode = 'TTS'; // TODO: Make this mode a module-wide global
 
             talkens.forEach(function(t) {
-                if (typeof t.audio === undefined) {
+                if (typeof t.audio === "undefined") {
 
                     // .. TODO: Patch audio by looking for previous utterances in a database.
 
