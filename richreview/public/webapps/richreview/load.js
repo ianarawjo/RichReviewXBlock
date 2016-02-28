@@ -42,9 +42,10 @@
                 ['lib_ext/bluemix/bluemix_socket.js', 'js'],
                 ['lib_ext/bluemix/bluemix_utils.js', 'js'],
                 ['r2/audio_utils.js', 'js'],
-                ['lib_ext/praat/praat.js', 'js'], // NONSPEAK AUDIO
-                ['lib_ext/speak/jsdiff.js', 'js'], // NONSPEAK AUDIO
-                ['lib_ext/speak/speak.js', 'js'], // NONSPEAK AUDIO
+                ['lib_ext/praat/praat.js', 'js'], // NONSPEAK AUDIO PRAAT API
+                ['lib_ext/speak/jsdiff.js', 'js'], // NONSPEAK AUDIO DEPENDENCY
+                ['lib_ext/speak/speak.js', 'js'], // NONSPEAK AUDIO CORE
+                ['lib_ext/speak/utils/audio_stitcher.js', 'js'], // NONSPEAK AUDIO UTILS
                 ['r2/utils.js', 'js'],
                 ['r2/helpers.js', 'js'],
                 ['r2/shared_objs.js', 'js'],

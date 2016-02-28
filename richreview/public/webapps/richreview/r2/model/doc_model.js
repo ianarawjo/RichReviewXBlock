@@ -1088,7 +1088,7 @@
         this._username = username;
 
         // Set a callback for getting the audio URL when recording finishes:
-        r2App.annots[this._annotid].onEndRecording = this.onEndRecording;
+        r2App.annots[this._annotid].onEndRecording = this.onEndRecording.bind(this);
 
         var dom = this.CreateDom();
 
@@ -1147,6 +1147,10 @@
 
             // Notify audio controller that text has changed
             this.speak_ctrl.update($(this.dom_textbox).text());
+
+            // * For now, compile immediately...
+            this.speak_ctrl.compile();
+            this.speak_ctrl.play();
 
             // R2 update dom
             this.__contentschanged = true;
@@ -1249,6 +1253,16 @@
         }
 
         this._last_words = words;
+
+        console.log("setCaptionFinal with words", this, words, "url", this._last_audio_url);
+
+        if (this._last_audio_url) {
+
+            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+            this._last_words = null;
+            this._last_audio_url = null;
+        }
+
         this._temporary_n = 0;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
@@ -1256,9 +1270,17 @@
         }
     };
     r2.PieceEditableAudio.prototype.onEndRecording = function(audioURL) {
-        if (!this._last_words)
-            console.warn("r2.PieceEditableAudio: onEndRecording: Could not find transcript.");
-        else this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
+        console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
+
+        if (this._last_words === null) {
+            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
+            // console.warn("r2.PieceEditableAudio: onEndRecording: Could not find transcript.");
+            this._last_audio_url = audioURL;
+        }
+        else {
+            this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
+            this._last_words = null;
+        }
     };
     r2.PieceEditableAudio.prototype.doneCaptioning = function(){
         this.Focus();

@@ -151,7 +151,7 @@ var bluemix_stt = (function(bluemix_stt) {
             mic.setOnAudioCallback(
                 function (blob) {
                     if (socket.readyState < 2) {
-                        socket.send(blob)
+                        socket.send(blob);
                     }
                 }
             );

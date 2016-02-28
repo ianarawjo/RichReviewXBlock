@@ -65,7 +65,7 @@
                 r2.recordingUpdate();
             }
             else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
-                ;
+                
             }
         };
 
