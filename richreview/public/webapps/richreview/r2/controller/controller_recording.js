@@ -188,7 +188,14 @@
             /* end audio recording */
             r2.audioRecorder.EndRecording(
                 function(url, blob){
+
+                    // Pass audio URL to PieceEditableAudio if necessary...
+                    if(this.onEndRecording)
+                        this.onEndRecording(url);
+
+                    // R2 audio url
                     this.SetRecordingAudioFileUrl(url, blob);
+
                     if(to_upload)
                         r2Sync.PushToUploadCmd(this.ExportToCmd());
                 }.bind(r2App.cur_recording_annot)

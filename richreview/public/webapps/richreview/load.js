@@ -42,6 +42,9 @@
                 ['lib_ext/bluemix/bluemix_socket.js', 'js'],
                 ['lib_ext/bluemix/bluemix_utils.js', 'js'],
                 ['r2/audio_utils.js', 'js'],
+                ['lib_ext/praat/praat.js', 'js'], // NONSPEAK AUDIO
+                ['lib_ext/speak/jsdiff.js', 'js'], // NONSPEAK AUDIO
+                ['lib_ext/speak/speak.js', 'js'], // NONSPEAK AUDIO
                 ['r2/utils.js', 'js'],
                 ['r2/helpers.js', 'js'],
                 ['r2/shared_objs.js', 'js'],
@@ -86,4 +89,3 @@
     };
 
 }(window.r2 = window.r2 || {}));
-

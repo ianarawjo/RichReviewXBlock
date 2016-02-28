@@ -3,7 +3,7 @@
  */
 //written by Yuan Huang
 //written by Tianwei Huang
- 
+
 /** @namespace r2 */
 (function(r2){
     "use strict";
@@ -1077,6 +1077,7 @@
         this.dom = null;
         this.dom_textbox = null;
         this._temporary_n = 0;
+        this._last_words = null;
     };
     r2.PieceEditableAudio.prototype = Object.create(r2.Piece.prototype);
     r2.PieceEditableAudio.prototype.Destructor = function(){
@@ -1085,6 +1086,9 @@
     r2.PieceEditableAudio.prototype.SetPieceEditableAudio = function(anchor_pid, annotid, username, inner_html, live_recording){
         this._annotid = annotid;
         this._username = username;
+
+        // Set a callback for getting the audio URL when recording finishes:
+        r2App.annots[this._annotid].onEndRecording = this.onEndRecording;
 
         var dom = this.CreateDom();
 
@@ -1133,10 +1137,18 @@
             this.dom_textbox.setAttribute('contenteditable', 'false');
         }
 
+        // Create edit controller
+        this.speak_ctrl = new r2.speak.controller();
+
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
         this.dom_textbox.addEventListener('input', function() {
+
+            // Notify audio controller that text has changed
+            this.speak_ctrl.update($(this.dom_textbox).text());
+
+            // R2 update dom
             this.__contentschanged = true;
             if(func_UpdateSizeWithTextInput()){
                 r2App.invalidate_size = true;
@@ -1235,11 +1247,18 @@
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
         }
+
+        this._last_words = words;
         this._temporary_n = 0;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
             r2App.invalidate_page_layout = true;
         }
+    };
+    r2.PieceEditableAudio.prototype.onEndRecording = function(audioURL) {
+        if (!this._last_words)
+            console.warn("r2.PieceEditableAudio: onEndRecording: Could not find transcript.");
+        else this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
     };
     r2.PieceEditableAudio.prototype.doneCaptioning = function(){
         this.Focus();

@@ -45,3 +45,6 @@ standalone/node_server/_temp/
 
 #pdf_batch data
 utils/pdf_batch/data/
+
+#Praat server library
+richreview/public/webapps/richreview/lib_ext/praat/
