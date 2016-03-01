@@ -300,10 +300,38 @@ a:active {
   padding: 0.3em;
   font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
   font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
-  line-height: 1.2em;
+  line-height: 1.5em;
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
+}
+.r2_piece_editable_audio_textbox > .ssui-charwidth {
+    margin-left: 1px;
+    border-style: solid;
+    border-width: 1px;
+    letter-spacing: 20px;
+    margin-right: -2px;
+}
+.ssui-overlay {
+    position: absolute;
+    z-index: -1;
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+}
+.ssui-overlay > .ssui-textwidth {
+    margin-left: 4px;
+    margin-right: 2px;
+}
+.ssui-overlay > .pause {
+    background-color: #ffff99;
+    border-color: #7f8000;
+}
+.ssui-overlay > .blue {
+    background-color: #bbe3f5; // LightSkyBlue;
+    border-color: Grey;
 }
 
 /*

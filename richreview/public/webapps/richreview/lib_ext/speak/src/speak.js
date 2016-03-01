@@ -288,23 +288,39 @@
 
             /**
              * Update transcript model with edits made by user.
-             * @param  {string} transcript The new transcript.
+             * TODO: Move edit graph update elsewhere.
+             * @param  {string} transcript The new transcript || an edit graph on the base transcript.
              */
             pub.update = (new_transcript) => {
-                var bt = base_transcript();
+                if (typeof new_transcript === "string") {
 
-                // Calculate diff between base and new transcript
-                // *** REQUIRES jsdiff.js ***
-                var diff = diffString(bt, new_transcript);
-                if (diff === bt) return; // Nothing changed.
+                    var bt = base_transcript();
 
-                // Generate array of EditOp's
-                var edits = EditOp.generate(diff);
+                    // Calculate diff between base and new transcript
+                    // *** REQUIRES jsdiff.js ***
+                    var diff = diffString(bt, new_transcript);
+                    if (diff === bt) return; // Nothing changed.
 
-                // Store
-                ops = edits;
+                    // Generate array of EditOp's
+                    var edits = EditOp.generate(diff);
 
-                _needscompile = true;
+                    // Store
+                    ops = edits;
+
+                    _needscompile = true;
+                }
+                else {
+                    var editgraph = new_transcript;
+                    var bs = Talken.clone(base);
+                    edited = editgraph.apply(bs, function(op) {
+                        return new Talken(op.word, 0, 0, null);
+                    });
+
+                    console.log('Base w/ edit graph applied: ', edited);
+
+                    _needscompile = false;
+                    edits = []; // compile does nothing now.
+                }
             };
 
             /*

@@ -1090,6 +1090,9 @@
         // Set a callback for getting the audio URL when recording finishes:
         r2App.annots[this._annotid].onEndRecording = this.onEndRecording.bind(this);
 
+        // Set user interface type
+        this.UIMODE = 'newspeak'; // newspeak || simplespeech
+
         var dom = this.CreateDom();
 
         r2.dom_model.appendPieceEditableAudio(
@@ -1140,20 +1143,28 @@
         // Create edit controller
         this.speak_ctrl = new r2.speak.controller();
 
+        if (this.UIMODE === 'simplespeech') { // SimpleSpeech UI wrapper
+            this.simplespeech = new simplespeech.ui(this.dom_textbox);
+            this.editgraph = new simplespeech.editgraph();
+            this.editgraph.listen(this.simplespeech);
+            this.editgraph.onchange = function() {
+                this.speak_ctrl.update(this.editgraph);
+            };
+        }
+
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
         this.dom_textbox.addEventListener('input', function() {
 
             // Notify audio controller that text has changed
-            this.speak_ctrl.update($(this.dom_textbox).text());
+            if (this.UIMODE === 'simplespeech') {
+                // do nothing -- input is handled in simplespeech-ui
+            }
+            //else this.speak_ctrl.update($(this.dom_textbox).text());
 
             // * For now, compile immediately...
-            this.speak_ctrl.compile();
-            this.speak_ctrl.renderAudioAnon().then((function(audio) {
-                console.log("Audio rendered to url ", audio.url);
-                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
-            }).bind(r2App.annots[this.GetAnnotId()]));
+            //this.speak_ctrl.compile();
 
             // R2 update dom
             this.__contentschanged = true;
@@ -1174,6 +1185,14 @@
         this.dom_textbox.addEventListener('blur', function(event){
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
+
+            this.speak_ctrl.update($(this.dom_textbox).text());
+            this.speak_ctrl.compile();
+            this.speak_ctrl.renderAudioAnon().then((function(audio) {
+                console.log("Audio rendered to url ", audio.url);
+                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            }).bind(r2App.annots[this.GetAnnotId()]));
+
             $(this.dom).css("pointer-events", 'none');
             if(this.__contentschanged){
                 //console.log('>>>>__contentschanged:', this.ExportToTextChange());
@@ -1249,10 +1268,35 @@
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
         }
-        for(let w of words){
-            var $span = $(document.createElement('span'));
-            $span.text(w[0]+' ');
-            $(this.dom_textbox).append($span);
+
+        if (this.UIMODE === 'simplespeech') {
+            var ts = '';
+            for (let w of words) {
+                ts += w[0] + ' ';
+            }
+            this.simplespeech.set(ts.trim());
+            this.simplespeech.monitor();
+        } else {
+            for(let w of words){
+                var $span = $(document.createElement('span'));
+                /*$span.css("border-style","solid");
+                $span.css("border-width","0.1em");
+                $span.css("border-color","PaleTurquoise");
+                $span.css("background-color","#bbe3f5");
+                $span.css("margin","0.1em");
+                $span.text(' ' + w[0] + ' ');*/
+                $span.text(w[0] + ' ');
+                $(this.dom_textbox).append($span);
+
+                /*var $space = $(document.createElement('span'));
+                $space.css("border-style","solid");
+                $space.css("border-width","0.1em");
+                $space.css("border-color","#7f8000");
+                $space.css("background-color","#ffff99");
+                $space.css("margin","0.04em");
+                $space.text(' ');
+                $(this.dom_textbox).append($space);*/
+            }
         }
 
         this._last_words = words;
@@ -1264,6 +1308,12 @@
             this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
             this._last_words = null;
             this._last_audio_url = null;
+
+            this.speak_ctrl.compile();
+            this.speak_ctrl.renderAudioAnon().then((function(audio) {
+                console.log("Audio rendered to url ", audio.url);
+                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            }).bind(r2App.annots[this.GetAnnotId()]));
         }
 
         this._temporary_n = 0;
@@ -1283,6 +1333,12 @@
         else {
             this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
             this._last_words = null;
+
+            this.speak_ctrl.compile();
+            this.speak_ctrl.renderAudioAnon().then((function(audio) {
+                console.log("Audio rendered to url ", audio.url);
+                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            }).bind(r2App.annots[this.GetAnnotId()]));
         }
     };
     r2.PieceEditableAudio.prototype.doneCaptioning = function(){
