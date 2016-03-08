@@ -135,6 +135,8 @@
         var _init = function() {
 
             $overlay = generateOverlayDiv();
+            console.log('Overlay div generated: ', $overlay[0]);
+            console.log('Adding overlay div to textbox: ', $textbox[0]);
             $textbox.append($overlay);
 
             // Charwidth prototype
@@ -146,7 +148,7 @@
             $snip = $(document.createElement('span'));
             $snip.addClass('ssui-textwidth');
 
-            pub.set('This is an automated voice system');
+            //pub.set('This is an automated voice system');
 
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onkeydown);
@@ -339,7 +341,7 @@
             var $t = $snip.clone();
             $t.attr('id', uid);
             $t.text(word);
-            if (word.indexOf('\xa0') === -1) $t.addClass('blue');
+            if (word.indexOf('\xa0') === -1) $t.addClass('ssui-blue');
             else $t.addClass('pause');
             return $t;
         }
@@ -353,8 +355,6 @@
         function generateOverlayDiv() {
             var $d = $(document.createElement('div'));
             $d.addClass('ssui-overlay');
-            $d.css('position', 'absolute');
-            $d.css('z-index', -1);
             return $d;
         }
 

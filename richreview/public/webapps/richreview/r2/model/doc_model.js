@@ -1091,7 +1091,7 @@
         r2App.annots[this._annotid].onEndRecording = this.onEndRecording.bind(this);
 
         // Set user interface type
-        this.UIMODE = 'newspeak'; // newspeak || simplespeech
+        this.UIMODE = 'simplespeech'; // newspeak || simplespeech
 
         var dom = this.CreateDom();
 
@@ -1186,7 +1186,11 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            this.speak_ctrl.update($(this.dom_textbox).text());
+            if (this.UIMODE === 'simplespeech')
+                this.speak_ctrl.update(this.editgraph);
+            else
+                this.speak_ctrl.update($(this.dom_textbox).text());
+
             this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {
                 console.log("Audio rendered to url ", audio.url);
@@ -1244,10 +1248,13 @@
         this.updateSizeWithTextInput();
     };
     r2.PieceEditableAudio.prototype.setInnerHtml = function(inner_html){
-        this.dom_textbox.innerHTML = inner_html;
+        if (this.UIMODE === 'newspeak') {
+            this.dom_textbox.innerHTML = inner_html;
+        }
         this.resizeDom();
     };
     r2.PieceEditableAudio.prototype.setCaptionTemporary = function(words){
+        if (this.UIMODE === 'simplespeech') return;
         var i;
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
@@ -1264,10 +1271,6 @@
         }
     };
     r2.PieceEditableAudio.prototype.setCaptionFinal = function(words){
-        var i;
-        for(i = 0; i < this._temporary_n; ++i){
-            $(this.dom_textbox).find(':last-child').remove();
-        }
 
         if (this.UIMODE === 'simplespeech') {
             var ts = '';
@@ -1277,6 +1280,10 @@
             this.simplespeech.set(ts.trim());
             this.simplespeech.monitor();
         } else {
+            var i;
+            for(i = 0; i < this._temporary_n; ++i){
+                $(this.dom_textbox).find(':last-child').remove();
+            }
             for(let w of words){
                 var $span = $(document.createElement('span'));
                 /*$span.css("border-style","solid");
@@ -1309,6 +1316,9 @@
             this._last_words = null;
             this._last_audio_url = null;
 
+            if (this.UIMODE === 'simplespeech')
+                this.speak_ctrl.update(this.editgraph);
+
             this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {
                 console.log("Audio rendered to url ", audio.url);
@@ -1333,6 +1343,9 @@
         else {
             this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
             this._last_words = null;
+
+            if (this.UIMODE === 'simplespeech')
+                this.speak_ctrl.update(this.editgraph);
 
             this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {

@@ -304,6 +304,7 @@ a:active {
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
+  z-index: 2;
 }
 .r2_piece_editable_audio_textbox > .ssui-charwidth {
     margin-left: 1px;
@@ -311,27 +312,31 @@ a:active {
     border-width: 1px;
     letter-spacing: 20px;
     margin-right: -2px;
+    z-index: 2;
 }
 .ssui-overlay {
     position: absolute;
-    z-index: -1;
+    z-index: 0;
     -moz-user-select: -moz-none;
     -khtml-user-select: none;
     -webkit-user-select: none;
     -o-user-select: none;
     user-select: none;
+    color: black;
 }
 .ssui-overlay > .ssui-textwidth {
     margin-left: 4px;
     margin-right: 2px;
+    z-index: 0;
 }
 .ssui-overlay > .pause {
     background-color: #ffff99;
     border-color: #7f8000;
 }
-.ssui-overlay > .blue {
-    background-color: #bbe3f5; // LightSkyBlue;
+.ssui-blue {
+    background-color: #bbe3f5;
     border-color: Grey;
+    color: black;
 }
 
 /*

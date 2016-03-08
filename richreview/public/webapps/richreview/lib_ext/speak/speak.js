@@ -1,3 +1,9 @@
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
 /**
  * @name Speak API r2.speak
  * @description =======
@@ -9,19 +15,14 @@
  * @author Created by ian on 02/25/16
  * @namespace r2
  */
-"use strict";
-
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
 (function (r2) {
     "use strict";
 
     /**
      * @module r2.speak
      */
-    r2.speak = (function () {
+
+    r2.speak = function () {
         var _this2 = this;
 
         var pub_speak = {};
@@ -48,8 +49,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             };
 
             // Internal data structures
-            var Audio = (function () {
-                var AudioResource = (function () {
+            var Audio = function () {
+                var AudioResource = function () {
                     function AudioResource(url, blob) {
                         _classCallCheck(this, AudioResource);
 
@@ -72,10 +73,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     }]);
 
                     return AudioResource;
-                })();
+                }();
                 var resources = [];
                 return {
-                    "for": function _for(url, blob) {
+                    for: function _for(url, blob) {
                         if (url in resources) return resources[url];else {
                             var r = new AudioResource(url, blob);
                             resources[url] = r;
@@ -87,7 +88,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         return r2.audiosynth.stitch(talkens).then(function (rsc) {
                             var url = rsc.url;var blob = rsc.blob;
                             return new Promise(function (resolve, reject) {
-                                if (!url) reject("Audio.stitch: Null url.");else resolve(Audio["for"](url, blob));
+                                if (!url) reject("Audio.stitch: Null url.");else resolve(Audio.for(url, blob));
                             });
                         });
                     },
@@ -95,12 +96,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         return r2.audiosynth.synthesize(talkens, options).then(function (rsc) {
                             var url = rsc.url;var blob = rsc.blob;
                             return new Promise(function (resolve, reject) {
-                                if (!url) reject("Audio.synthesize: Null url.");else resolve(Audio["for"](url, blob));
+                                if (!url) reject("Audio.synthesize: Null url.");else resolve(Audio.for(url, blob));
                             });
                         });
                     }
                 };
-            })();
+            }();
             var EditType = {
                 UNCHANGED: 0,
                 INS: 1, // insertion
@@ -109,7 +110,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 UNKNOWN: 4
             };
 
-            var EditOp = (function () {
+            var EditOp = function () {
                 function EditOp(txt, edit_type) {
                     _classCallCheck(this, EditOp);
 
@@ -124,6 +125,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                  * @param  {string} diff - output of jsdiff diffString(o, n)
                  * @return {[EditOp]}    - an Array of EditOp's
                  */
+
 
                 _createClass(EditOp, null, [{
                     key: "generate",
@@ -168,8 +170,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             _iteratorError = err;
                         } finally {
                             try {
-                                if (!_iteratorNormalCompletion && _iterator["return"]) {
-                                    _iterator["return"]();
+                                if (!_iteratorNormalCompletion && _iterator.return) {
+                                    _iterator.return();
                                 }
                             } finally {
                                 if (_didIteratorError) {
@@ -191,9 +193,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }]);
 
                 return EditOp;
-            })();
+            }();
 
-            var Talken = (function () {
+            var Talken = function () {
                 function Talken(wrd, bgn, end, audioRsc) {
                     _classCallCheck(this, Talken);
 
@@ -202,11 +204,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     this.end = end;
                     this.audio = audioRsc;
                 }
-
-                /**
-                 * Compiles the transcript for the given talkens.
-                 * @return {string} The compiled transcript.
-                 */
 
                 _createClass(Talken, [{
                     key: "replaceWord",
@@ -222,7 +219,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     key: "generate",
                     value: function generate(timestamps, audioURL) {
                         var talkens = [];
-                        var audio = Audio["for"](audioURL);
+                        var audio = Audio.for(audioURL);
                         var _iteratorNormalCompletion2 = true;
                         var _didIteratorError2 = false;
                         var _iteratorError2 = undefined;
@@ -238,8 +235,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             _iteratorError2 = err;
                         } finally {
                             try {
-                                if (!_iteratorNormalCompletion2 && _iterator2["return"]) {
-                                    _iterator2["return"]();
+                                if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                    _iterator2.return();
                                 }
                             } finally {
                                 if (_didIteratorError2) {
@@ -263,7 +260,13 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }]);
 
                 return Talken;
-            })();
+            }();
+
+            /**
+             * Compiles the transcript for the given talkens.
+             * @return {string} The compiled transcript.
+             */
+
 
             var transcript = function transcript(talkens) {
                 return talkens.map(function (talken) {
@@ -384,23 +387,38 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             /**
              * Update transcript model with edits made by user.
-             * @param  {string} transcript The new transcript.
+             * TODO: Move edit graph update elsewhere.
+             * @param  {string} transcript The new transcript || an edit graph on the base transcript.
              */
             pub.update = function (new_transcript) {
-                var bt = base_transcript();
+                if (typeof new_transcript === "string") {
 
-                // Calculate diff between base and new transcript
-                // *** REQUIRES jsdiff.js ***
-                var diff = diffString(bt, new_transcript);
-                if (diff === bt) return; // Nothing changed.
+                    var bt = base_transcript();
 
-                // Generate array of EditOp's
-                var edits = EditOp.generate(diff);
+                    // Calculate diff between base and new transcript
+                    // *** REQUIRES jsdiff.js ***
+                    var diff = diffString(bt, new_transcript);
+                    if (diff === bt) return; // Nothing changed.
 
-                // Store
-                ops = edits;
+                    // Generate array of EditOp's
+                    var edits = EditOp.generate(diff);
 
-                _needscompile = true;
+                    // Store
+                    ops = edits;
+
+                    _needscompile = true;
+                } else {
+                    var editgraph = new_transcript;
+                    var bs = Talken.clone(base);
+                    edited = editgraph.apply(bs, function (op) {
+                        return new Talken(op.word, 0, 0, null);
+                    });
+
+                    console.log('Base w/ edit graph applied: ', edited);
+
+                    _needscompile = false;
+                    edits = []; // compile does nothing now.
+                }
             };
 
             /*
@@ -522,10 +540,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     });
                 };
 
-                if (mode == 'natural') return Audio.stitch(talkens).then(after_stitching)["catch"](function (err) {
+                if (mode == 'natural') return Audio.stitch(talkens).then(after_stitching).catch(function (err) {
                     console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                     _stitching = false;
-                });else if (mode == 'anon') return Audio.synthesize(talkens, '').then(after_stitching)["catch"](function (err) {
+                });else if (mode == 'anon') return Audio.synthesize(talkens, '').then(after_stitching).catch(function (err) {
                     console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                     _stitching = false;
                 });
@@ -534,13 +552,13 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         };
 
         return pub_speak;
-    })();
+    }();
 
     /**
      * @module r2.audiosynth
      * Operations on talken arrays.
      */
-    r2.audiosynth = (function () {
+    r2.audiosynth = function () {
 
         var pub = {};
 
@@ -689,8 +707,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 _iteratorError3 = err;
             } finally {
                 try {
-                    if (!_iteratorNormalCompletion3 && _iterator3["return"]) {
-                        _iterator3["return"]();
+                    if (!_iteratorNormalCompletion3 && _iterator3.return) {
+                        _iterator3.return();
                     }
                 } finally {
                     if (_didIteratorError3) {
@@ -745,7 +763,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 return new Promise(function (resolve, reject) {
                     resolve({ 'url': url, 'blob': resynth_blob });
                 });
-            })["catch"](function (err) {
+            }).catch(function (err) {
                 console.log('Error @ synthesize: ', err);
             });
         };
@@ -776,5 +794,5 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         };
 
         return pub;
-    })();
+    }();
 })(window.r2 = window.r2 || {});
