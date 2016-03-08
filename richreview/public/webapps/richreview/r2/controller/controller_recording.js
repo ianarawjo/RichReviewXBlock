@@ -27,9 +27,14 @@
             if(ui_type === r2App.RecordingUI.WAVEFORM){
                 r2.recordingBgn.waveform(anchor_piece);
             }
-            else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
+            else{
                 var done = function(){
-                    r2.recordingBgn.simpleSpeech(anchor_piece);
+                    if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
+                        r2.recordingBgn.simpleSpeech(anchor_piece);
+                    }
+                    else if(ui_type === r2App.RecordingUI.NEW_SPEAK){
+                        r2.recordingBgn.newSpeak(anchor_piece);
+                    }
                 };
                 if(r2App.bluemix_tts_auth_context){
                     console.log('auth_set', r2App.bluemix_tts_auth_context);
@@ -46,7 +51,9 @@
                             };
                             return done();
                         }
-                    );
+                    ).catch(function(e){
+                        alert('Please login to https://richreview.net for Bluemix Authentication');
+                    });
                 }
             }
         };
@@ -58,14 +65,14 @@
             else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
                 r2.recordingStop.simpleSpeech(anchor_piece);
             }
+            else if(ui_type === r2App.RecordingUI.NEW_SPEAK){
+                r2.recordingStop.newSpeak(anchor_piece);
+            }
         };
 
         pub.update = function(){
             if(ui_type === r2App.RecordingUI.WAVEFORM){
                 r2.recordingUpdate();
-            }
-            else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
-                
             }
         };
 
@@ -78,7 +85,10 @@
             run(anchor_piece, createPieceAudio);
         };
         pub.simpleSpeech = function(anchor_piece){
-            run(anchor_piece, createPieceEditableAudio);
+            run(anchor_piece, createPieceSimpleSpeech);
+        };
+        pub.newSpeak = function(anchor_piece){
+            run(anchor_piece, createPieceNewSpeak);
         };
 
         var run = function(anchor_piece, funcCreatePiece){
@@ -127,28 +137,28 @@
             r2.dom_model.appendPieceVoice(annotid, 0, r2App.cur_recording_annot.GetBgnTime(), pieceaudio);
         };
 
-        var createPieceEditableAudio = function(anchor_piece, annotid){
-            var piece_editable_audio = new r2.PieceEditableAudio();
-            piece_editable_audio.SetPiece(
+        var createPieceSimpleSpeech = function(anchor_piece, annotid){
+            var piece_simple_speech = new r2.PieceSimpleSpeech();
+            piece_simple_speech.SetPiece(
                 r2.pieceHashId.voice(annotid, 0), // this piece is the first waveform line
                 r2App.cur_recording_annot.GetBgnTime(),
                 anchor_piece.GetNewPieceSize(),
                 anchor_piece.GetTTData()
             );
-            piece_editable_audio.SetPieceEditableAudio(
+            piece_simple_speech.SetPieceSimpleSpeech(
                 anchor_piece.GetId(), annotid, r2.userGroup.cur_user.name,
                 '', // inner_html
                 true // live_recording
             );
-            anchor_piece.AddChildAtFront(piece_editable_audio);
+            anchor_piece.AddChildAtFront(piece_simple_speech);
 
             // set event trigger
             bluemix_stt.messageParser.setCallbacks(
                 function(words){
-                    piece_editable_audio.setCaptionTemporary(words);
+                    piece_simple_speech.setCaptionTemporary(words);
                 },
                 function(words, conf){
-                    piece_editable_audio.setCaptionFinal(words);
+                    piece_simple_speech.setCaptionFinal(words);
                 }
             );
             // begin recording
@@ -166,7 +176,51 @@
                     bluemix_stt.messageParser.run(msg);
                 },
                 function() { // closed
-                    piece_editable_audio.doneCaptioning();
+                    piece_simple_speech.doneCaptioning();
+                }
+            );
+        };
+
+        var createPieceNewSpeak = function(anchor_piece, annotid){
+            var piece_new_speak = new r2.PieceNewSpeak();
+            piece_new_speak.SetPiece(
+                r2.pieceHashId.voice(annotid, 0), // this piece is the first waveform line
+                r2App.cur_recording_annot.GetBgnTime(),
+                anchor_piece.GetNewPieceSize(),
+                anchor_piece.GetTTData()
+            );
+            piece_new_speak.SetPieceNewSpeak(
+                anchor_piece.GetId(), annotid, r2.userGroup.cur_user.name,
+                '', // inner_html
+                true // live_recording
+            );
+            anchor_piece.AddChildAtFront(piece_new_speak);
+
+            // set event trigger
+            bluemix_stt.messageParser.setCallbacks(
+                function(words){
+                    piece_new_speak.setCaptionTemporary(words);
+                },
+                function(words, conf){
+                    piece_new_speak.setCaptionFinal(words);
+                }
+            );
+            // begin recording
+            bluemix_stt.handleMicrophone(
+                r2App.bluemix_tts_auth_context,
+                r2.audioRecorder,
+                function(err, socket) { // opened
+                    if (err) {
+
+                    } else {
+
+                    }
+                },
+                function(msg){ // transcript
+                    bluemix_stt.messageParser.run(msg);
+                },
+                function() { // closed
+                    piece_new_speak.doneCaptioning();
                 }
             );
         };
@@ -181,7 +235,10 @@
             run(to_upload, onPieceAudio);
         };
         pub.simpleSpeech = function(to_upload){
-            run(to_upload, onPieceEditableAudio);
+            run(to_upload, onPieceSimpleSpeech);
+        };
+        pub.newSpeak = function(to_upload){
+            run(to_upload, onPieceNewSpeak);
         };
 
         var run = function(to_upload, funcOn){
@@ -189,7 +246,7 @@
             r2.audioRecorder.EndRecording(
                 function(url, blob){
 
-                    // Pass audio URL to PieceEditableAudio if necessary...
+                    // Pass audio URL to PieceSimpleSpeech if necessary...
                     if(this.onEndRecording)
                         this.onEndRecording(url);
 
@@ -221,7 +278,11 @@
         var onPieceAudio = function(){
         };
 
-        var onPieceEditableAudio = function(){
+        var onPieceSimpleSpeech = function(){
+            $.publish('hardsocketstop');
+        };
+
+        var onPieceNewSpeak = function(){
             $.publish('hardsocketstop');
         };
 

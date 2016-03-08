@@ -1066,10 +1066,196 @@
         }
     };
 
+
     /*
-     * PieceEditableAudio
+     * PieceNewSpeak
      */
-    r2.PieceEditableAudio = function(){
+    r2.PieceNewSpeak = function(){
+        r2.Piece.call(this);
+        this._annotid = null;
+        this._username = null;
+
+        this.dom = null;
+        this.dom_textbox = null;
+        this._temporary_n = 0;
+    };
+    r2.PieceNewSpeak.prototype = Object.create(r2.Piece.prototype);
+    r2.PieceNewSpeak.prototype.Destructor = function(){
+        r2.Piece.prototype.Destructor.apply(this);
+    };
+    r2.PieceNewSpeak.prototype.SetPieceNewSpeak = function(anchor_pid, annotid, username, inner_html, live_recording){
+        this._annotid = annotid;
+        this._username = username;
+
+        var dom = this.CreateDom();
+
+        r2.dom_model.appendPieceEditableAudio(
+            this._username,
+            this._annotid,
+            this.GetId(),
+            anchor_pid,
+            this._creationTime,
+            dom,
+            this,
+            live_recording
+        );
+
+        this.setInnerHtml(inner_html);
+
+        return dom;
+    };
+    r2.PieceNewSpeak.prototype.GetAnnotId = function(){
+        if(this._annotid != null){
+            return this._annotid;
+        }
+    };
+    r2.PieceNewSpeak.prototype.CreateDom = function(){
+        this.dom = document.createElement('div');
+        this.dom.classList.toggle('r2_piece_editable_audio', true);
+        this.dom.classList.toggle('unselectable', true);
+        this.dom.setAttribute('aria-label', 'text comment');
+        this.dom.setAttribute('role', 'article');
+
+        this.dom_tr = document.createElement('div');
+        this.dom_tr.classList.toggle('r2_piece_editable_audio_tr', true);
+        this.dom_tr.classList.toggle('unselectable', true);
+        this.dom.appendChild(this.dom_tr);
+
+        this.dom_textbox = document.createElement('div');
+        this.dom_textbox.classList.toggle('r2_piece_editable_audio_textbox', true);
+        this.dom_textbox.setAttribute('contenteditable', 'true');
+        this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
+        this.dom_tr.appendChild(this.dom_textbox);
+
+        $(this.dom_tr).css('left', this.GetTtIndent()*r2Const.FONT_SIZE_SCALE+'em');
+        $(this.dom_tr).css('width', this.GetTtIndentedWidth()*r2Const.FONT_SIZE_SCALE+'em');
+
+        if(this._username != r2.userGroup.cur_user.name){
+            this.dom_textbox.setAttribute('contenteditable', 'false');
+        }
+
+        /* add event handlers*/
+        var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
+
+        this.dom_textbox.addEventListener('input', function() {
+            this.__contentschanged = true;
+            if(func_UpdateSizeWithTextInput()){
+                r2App.invalidate_size = true;
+                r2App.invalidate_page_layout = true;
+            }
+        }.bind(this), false);
+
+        this.dom_textbox.addEventListener('focus', function(event){
+            r2App.cur_focused_piece_keyboard = this;
+            var color = r2.userGroup.GetUser(this._username).color_piecekeyboard_box_shadow;
+            this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
+            $(this.dom).css("pointer-events", 'auto');
+        }.bind(this));
+        r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
+
+        this.dom_textbox.addEventListener('blur', function(event){
+            r2App.cur_focused_piece_keyboard = null;
+            this.dom_textbox.style.boxShadow = "none";
+            $(this.dom).css("pointer-events", 'none');
+            if(this.__contentschanged){
+                console.log('>>>>__contentschanged:', this.ExportToTextChange());
+                r2Sync.PushToUploadCmd(this.ExportToTextChange());
+                this.__contentschanged = false;
+            }
+        }.bind(this));
+        /* add event handlers*/
+
+        this.resizeDom();
+
+        return this.dom;
+    };
+    r2.PieceNewSpeak.prototype.updateSizeWithTextInput = function(){
+        var getHeight = function($target){
+            var $next = $target.next();
+            if($next.length !== 0){
+                return $next.offset().top-$target.offset().top;
+            }
+            else{
+                return $target.innerHeight();
+            }
+        };
+
+        var new_height = r2.viewCtrl.mapDomToDocScale(getHeight($(this.dom)));
+        if(this._cnt_size.y != new_height){
+            this._cnt_size.y = new_height;
+            return true;
+        }
+        return false;
+    };
+    r2.PieceNewSpeak.prototype.DrawPiece = function(){
+        var x_bgn = this.pos.x + this.GetTtIndent();
+        var y_bgn = this.pos.y-r2Const.PIECEAUDIO_LINE_WIDTH;
+
+        r2.canv_ctx.beginPath();
+        r2.canv_ctx.moveTo(x_bgn, y_bgn);
+        r2.canv_ctx.lineTo(x_bgn, y_bgn+this._cnt_size.y);
+        r2.canv_ctx.moveTo(x_bgn, y_bgn+this._cnt_size.y);
+        r2.canv_ctx.lineTo(x_bgn+this.GetTtIndentedWidth(), y_bgn+this._cnt_size.y);
+
+        r2.canv_ctx.strokeStyle = r2.userGroup.GetUser(this._username).color_light_html;
+        r2.canv_ctx.lineWidth = r2Const.PIECEAUDIO_LINE_WIDTH;
+        r2.canv_ctx.lineCap = 'round';
+        r2.canv_ctx.lineJoin = 'round';
+        r2.canv_ctx.stroke();
+    };
+    r2.PieceNewSpeak.prototype.resizeDom = function(){
+        this.updateSizeWithTextInput();
+    };
+    r2.PieceNewSpeak.prototype.setInnerHtml = function(inner_html){
+        this.dom_textbox.innerHTML = inner_html;
+        this.resizeDom();
+    };
+    r2.PieceNewSpeak.prototype.setCaptionTemporary = function(words){
+        var i;
+        for(i = 0; i < this._temporary_n; ++i){
+            $(this.dom_textbox).find(':last-child').remove();
+        }
+        for(i = 0; i < words.length; ++i){
+            var w = words[i];
+            var $span = $(document.createElement('span'));
+            $span.text(w[0]+' ');
+            $(this.dom_textbox).append($span);
+        }
+        this._temporary_n = words.length;
+        if(this.updateSizeWithTextInput()){
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+        }
+    };
+    r2.PieceNewSpeak.prototype.setCaptionFinal = function(words){
+        var i;
+        for(i = 0; i < this._temporary_n; ++i){
+            $(this.dom_textbox).find(':last-child').remove();
+        }
+        for(i = 0; i < words.length; ++i){
+            var w = words[i];
+            var $span = $(document.createElement('span'));
+            $span.text(w[0]+' ');
+            $(this.dom_textbox).append($span);
+        }
+        this._temporary_n = 0;
+        if(this.updateSizeWithTextInput()){
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+        }
+    };
+    r2.PieceNewSpeak.prototype.doneCaptioning = function(){
+        this.Focus();
+    };
+    r2.PieceNewSpeak.prototype.Focus = function(){
+        this.dom_textbox.focus();
+    };
+
+
+    /*
+     * PieceSimpleSpeech
+     */
+    r2.PieceSimpleSpeech = function(){
         r2.Piece.call(this);
         this._annotid = null;
         this._username = null;
@@ -1079,11 +1265,11 @@
         this._temporary_n = 0;
         this._last_words = null;
     };
-    r2.PieceEditableAudio.prototype = Object.create(r2.Piece.prototype);
-    r2.PieceEditableAudio.prototype.Destructor = function(){
+    r2.PieceSimpleSpeech.prototype = Object.create(r2.Piece.prototype);
+    r2.PieceSimpleSpeech.prototype.Destructor = function(){
         r2.Piece.prototype.Destructor.apply(this);
     };
-    r2.PieceEditableAudio.prototype.SetPieceEditableAudio = function(anchor_pid, annotid, username, inner_html, live_recording){
+    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, inner_html, live_recording){
         this._annotid = annotid;
         this._username = username;
 
@@ -1110,12 +1296,12 @@
 
         return dom;
     };
-    r2.PieceEditableAudio.prototype.GetAnnotId = function(){
+    r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         if(this._annotid != null){
             return this._annotid;
         }
     };
-    r2.PieceEditableAudio.prototype.CreateDom = function(){
+    r2.PieceSimpleSpeech.prototype.CreateDom = function(){
         this.dom = document.createElement('div');
         this.dom.classList.toggle('r2_piece_editable_audio', true);
         this.dom.classList.toggle('unselectable', true);
@@ -1210,7 +1396,7 @@
 
         return this.dom;
     };
-    r2.PieceEditableAudio.prototype.updateSizeWithTextInput = function(){
+    r2.PieceSimpleSpeech.prototype.updateSizeWithTextInput = function(){
         var getHeight = function($target){
             var $next = $target.next();
             if($next.length !== 0){
@@ -1228,7 +1414,7 @@
         }
         return false;
     };
-    r2.PieceEditableAudio.prototype.DrawPiece = function(){
+    r2.PieceSimpleSpeech.prototype.DrawPiece = function(){
         var x_bgn = this.pos.x + this.GetTtIndent();
         var y_bgn = this.pos.y-r2Const.PIECEAUDIO_LINE_WIDTH;
 
@@ -1244,16 +1430,16 @@
         r2.canv_ctx.lineJoin = 'round';
         r2.canv_ctx.stroke();
     };
-    r2.PieceEditableAudio.prototype.resizeDom = function(){
+    r2.PieceSimpleSpeech.prototype.resizeDom = function(){
         this.updateSizeWithTextInput();
     };
-    r2.PieceEditableAudio.prototype.setInnerHtml = function(inner_html){
+    r2.PieceSimpleSpeech.prototype.setInnerHtml = function(inner_html){
         if (this.UIMODE === 'newspeak') {
             this.dom_textbox.innerHTML = inner_html;
         }
         this.resizeDom();
     };
-    r2.PieceEditableAudio.prototype.setCaptionTemporary = function(words){
+    r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
         if (this.UIMODE === 'simplespeech') return;
         var i;
         for(i = 0; i < this._temporary_n; ++i){
@@ -1270,7 +1456,7 @@
             r2App.invalidate_page_layout = true;
         }
     };
-    r2.PieceEditableAudio.prototype.setCaptionFinal = function(words){
+    r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
 
         if (this.UIMODE === 'simplespeech') {
             var ts = '';
@@ -1332,12 +1518,12 @@
             r2App.invalidate_page_layout = true;
         }
     };
-    r2.PieceEditableAudio.prototype.onEndRecording = function(audioURL) {
+    r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
 
         if (this._last_words === null) {
             // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
-            // console.warn("r2.PieceEditableAudio: onEndRecording: Could not find transcript.");
+            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
             this._last_audio_url = audioURL;
         }
         else {
@@ -1354,10 +1540,10 @@
             }).bind(r2App.annots[this.GetAnnotId()]));
         }
     };
-    r2.PieceEditableAudio.prototype.doneCaptioning = function(){
+    r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){
         this.Focus();
     };
-    r2.PieceEditableAudio.prototype.Focus = function(){
+    r2.PieceSimpleSpeech.prototype.Focus = function(){
         this.dom_textbox.focus();
     };
 

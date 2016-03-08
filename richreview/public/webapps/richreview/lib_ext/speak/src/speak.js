@@ -292,7 +292,7 @@
              * @param  {string} transcript The new transcript || an edit graph on the base transcript.
              */
             pub.update = (new_transcript) => {
-                if (typeof new_transcript === "string") {
+                if (typeof new_transcript === "string") { // newspeak
 
                     var bt = base_transcript();
 
@@ -309,7 +309,7 @@
 
                     _needscompile = true;
                 }
-                else {
+                else { // simplespeech
                     var editgraph = new_transcript;
                     var bs = Talken.clone(base);
                     edited = editgraph.apply(bs, function(op) {
