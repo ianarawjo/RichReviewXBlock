@@ -288,11 +288,13 @@ a:active {
 .r2_piece_editable_audio {
   border: 0;
   pointer-events: none;
+  z-index: 18;
 }
 .r2_piece_editable_audio_tr {
   position: relative;
   left: 0; /* will be tt_x */
   width: 1em; /* will be tt_w */
+  z-index: 18;
 }
 .r2_piece_editable_audio_textbox {
   border: 0;
@@ -307,6 +309,7 @@ a:active {
   z-index: 2;
 }
 .r2_piece_editable_audio_textbox > .ssui-charwidth {
+    position:relative;
     margin-left: 1px;
     border-style: solid;
     border-width: 1px;
@@ -325,9 +328,9 @@ a:active {
     color: black;
 }
 .ssui-overlay > .ssui-textwidth {
-    margin-left: 4px;
+    margin-left: 6px;
     margin-right: 2px;
-    z-index: 0;
+    z-index: 7;
 }
 .ssui-overlay > .pause {
     background-color: #ffff99;

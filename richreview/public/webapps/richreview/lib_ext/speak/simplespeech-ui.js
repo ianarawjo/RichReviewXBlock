@@ -139,6 +139,16 @@
             console.log('Adding overlay div to textbox: ', $textbox[0]);
             $textbox.append($overlay);
 
+            var $whitebox = $(document.createElement('div'));
+            $whitebox.css('display', 'inline-block');
+            $whitebox.css('position', 'absolute');
+            $whitebox.css('width', '100%');
+            $whitebox.css('height', '100%');
+            $whitebox.css('background-color', 'white');
+            $whitebox.css('opacity', 0);
+            $whitebox.css('z-index', '1');
+            $overlay.append($whitebox);
+
             // Charwidth prototype
             $token = $(document.createElement('span'));
             $token.addClass('ssui-charwidth');
@@ -147,6 +157,25 @@
             // Ghosted text prototype
             $snip = $(document.createElement('span'));
             $snip.addClass('ssui-textwidth');
+            /*$snip.attr('spellcheck', 'false');
+            $snip.attr('autocomplete', 'off');
+            $snip.attr('autocorrect', 'off');
+            $snip.attr('autocapitalize', 'off');*/
+            //var $txtspan = $(document.createElement('span'));
+            //$txtspan.css('position', 'absolute');
+            //$txtspan.css('z-index', 0);
+            //$snip.append($txtspan);
+
+            /*var $whiteout = $(document.createElement('div'));
+            //$whiteout.css('position', 'absolute');
+            $whiteout.css('display', 'inline-block');
+            $whiteout.css('z-index', 1);
+            $whiteout.css('width', '100%');
+            $whiteout.css('height', '100%');
+            $whiteout.css('background-color', 'white');
+            $whiteout.css('opacity', 0.2);
+            $whiteout.addClass('ssui-whiteout');
+            $snip.append($whiteout);*/
 
             //pub.set('This is an automated voice system');
 
@@ -169,6 +198,9 @@
                 // Create ghosted text span
                 $t = generateSnip(uid, word);
                 $overlay.append($t);
+
+                //$t.children('div').css('width', $t.children('span').width());
+                //$t.children('div').css('height', $t.children('span').height());
 
                 // Created selectable span + set at width of text
                 $n = generateSpan($t, uid, word);
@@ -197,7 +229,7 @@
             var allowed_keys_with_mod = [86, 88, 90, 67];
             if (e.keyCode === 32) { // SPACE
 
-                var c = caret()+1;
+                var c = caret()+2;
                 var $o = overlayAtIndex(c);
                 if ($o.hasClass('pause')) {
 
@@ -211,7 +243,7 @@
                     $s.css('letter-spacing', $o.width());
                     $s.attr('word', added_space);
 
-                    pub.onreplace(c, uid, added_space);
+                    pub.onreplace(c, $o.attr('uid'), added_space);
 
                 } else if (overlayAtIndex(c+1).length > 0 && overlayAtIndex(c+1).hasClass('pause')) {
 
@@ -259,7 +291,7 @@
                 updateIdx();
 
                 $(mutation.removedNodes).each(function(value, index) {
-                    if(this.nodeType === 1 && $(this).hasClass('charwidth')) {
+                    if(this.nodeType === 1 && $(this).hasClass('ssui-charwidth')) {
                         var uid = $(this).attr('uid');
                         $('#' + uid).remove();
                         console.log($(this).attr('idx'), this);
@@ -273,7 +305,7 @@
 
                     var arr = nltoarr(mutation.addedNodes);
                     for(let a of arr) {
-                        if ($(a).hasClass('charwidth'))
+                        if ($(a).hasClass('ssui-charwidth'))
                             addedNodes.push(a);
                     }
                 }
@@ -288,7 +320,7 @@
                 var previdx = Number($(addedNodes[0]).attr('idx'));
                 $(addedNodes).each(function(value, index) {
                     if(this.nodeType === 1) {
-                        var $prevtxt = overlayAtIndex(previdx);
+                        var $prevtxt = overlayAtIndex(previdx+1);
                         //var $prevtxt = $('#' + $(this).prev().attr('uid'));
                         console.log(value, previdx, $prevtxt[0]);
                         var uid = $(this).attr('uid');
@@ -376,7 +408,7 @@
                 var range = win.getSelection().getRangeAt(0);
                 var preCaretRange = range.cloneRange();
                 preCaretRange.selectNodeContents(element);
-                preCaretRange.setStart(preCaretRange.startContainer, 3);
+                preCaretRange.setStart(preCaretRange.startContainer, 4);
                 preCaretRange.setEnd(range.endContainer, range.endOffset);
                 caretOffset = preCaretRange.toString().length;
             }
