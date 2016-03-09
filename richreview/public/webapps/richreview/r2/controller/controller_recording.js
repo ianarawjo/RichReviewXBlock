@@ -151,6 +151,7 @@
                 true // live_recording
             );
             anchor_piece.AddChildAtFront(piece_simple_speech);
+            piece_simple_speech.setForTesting();
 
             // set event trigger
             bluemix_stt.messageParser.setCallbacks(

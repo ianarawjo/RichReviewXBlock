@@ -331,6 +331,7 @@ a:active {
     margin-left: 6px;
     margin-right: 2px;
     z-index: 7;
+    display: inline-block;
 }
 .ssui-overlay > .pause {
     background-color: #ffff99;

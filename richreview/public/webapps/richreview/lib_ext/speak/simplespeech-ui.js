@@ -104,22 +104,22 @@
         // DOM elements
         var $textbox = $(__div);
         var $overlay;
-        var $token, $snip;
+        var $ctrl_token_template, $view_talken_template;
 
         // Mutation observer
         var observer, config;
 
         // Edit history
-        var editctrl;
+        var edit_history;
         pub.getEditHistory = function() {
-            return editctrl;
+            return edit_history;
         };
 
         // Listener callbacks
         /**
          * Callback when a change occurs to the EditHistory.
          */
-         pub.onchange = null;
+        pub.onchange = null;
 
         /**
          * Fired when element is removed.
@@ -149,8 +149,8 @@
         var _init = function() {
 
             // Init edit history
-            editctrl = new EditHistory();
-            editctrl.listen(pub, cbOnEdit);
+            edit_history = new EditHistory();
+            edit_history.listen(pub, cbOnEdit);
 
             $overlay = generateOverlayDiv();
             console.log('Overlay div generated: ', $overlay[0]);
@@ -167,67 +167,43 @@
             $whitebox.css('z-index', '1');
             $overlay.append($whitebox);
 
-            // Charwidth prototype
-            $token = $(document.createElement('span'));
-            $token.addClass('ssui-charwidth');
-            $token.text('\xa0');
+            $ctrl_token_template = $(document.createElement('span'));
+            $ctrl_token_template.addClass('ssui-charwidth');
+            $ctrl_token_template.text('\xa0');
 
-            // Ghosted text prototype
-            $snip = $(document.createElement('span'));
-            $snip.addClass('ssui-textwidth');
-            /*$snip.attr('spellcheck', 'false');
-            $snip.attr('autocomplete', 'off');
-            $snip.attr('autocorrect', 'off');
-            $snip.attr('autocapitalize', 'off');*/
-            //var $txtspan = $(document.createElement('span'));
-            //$txtspan.css('position', 'absolute');
-            //$txtspan.css('z-index', 0);
-            //$snip.append($txtspan);
-
-            /*var $whiteout = $(document.createElement('div'));
-            //$whiteout.css('position', 'absolute');
-            $whiteout.css('display', 'inline-block');
-            $whiteout.css('z-index', 1);
-            $whiteout.css('width', '100%');
-            $whiteout.css('height', '100%');
-            $whiteout.css('background-color', 'white');
-            $whiteout.css('opacity', 0.2);
-            $whiteout.addClass('ssui-whiteout');
-            $snip.append($whiteout);*/
-
-            //pub.set('This is an automated voice system');
+            $view_talken_template = $(document.createElement('span'));
+            $view_talken_template.addClass('ssui-textwidth');
 
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onkeydown);
             observer = new MutationObserver(onmutation);
             config = { attributes: true, childList: true, characterData: true, subtree:true };
-
         };
 
         pub.set = function(txt) {
             // Add words (set initial state)
-            var wrds = txt.split(' '); var $t, $n, uid;
+            var words = txt.split(' '); var $vt, $ct, guid;
             var setops = [];
-            wrds.forEach(function(word) {
+            words.forEach(function(word) {
 
                 // Create unique id for text element
-                uid = generateUID();
+                guid = r2.util.generateGuid();
 
                 // Create ghosted text span
-                $t = generateSnip(uid, word);
-                $overlay.append($t);
+                $vt = generateViewTalken(guid, word);
+                $overlay.append($vt);
 
                 //$t.children('div').css('width', $t.children('span').width());
                 //$t.children('div').css('height', $t.children('span').height());
 
                 // Created selectable span + set at width of text
-                $n = generateSpan($t, uid, word);
-                $textbox.append($n);
+                $ct = generateCtrlTalken($vt, guid, word);
+                $textbox.append($ct);
 
-                $n.attr('idx', $textbox.children().index($n));
-                console.log('index: ', $n.attr('idx'));
+                $ct.attr('idx', $textbox.children().index($ct));
+                console.log('index: ', $ct.attr('idx'));
 
-                setops.push([uid, word]);
+                setops.push([guid, word]);
 
             });
 
@@ -272,18 +248,18 @@
                     // We don't want the MutationObserver to respond to this change...
                     safeDOMChangeWrapper(function() {
 
-                        var uid = generateUID();
-                        var $space_overlay = generateSnip(uid, '\xa0');
+                        var guid = r2.util.generateGuid();
+                        var $space_overlay = generateViewTalken(guid, '\xa0');
                         $o.after($space_overlay);
 
-                        var $space = generateSpan($space_overlay, uid, '\xa0');
+                        var $space = generateCtrlTalken($space_overlay, guid, '\xa0');
                         spanAtIndex(c).after($space);
 
                         $space.css('letter-spacing', $space_overlay.width());
 
                         updateIdx();
 
-                        pub.oninsert(c+1, uid, '\xa0');
+                        pub.oninsert(c+1, guid, '\xa0');
 
                     });
 
@@ -343,7 +319,7 @@
                         console.log(value, previdx, $prevtxt[0]);
                         var uid = $(this).attr('uid');
                         var word = $(this).attr('word');
-                        var $t = generateSnip(uid, word);
+                        var $t = generateViewTalken(uid, word);
                         if (previdx === 1) {
                             var $next = overlayAtIndex(previdx+1);
                             if (!$next || $next.length === 0) $overlay.prepend($t);
@@ -384,28 +360,26 @@
             for(var i = nl.length; i--; arr.unshift(nl[i]));
             return arr;
         }
-        function generateUID() {
-            return Math.round(new Date().getTime() + (Math.random() * 100));
+        function generateViewTalken(uid, word) {
+            var $vt = $view_talken_template.clone();
+            $vt.attr('id', uid);
+            $vt.text(word);
+            if (word.indexOf('\xa0') === -1) $vt.addClass('ssui-blue'); // blue if not a space
+            else $vt.addClass('pause');
+            return $vt;
         }
-        function generateSnip(uid, word) {
-            var $t = $snip.clone();
-            $t.attr('id', uid);
-            $t.text(word);
-            if (word.indexOf('\xa0') === -1) $t.addClass('ssui-blue');
-            else $t.addClass('pause');
-            return $t;
-        }
-        function generateSpan($snip, uid, word) {
-            var $n = $token.clone();
-            $n.css('letter-spacing', $snip.width());
-            $n.attr('uid', uid);
-            $n.attr('word', word);
-            return $n;
+        function generateCtrlTalken($vt, uid, word) {
+            var $ct = $ctrl_token_template.clone();
+            console.log($vt.width());
+            $ct.css('letter-spacing', $vt.width());
+            $ct.attr('uid', uid);
+            $ct.attr('word', word);
+            return $ct;
         }
         function generateOverlayDiv() {
-            var $d = $(document.createElement('div'));
-            $d.addClass('ssui-overlay');
-            return $d;
+            var $od = $(document.createElement('div'));
+            $od.addClass('ssui-overlay');
+            return $od;
         }
 
         _init();
