@@ -391,34 +391,33 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
              * @param  {string} transcript The new transcript || an edit graph on the base transcript.
              */
             pub.update = function (new_transcript) {
-                if (typeof new_transcript === "string") {
 
-                    var bt = base_transcript();
+                var bt = base_transcript();
 
-                    // Calculate diff between base and new transcript
-                    // *** REQUIRES jsdiff.js ***
-                    var diff = diffString(bt, new_transcript);
-                    if (diff === bt) return; // Nothing changed.
+                // Calculate diff between base and new transcript
+                // *** REQUIRES jsdiff.js ***
+                var diff = diffString(bt, new_transcript);
+                if (diff === bt) return; // Nothing changed.
 
-                    // Generate array of EditOp's
-                    var edits = EditOp.generate(diff);
+                // Generate array of EditOp's
+                var edits = EditOp.generate(diff);
 
-                    // Store
-                    ops = edits;
+                // Store
+                ops = edits;
 
-                    _needscompile = true;
-                } else {
-                    var editgraph = new_transcript;
-                    var bs = Talken.clone(base);
-                    edited = editgraph.apply(bs, function (op) {
-                        return new Talken(op.word, 0, 0, null);
-                    });
+                _needscompile = true;
+            };
 
-                    console.log('Base w/ edit graph applied: ', edited);
+            pub.updateSimpleSpeech = function (editHistory) {
+                var bs = Talken.clone(base);
+                edited = editHistory.apply(bs, function (op) {
+                    return new Talken(op.word, 0, 0, null);
+                });
 
-                    _needscompile = false;
-                    edits = []; // compile does nothing now.
-                }
+                console.log('Base w/ edit graph applied: ', edited);
+
+                _needscompile = false;
+                ops = []; // compile does nothing now.
             };
 
             /*

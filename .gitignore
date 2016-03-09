@@ -48,3 +48,9 @@ utils/pdf_batch/data/
 
 #Praat server library
 richreview/public/webapps/richreview/lib_ext/praat/
+
+#Babel watcher
+richreview/public/webapps/richreview/lib_ext/speak/src/node_modules
+richreview/public/webapps/richreview/lib_ext/speak/src/.babelrc
+
+

@@ -1144,12 +1144,9 @@
         this.speak_ctrl = new r2.speak.controller();
 
         if (this.UIMODE === 'simplespeech') { // SimpleSpeech UI wrapper
-            this.simplespeech = new simplespeech.ui(this.dom_textbox);
-            this.editgraph = new simplespeech.editgraph();
-            this.editgraph.listen(this.simplespeech);
-            this.editgraph.onchange = function() {
-                this.speak_ctrl.update(this.editgraph);
-            };
+            this.simplespeech = new simplespeech.ui(this.dom_textbox, function(editHistory) {
+                this.speak_ctrl.updateSimpleSpeech(editHistory);
+            }.bind(this));
         }
 
         /* add event handlers*/
@@ -1187,7 +1184,7 @@
             this.dom_textbox.style.boxShadow = "none";
 
             if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.update(this.editgraph);
+                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
             else
                 this.speak_ctrl.update($(this.dom_textbox).text());
 
@@ -1254,7 +1251,10 @@
         this.resizeDom();
     };
     r2.PieceEditableAudio.prototype.setCaptionTemporary = function(words){
-        if (this.UIMODE === 'simplespeech') return;
+        if (this.UIMODE === 'simplespeech') {
+            this.simplespeech.stopMonitoring();
+            return;
+        }
         var i;
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
@@ -1278,7 +1278,6 @@
                 ts += w[0] + ' ';
             }
             this.simplespeech.set(ts.trim());
-            this.simplespeech.monitor();
         } else {
             var i;
             for(i = 0; i < this._temporary_n; ++i){
@@ -1312,12 +1311,15 @@
 
         if (this._last_audio_url) {
 
+            if (this.UIMODE === 'simplespeech')
+                this.simplespeech.monitor();
+
             this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
             this._last_words = null;
             this._last_audio_url = null;
 
             if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.update(this.editgraph);
+                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
 
             this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {
@@ -1341,11 +1343,15 @@
             this._last_audio_url = audioURL;
         }
         else {
+
+            if (this.UIMODE === 'simplespeech')
+                this.simplespeech.monitor();
+
             this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
             this._last_words = null;
 
             if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.update(this.editgraph);
+                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
 
             this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {
