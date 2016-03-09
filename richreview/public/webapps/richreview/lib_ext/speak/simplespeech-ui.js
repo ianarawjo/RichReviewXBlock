@@ -27,10 +27,9 @@
 
         var onset = function(setops) {
             g = []; base = [];
-            let i = 0;
-            for (let s of setops) {
+            for(var i = 0; i < setops.length; ++i){
+                var s = setops[i];
                 base.push(new op(edittype.NONE, i, s[0], s[1]));
-                i++;
             }
         };
 
@@ -81,7 +80,7 @@
              */
             apply: function(ts, createFunc) {
 
-                for (let o in g) {
+                g.forEach(function(o){
                     if (o.type === edittype.INS) {
                         ts.splice(o.idx, 0, createFunc(o));
                     }
@@ -91,7 +90,7 @@
                     else if (o.type === edittype.REPL) {
                         ts[idx].word = o.word;
                     }
-                }
+                });
 
                 return ts;
             }
@@ -298,10 +297,10 @@
                 if (mutation.addedNodes && mutation.addedNodes.length > 0) {
 
                     var arr = nltoarr(mutation.addedNodes);
-                    for(let a of arr) {
+                    arr.forEach(function(a){
                         if ($(a).hasClass('ssui-charwidth'))
                             addedNodes.push(a);
-                    }
+                    });
                 }
             });
 

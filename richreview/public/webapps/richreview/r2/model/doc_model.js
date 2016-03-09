@@ -1544,9 +1544,9 @@
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
 
         var ts = '';
-        for (let w of words) {
+        words.forEach(function(w){
             ts += w[0] + ' ';
-        }
+        });
         this.simplespeech.set(ts.trim());
 
         this._last_words = words;
