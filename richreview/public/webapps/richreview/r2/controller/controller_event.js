@@ -28,6 +28,7 @@ var r2Ctrl = {};
             $('#btn-input-set-mode-tablet').toggleClass('btn-default', true);
 
             r2.mouse.setEventHandlers();
+            r2.mouse.rightClickContextMenu.enable();
             r2.tabletInput.off();
         };
         pub.setModeTablet = function(){
@@ -38,6 +39,7 @@ var r2Ctrl = {};
             $('#btn-input-set-mode-tablet').toggleClass('btn-default', false);
 
             r2.mouse.removeEventHandlers();
+            r2.mouse.rightClickContextMenu.disable();
             r2.tabletInput.on();
         };
 
@@ -179,7 +181,8 @@ var r2Ctrl = {};
         var PenMode = {
             NORMAL: 0,
             MANIPULATION: 1,
-            TEARING: 2
+            TEARING: 2,
+            ERASER: 3
         };
         var mode = PenMode.NORMAL;
         var cur_dn = false;
@@ -230,6 +233,10 @@ var r2Ctrl = {};
                 else if(event.which === PenEventType.FIRST_BTN){
                     mode = PenMode.MANIPULATION;
                 }
+                else if(event.which === PenEventType.SECOND_BTN){
+                    mode = PenMode.ERASER;
+                    r2.inkCtrl.eraser.dn();
+                }
             }
             pos_dn = new_pen_pt;
         };
@@ -264,6 +271,10 @@ var r2Ctrl = {};
                     r2Sync.PushToUploadCmd(cur_piece_tearing.ExportToCmd());
                     cur_piece_tearing = null;
                 }
+                if(mode === PenMode.ERASER){
+                    r2.inkCtrl.eraser.up();
+                    mode = PenMode.NORMAL;
+                }
             }
             cur_dn = false;
         };
@@ -297,6 +308,9 @@ var r2Ctrl = {};
                             r2App.invalidate_page_layout = true;
                         }
                     }
+                }
+                if(mode === PenMode.ERASER){
+                    r2.inkCtrl.eraser.mv(r2.viewCtrl.mapScrToDoc(new_pen_pt));
                 }
             }
         };
@@ -336,7 +350,14 @@ var r2Ctrl = {};
     /* mouse */
     r2.MouseModeEnum = {
         HOVER : 0,
+        RDN : 1,
         LDN : 2
+    };
+    r2.MouseBtn = {
+        NONE : 0,
+        LEFT : 1,
+        MDDL : 2,
+        RGHT : 3
     };
 
     r2.mouse = (function(){
@@ -366,7 +387,7 @@ var r2Ctrl = {};
             var new_mouse_pt = r2.input.getPos(event);
             if(pub.mode === r2.MouseModeEnum.HOVER){
                 switch (event.which) {
-                    case 1: // left click
+                    case r2.MouseBtn.LEFT: // left click
                         pub.mode = r2.MouseModeEnum.LDN;
                         pos_dn = new_mouse_pt;
                         if(r2App.mode == r2App.AppModeEnum.IDLE || r2App.mode == r2App.AppModeEnum.REPLAYING){
@@ -376,6 +397,10 @@ var r2Ctrl = {};
                         else if(r2App.mode == r2App.AppModeEnum.RECORDING){
                             r2.spotlightCtrl.recordingSpotlightDn(r2.viewCtrl.mapScrToDoc(new_mouse_pt), r2App.cur_recording_annot);
                         }
+                        break;
+                    case r2.MouseBtn.RGHT:
+                        pub.mode = r2.MouseModeEnum.RDN;
+                        r2.inkCtrl.eraser.dn();
                         break;
                     default:
                         break;
@@ -404,6 +429,9 @@ var r2Ctrl = {};
                     r2.spotlightCtrl.recordingSpotlightMv(r2.viewCtrl.mapScrToDoc(new_mouse_pt), r2App.cur_recording_annot);
                 }
             }
+            else if(pub.mode == r2.MouseModeEnum.RDN){
+                r2.inkCtrl.eraser.mv(r2.viewCtrl.mapScrToDoc(new_mouse_pt));
+            }
 
             r2App.cur_mouse_pt = new_mouse_pt;
         };
@@ -431,9 +459,32 @@ var r2Ctrl = {};
                 r2.onScreenButtons.mouseUp();
                 pub.mode = r2.MouseModeEnum.HOVER;
             }
+            else if(pub.mode == r2.MouseModeEnum.RDN){
+                r2.inkCtrl.eraser.up();
+                pub.mode = r2.MouseModeEnum.HOVER;
+            }
 
             r2App.cur_mouse_pt = new_mouse_pt;
         };
+
+        pub.rightClickContextMenu = (function(){
+            var pub_rc = {};
+
+            pub_rc.enable = function(){
+                document.getElementById('r2_app_container').removeEventListener('contextmenu', disableFunc, false);
+            };
+
+            pub_rc.disable = function(){
+                document.getElementById('r2_app_container').addEventListener('contextmenu', disableFunc, false);
+            };
+
+            function disableFunc(e){
+                e.preventDefault();
+            }
+
+            return pub_rc;
+        }());
+
 
         return pub;
     }());
@@ -520,6 +571,10 @@ var r2Ctrl = {};
 
         pub.getMode = function(){
             return mode;
+        };
+
+        pub.setMode = function(_mode){
+            mode = _mode;
         };
 
         pub.pieceEventListener = (function(){
@@ -617,7 +672,6 @@ var r2Ctrl = {};
                 }
             }
 
-
             if( mode === r2.KeyboardModeEnum.NORMAL &&
                     (event.which === CONST.KEY_ENTER || event.which === CONST.KEY_SPACE) ){
                 event.preventDefault();
@@ -666,7 +720,7 @@ var r2Ctrl = {};
                         r2.rich_audio.stop();
                         break;
                     case CONST.KEY_ENTER: // enter
-                        r2.log.Log_AudioStop('enter_0', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
+                        r2.log.Log_AudioStop('enter', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                         r2.rich_audio.stop();
                         if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
                             if(!r2App.pieceSelector.isNull()){
@@ -793,13 +847,8 @@ var r2Ctrl = {};
                 event.preventDefault();
 
                 if(event.which != 1 || r2.keyboard.ctrlkey_dn){return;}
-                createPieceKeyboard(isprivate = r2.keyboard.ctrlkey_dn);
-                if(r2.keyboard.ctrlkey_dn){
-                    r2.log.Log_Simple("CreatePieceKeyboard_Private_OnScrBtn");
-                }
-                else{
-                    r2.log.Log_Simple("CreatePieceKeyboard_Public_OnScrBtn");
-                }
+                createPieceKeyboard(isprivate = false);
+                r2.log.Log_Simple("CreatePieceKeyboard_OnScrBtn");
                 pub.mode = r2.MouseModeEnum.HOVER; // should set mouse mode here, since we are calling stopPropagation().
                 hideDom();
             })
@@ -892,30 +941,31 @@ var r2Ctrl = {};
             return pub_ds;
         }());
 
-
         pub.recordingInkDn = function(pt, target_annot){
             var piece = r2App.cur_page.GetPieceByHitTest(pt);
             cur_recording_Ink_piece = piece;
             if(piece){
-                var Ink = new r2.Ink();
-                Ink.SetInk(
-                    target_annot.GetAnchorPid(),
+                var ink = new r2.Ink();
+                ink.SetInk(
+                    piece.GetId(),
                     target_annot.GetUsername(),
                     target_annot.GetId(),
-                    [r2App.cur_time-target_annot.GetBgnTime(),r2App.cur_time-target_annot.GetBgnTime()]);
+                    [r2App.cur_time-target_annot.GetBgnTime(),r2App.cur_time-target_annot.GetBgnTime()],
+                    r2App.cur_pdf_pagen
+                );
 
-                Ink.SetPage(r2App.cur_pdf_pagen);
                 var segment  = new r2.Ink.Segment();
                 segment.SetSegment(piece.GetId(), [pt.subtract(piece.pos, true)]);
 
-                Ink.AddSegment(segment);
+                ink.AddSegment(segment);
 
-                cur_recording_Ink = Ink;
+                cur_recording_Ink = ink;
                 cur_recording_Ink_segment = segment;
                 cur_recording_Ink_segment_piece = piece;
                 cur_recording_Ink_pt = pt;
             }
         };
+
         pub.recordingInkMv = function(pt, target_annot){
             if(cur_recording_Ink && cur_recording_Ink_segment){
                 var piece = r2App.cur_page.GetPieceByHitTest(pt);
@@ -952,8 +1002,8 @@ var r2Ctrl = {};
         pub.recordingInkUp = function(pt, target_annot){
             if(cur_recording_Ink){
                 cur_recording_Ink.smoothing();
-                cur_recording_Ink_piece.AddInk(target_annot.GetId(),cur_recording_Ink);
-                target_annot.AddInk(cur_recording_Ink, toupload = true);
+                cur_recording_Ink_piece.addInk(target_annot.GetId(),cur_recording_Ink);
+                target_annot.addInk(cur_recording_Ink, toupload = true);
                 pub.dynamicScene.addInk(cur_recording_Ink);
                 if(cur_recording_Ink_segment){
                     cur_recording_Ink_segment = null;
@@ -969,6 +1019,74 @@ var r2Ctrl = {};
                 return false;
             }
         };
+
+        pub.eraser = (function(){
+            var pub_er = {};
+
+            var pos = null;
+            var eraser_dn_time = null;
+            var reserved_operations = [];
+            var uploader = new r2.CmdTimedUploader();
+            uploader.init(r2Const.TIMEOUT_STATIC_INK_UPDATE);
+
+            pub_er.dn = function(){
+                eraser_dn_time = r2App.cur_time;
+            };
+
+            pub_er.up = function(){
+                if(reserved_operations.length){
+                    uploader.addCmd(createCmd());
+                }
+                pos = null;
+                r2App.invalidate_dynamic_scene = true;
+            };
+
+            pub_er.mv = function(pt){
+                var inks = [];
+                r2App.cur_page.RunRecursive('getCollidingInks', [pt, inks]);
+                pos = pt;
+                r2App.invalidate_dynamic_scene = true;
+                if(inks.length){
+                    console.log(inks.length);
+                    for(var i = 0, l = inks.length; i < l; ++i){
+                        reserved_operations.push(inks[i].erase(true)); // to_upload
+                    }
+                    r2App.invalidate_page_layout = true;
+                }
+            };
+
+            pub_er.draw = function(ctx){
+                if(pos){
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, r2Const.ERASER_RADIUS, 0, 2 * Math.PI, false);
+                    ctx.lineWidth = 0.001;
+                    ctx.strokeStyle = '#003300';
+                    ctx.stroke();
+                }
+            };
+
+            pub_er.getCmdsToUpload = function(){
+                return uploader.getCmdsToUpload();
+            };
+
+            function createCmd(){
+                var cmd ={};
+                cmd.time = new Date(eraser_dn_time).toISOString();
+                cmd.user = r2.userGroup.cur_user.name;
+                cmd.op = 'DeleteComment';
+                cmd.type = 'Inks';
+                cmd.target = {
+                    type: 'Inks'
+                };
+                cmd.data = reserved_operations.slice(0); // clone array
+
+                reserved_operations = [];
+
+                return cmd;
+            }
+
+            return pub_er;
+        }());
 
         return pub;
     }());
@@ -1087,10 +1205,11 @@ var r2Ctrl = {};
     var replacePieceAudioToPieceKeyboard = function(){
         var annotid = r2App.cur_recording_annot.GetId();
         r2.recordingCtrl.stop(toupload = false);
-        r2.log.Log_Simple("Recording_Stop_CancelForTextComment");
-        r2.log.Log_Simple("CreatePieceKeyboard_Public_Enter");
         r2.removeAnnot(annotid, askuser = false, mute = true);
+        r2.log.Log_Simple("Recording_Stop_CancelForTextComment");
+
         createPieceKeyboard(isprivate = false);
+        r2.log.Log_Simple("CreatePieceKeyboard_Enter");
     };
 
     var createPieceTeared = function(){
@@ -1122,9 +1241,13 @@ var r2Ctrl = {};
     };
 
     var createPieceKeyboard = function(isprivate){
+        if(r2App.disable_comment_production){
+            alert('This page is only for the review. Features for creating comments are disabled.');
+            return;
+        }
         var anchorpiece = null;
         if(r2App.mode == r2App.AppModeEnum.REPLAYING){
-            r2.log.Log_AudioStop('enter', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
+            r2.log.Log_AudioStop('createPieceKeyboard', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
             r2.rich_audio.stop();
             anchorpiece = r2App.cur_page.SearchPieceAudioByAnnotId(this._annotid, r2.audioPlayer.getPlaybackTime());
         }
@@ -1152,5 +1275,28 @@ var r2Ctrl = {};
             r2App.invalidate_page_layout = true;
         }
     };
+
+    r2.pageNumBox = (function(){
+        var pub = {};
+        var page_nav_input_dom = null;
+
+        pub.init = function(){
+            page_nav_input_dom = document.getElementById('page_nav_input');
+
+            page_nav_input_dom.addEventListener('focus', function(){
+                r2.keyboard.setMode(r2.KeyboardModeEnum.TEXTBOX);
+            });
+            page_nav_input_dom.addEventListener('blur', function(){
+                r2.keyboard.setMode(r2.KeyboardModeEnum.NORMAL);
+            });
+            page_nav_input_dom.addEventListener('keydown', function(e){
+                if(e.which == 13) {
+                    r2.booklet.goToAbsPage(parseInt(page_nav_input_dom.value)-1, 0);
+                }
+            });
+        };
+
+        return pub;
+    }());
 
 }(window.r2 = window.r2 || {}));

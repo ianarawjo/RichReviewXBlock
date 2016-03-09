@@ -170,7 +170,7 @@ app.get('/viewer',      viewer.page);
 app.get('/dataviewer',  dataviewer.get);
 app.get('/account',     account.get);
 app.get('/resources',   resources.get);
-app.get('/math2220_fall2015',    course.get);
+app.get('/math2220_sp2016',    course.get);
 app.get('/bluemix_stt_auth', bluemix_stt_auth.get);
 //app.get('/docs',        docs.page);
 
@@ -223,7 +223,7 @@ app.post('/login_cornell_return',
 app.get(
     '/math2220',
     function(req, res) {
-        res.redirect("/math2220_fall2015");
+        res.redirect("/math2220_sp2016");
     }
 );
 
@@ -273,6 +273,19 @@ module.exports.http = appHttp;
 
 /** testcode. TODO: remove */
 var azure = require('./lib/azure');
+
+var to_upload_video = false;
+if(to_upload_video){
+    upload.upload_intro_video().then(
+        function(rtn){
+            console.log(rtn);
+        }
+    ).catch(
+        function(err){
+            console.error(err);
+        }
+    );
+}
 
 function DownloadBlob(c,b,cb){
     azure.BlobFileDownload(c, b, '../cache/'+c+'/'+b, function(error){
@@ -384,8 +397,6 @@ function ValidateDocFolder(path, l){
 
 
 js_utils = require('./lib/js_utils');
-
-
 
 UploadFolderToAzureBlobStorage = function(path, container, blobPrefix, cb){
     azure.svc.createContainerIfNotExists(container, { publicAccessLevel : 'blob' }, function(err, result){

@@ -231,7 +231,7 @@
         pub.Init = function(){
             if(r2.util.getCookie("r2_intro_video_never_show_again") == ""){
                 // ToDo bootstrap fix
-                //$('#modal-window-intro-video').modal('show');
+                $('#modal-window-intro-video').modal('show');
             }
         };
         pub.Dismiss = function(never_show_again){
@@ -239,7 +239,11 @@
                 r2.util.setCookie("r2_intro_video_never_show_again", true, 7); // never show the window for 7days
             }
             // ToDo bootstrap fix
-            //$('#modal-window-intro-video').modal('hide');
+            $('#modal-window-intro-video').modal('hide');
+        };
+        pub.show = function(){
+            $('#modal-window-intro-video').modal('show');
+            r2.util.resetCookie("r2_intro_video_never_show_again");
         };
 
         return pub;
@@ -278,8 +282,7 @@
                 $a.click(function(){
                     var searchresult = r2App.doc.SearchPieceByAnnotId(annotid);
                     if(searchresult){
-                        r2.dom_model.focusCtrl.focusPiece(annotid);
-                        r2.turnPageAndSetFocus(searchresult);
+                        r2.turnPageAndSetFocus(searchresult, annotid);
                         r2.log.Log_CommentHistory("audio", annotid);
                     }
                 });
@@ -291,8 +294,7 @@
                 $a.click(function(){
                     var searchresult = r2App.doc.SearchPieceByAnnotId(annotid);
                     if(searchresult){
-                        r2.dom_model.focusCtrl.focusPiece(annotid);
-                        r2.turnPageAndSetFocus(searchresult);
+                        r2.turnPageAndSetFocus(searchresult, annotid);
                         r2.log.Log_CommentHistory('text', annotid);
                     }
                 });
@@ -500,11 +502,12 @@
         var user_color_anonymous =
             [50, 50, 50]; // gray
 
-        var R2User = function(_name, nick, email, _color, isguest){
+        var R2User = function(_name, nick, email, _color, isguest, n){
             this.name = _name;
             this.nick = nick;
             this.email = email;
             this.isguest = isguest;
+            this.n = n;
 
             this.color_normal = _color.map(function(v){return v/255.;});
             this.color_dark = _color.map(function(v){return v/400.;});
@@ -520,6 +523,8 @@
             this.color_light_html = this.GetHtmlColor(this.color_light, 1.0);
             this.color_normal_html = this.GetHtmlColor(this.color_normal, 1.0);
             this.color_dark_html = this.GetHtmlColor(this.color_dark, 1.0);
+            this.color_transparent_normal_html = this.GetHtmlColor(this.color_normal, 0.5);
+            this.color_transparent_dark_html = this.GetHtmlColor(this.color_dark, 0.5);
             this.color_splight_static = this.GetHtmlColor(this.color_light, 0.15);
             this.color_splight_dynamic = this.GetHtmlColor(this.color_normal, 0.6);
             this.color_splight_private = this.GetHtmlColor(this.color_normal, 0.2);
@@ -577,6 +582,7 @@
             $("#observer_indicator").css("display", pub.cur_user.isguest ? "block" : "none");
             r2.onScreenButtons.SetUserColor(r2.userGroup.cur_user);
             r2App.invalidate_size = true;
+            return null;
         };
 
         pub.GetUser = function(name){
@@ -611,7 +617,7 @@
                     break;
             }
             if(!users.hasOwnProperty(name)){
-                users[name] = new R2User(name, nick, email, color, isguest);
+                users[name] = new R2User(name, nick, email, color, isguest, Object.keys(users).length);
                 r2App.annotStaticInkMgr.addNewUser(users[name]);
 
                 if(!isguest) {
@@ -752,9 +758,12 @@
                 }
             }
             if(typeof booklet_n !== 'undefined'){
-                var group = groups[booklet_n];
-                group.cur_pagen = n-group.page_range[0];
-                gelectGroup(booklet_n);
+                if(booklet_n < groups.length) {
+                    var group = groups[booklet_n];
+                    group.cur_pagen = n - group.page_range[0];
+                    gelectGroup(booklet_n);
+                }
+
             }
         };
 
@@ -830,6 +839,7 @@
         }
 
         function SetPdfPageN(n){
+            r2.log.Log_Nav('SetPdfPageN_'+n);
             if(r2App.mode == r2App.AppModeEnum.REPLAYING){
                 r2.log.Log_AudioStop('SetPdfPageN', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                 r2.rich_audio.stop();
@@ -1557,6 +1567,38 @@
         return pub;
     }());
 
+    /* upload timer */
+    r2.CmdTimedUploader = function(){
+        this._time_interval = 0;
+        this._time_last_modified = 0;
+        this._modified = false;
+        this._cmds_to_upload = [];
+    };
+    r2.CmdTimedUploader.prototype.init = function(time_interval){
+        this._time_interval = time_interval;
+    };
+    r2.CmdTimedUploader.prototype.addCmd = function(cmd){
+        this._cmds_to_upload.push(cmd);
+        this._modified = true;
+        this._time_last_modified = r2App.cur_time;
+    };
+    r2.CmdTimedUploader.prototype.getCmdsToUpload = function(){
+        if( this._modified && r2App.cur_time-this._time_last_modified > this._time_interval){
+            var rtn = this._cmds_to_upload.slice(); // copy array
+
+            this._cmds_to_upload = [];
+            this._modified = false;
+
+            return {time: this._time_last_modified, cmds: rtn};
+        }
+        else{
+            return null;
+        }
+    };
+    r2.CmdTimedUploader.prototype.checkCmdToUploadExist = function(){
+        return this._cmds_to_upload.length !== 0;
+    };
+
     r2.pieceHashId = (function(){
         var pub = {};
 
@@ -1576,6 +1618,48 @@
             return Sha1.hash(annotid+" PieceKeyboard 0")
         };
 
+        return pub;
+    }());
+
+    r2.environment_detector = (function(){
+        var pub = {};
+
+        pub.is_mobile = false;
+        pub.is_msedge = false;
+        pub.is_supported_browser = false;
+
+        pub.init = function(){
+            return new Promise(function(resolve, reject){
+                pub.is_mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                pub.is_supported_browser = bowser.chrome || bowser.firefox || bowser.safari || bowser.msedge;
+                pub.is_msedge = bowser.msedge;
+                r2.log.Log_Simple('openbrowser_'+bowser.name+'_'+bowser.version);
+                if(pub.is_mobile) {
+                    alert('Mobile data warning: listening voice comments can consume your mobile data very quickly.');
+                    /*
+                    r2.coverMsg.Show([
+                        'Sorry! RichReview does not support mobile platform yet.',
+                        'Please try again on your laptop or desktop.'
+                    ]);
+                    var err = new Error('unsupported mobile access');
+                    err.silent = true;
+                    reject(err);*/
+                    resolve();
+                }
+                else if(!pub.is_supported_browser){
+                    r2.coverMsg.Show([
+                        'Sorry! RichReview only supports Chrome, Firefox, Safari, or MS Edge browsers.',
+                        "But you are using something else..."
+                    ]);
+                    var err = new Error('unsupported browser');
+                    err.silent = true;
+                    reject(err);
+                }
+                else{
+                    resolve();
+                }
+            });
+        };
         return pub;
     }());
 

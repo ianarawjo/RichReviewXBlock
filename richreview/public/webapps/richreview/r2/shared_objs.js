@@ -27,6 +27,7 @@ var r2Const = (function () {
 
     // inks
     pub.INK_WIDTH = 0.001;
+    pub.ERASER_RADIUS = 0.01;
 
     // page navbar
     pub.NAVBAR_PAGES_N = 5; // should be an odd number
@@ -55,7 +56,9 @@ var r2Const = (function () {
     pub.TIMEOUT_MINIMAL = 10;
     pub.TIMEOUT_FRAMERATE = 1000/30;
     pub.TIMEOUT_RESIZE_DELAY = 100;
-    pub.TIMEOUT_PRIVATE_HIGHLIGHT_UPDATE = 3*1000;
+    pub.TIMEOUT_PRIVATE_HIGHLIGHT_UPDATE = 5*1000;
+    pub.TIMEOUT_STATIC_INK_UPDATE = 5*1000;
+
 
     // db sync polling interval
     pub.DB_SYNC_POLLING_INTERVAL = 5*1000; // 5 secs
@@ -99,6 +102,7 @@ var r2App = (function() {
     pub.invalidate_page_layout = false;
 
     pub.mode = pub.AppModeEnum.IDLE;
+    pub.disable_comment_production = false;
 
     pub.is_first_error = true;
 
@@ -229,6 +233,15 @@ var r2App = (function() {
 
         pub.getAnnots = function(){
             return annots;
+        };
+
+        pub.checkCmdToUploadExist = function(){
+            for(var i = 0; i < annots.length; ++i){
+                if(annots[i].checkCmdToUploadExist()){
+                    return true;
+                }
+            }
+            return false;
         };
 
         return pub;

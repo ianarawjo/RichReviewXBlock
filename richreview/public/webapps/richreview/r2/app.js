@@ -63,14 +63,22 @@
                 }
 
                 // upload static ink cmds
-                var annots = r2App.annotStaticInkMgr.getAnnots();
-                annots.forEach(function(annot){
+                var static_ink_annots = r2App.annotStaticInkMgr.getAnnots();
+                static_ink_annots.forEach(function(annot){
                     var static_ink_cmds = annot.getCmdsToUpload();
                     if(static_ink_cmds){
                         r2Sync.PushToUploadCmd(static_ink_cmds);
                         console.log(static_ink_cmds);
                     }
                 });
+
+                // upload erase ink cmds
+                var erase_ink_cmds = r2.inkCtrl.eraser.getCmdsToUpload();
+                if(erase_ink_cmds){
+                    erase_ink_cmds.cmds.forEach(function(cmd){
+                        r2Sync.PushToUploadCmd(cmd);
+                    });
+                }
 
                 // upload and download cmds
                 r2Sync.loop();
@@ -104,6 +112,7 @@
         var triggerReservedRecording = function(){
             if(r2.recordingCtrl.isReady()){
                 if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                    r2.log.Log_AudioStop('triggerReservedRecording', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                     r2.rich_audio.stop();
                 }
                 if(r2App.mode === r2App.AppModeEnum.IDLE && r2.audioPlayer.isIdle()){
@@ -153,6 +162,7 @@
             }
             r2.inkCtrl.dynamicScene.draw(r2.annot_canv_ctx);
             r2App.pieceSelector.draw(r2.annot_canv_ctx);
+            r2.inkCtrl.eraser.draw(r2.annot_canv_ctx);
         }
 
         return pub;
@@ -165,7 +175,7 @@
         pub.Run = function(resource_urls) {
             r2.HtmlTemplate.initHT(resource_urls).then(
                 function(){
-                    return checkPlatform();
+                    return r2.environment_detector.init();
                 }
             ).then(
                 function(){
@@ -185,7 +195,7 @@
 
                     r2.onScreenButtons.Init();
 
-                    if(bowser.msedge){
+                    if(r2.environment_detector.is_msedge){
                         r2.input.setModeTablet();
                     }
                     else{
@@ -214,34 +224,6 @@
             ).catch(r2.util.handleError);
         };
 
-        function checkPlatform(){
-            return new Promise(function(resolve, reject){
-                var is_mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                var is_supported_browser = bowser.chrome || bowser.firefox || bowser.safari || bowser.msedge;
-                if(is_mobile) {
-                    r2.coverMsg.Show([
-                        'Sorry! RichReview does not support mobile platform yet.',
-                        'Please try again on your laptop or desktop.'
-                    ]);
-                    var err = new Error('unsupported mobile access');
-                    err.silent = true;
-                    reject(err);
-                }
-                else if(!is_supported_browser){
-                    r2.coverMsg.Show([
-                        'Sorry! RichReview only supports Chrome, Firefox, Safari, or MS Edge browsers.',
-                        "But you are using something else..."
-                    ]);
-                    var err = new Error('unsupported browser');
-                    err.silent = true;
-                    reject(err);
-                }
-                else{
-                    resolve();
-                }
-            });
-        }
-
         function initAudioPlayer(){
             r2.audioPlayer.cbPlay(
                 function(annot_id){
@@ -257,7 +239,8 @@
         }
 
         function initAudioRecorder(resource_urls){
-            if(r2.ctx["pmo"] !== "") { // pass mobile is not set
+            if(r2.environment_detector.is_mobile) { // pass mobile
+                alert('The latest Chrome Desktop browser is recommended. In mobile browsers, voice recording feature is not supported, and some audio comments may not be replayed properly.');
                 return;
             }
             return r2.audioRecorder.Init(resource_urls).then(
@@ -291,6 +274,27 @@
                     return r2.userGroup.Set({
                         self: myself,
                         users: group.users
+                    })
+                }
+            ).then(
+                function(){
+                    return r2.util.postToDbsServer(
+                        'isDocCourseSubmission',
+                        {
+                            docid: r2App.url_queries.get('docid'),
+                            course_id: 'math2220_sp2016'
+                        }
+                    ).then(
+                        function(is_doc_crs_submission){
+                            r2App.disable_comment_production = false;
+                            if(is_doc_crs_submission.resp){
+                                if(r2.userGroup.cur_user.n-1 > 2){ // disable comment production of the student user in math2220
+                                    r2App.disable_comment_production = false;
+                                }
+                            }
+                        }
+                    ).catch(function(e){
+                        console.log(e);
                     })
                 }
             )
@@ -398,13 +402,15 @@
 
             if(r2.ctx["comment"] != ''){
                 var searchresult = r2App.doc.SearchPieceByAnnotId(r2.ctx["comment"]);
-                r2.turnPageAndSetFocus(searchresult);
+                r2.turnPageAndSetFocus(searchresult, r2.ctx["comment"]);
             }
 
             r2.coverMsg.Hide();
             r2.modalWindowLoading.hideModalWindow();
             r2.modalWindowIntro.Init();
             r2.log.Log_Simple('DoneLoading');
+
+            r2.pageNumBox.init();
         }
 
         /** init system */
@@ -439,11 +445,11 @@
                 var now_typing = r2.keyboard.getMode() === r2.KeyboardModeEnum.TEXTBOX &&
                         r2App.cur_focused_piece_keyboard != null &&
                         r2App.cur_focused_piece_keyboard.WasChanged();
-                var now_uploading = r2Sync.NowUploading();
+                var now_uploading = r2Sync.NowUploading() || r2App.annotStaticInkMgr.checkCmdToUploadExist();
                 if (now_typing || now_uploading || r2App.annot_private_spotlight.changed) {
                     if (now_typing)
                         $(r2App.cur_focused_piece_keyboard.dom_textbox).blur();
-                    return "The webapp is uploading your note. Please wait for seconds, and retry.";
+                    return "The webapp is now uploading your data. Please wait for seconds, and retry.";
                 }
             };
 

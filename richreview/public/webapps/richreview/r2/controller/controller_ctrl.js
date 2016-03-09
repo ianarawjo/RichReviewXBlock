@@ -58,13 +58,13 @@
     r2.clickPlay = function(){
         if(r2App.mode == r2App.AppModeEnum.IDLE && r2App.cur_annot_id != null){
             r2.rich_audio.play(r2App.cur_annot_id, -1);
-            r2.log.Log_AudioPlay('r2.clickPlay', r2App.cur_annot_id, r2.audioPlayer.getPlaybackTime());
+            r2.log.Log_AudioPlay('indexing_panel', r2App.cur_annot_id, r2.audioPlayer.getPlaybackTime());
         }
     };
 
     r2.clickStop = function(){
         if(r2App.mode == r2App.AppModeEnum.REPLAYING && r2App.cur_annot_id != null) {
-            r2.log.Log_AudioStop('r2.clickStop', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
+            r2.log.Log_AudioStop('indexing_panel', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
             r2.rich_audio.stop();
         }
     };
@@ -135,11 +135,12 @@
     };
 
     /** controller functions */
-    r2.turnPageAndSetFocus = function(searchresult){
+    r2.turnPageAndSetFocus = function(searchresult, annotid){
         var piece = searchresult["piece"];
         r2.booklet.goToAbsPage(searchresult["page_n"]);
         r2.viewCtrl.setToFocus(new Vec2(piece.pos.x+ piece.GetContentSize().x/2, piece.pos.y));
         r2App.pieceSelector.set(searchresult["piece"]);
+        r2.dom_model.focusCtrl.focusPiece(annotid);
     };
 
     /** reset canvas size */
@@ -169,7 +170,7 @@
         r2App.invalidate_static_scene = true;
         r2App.invalidate_dynamic_scene = true;
 
-        r2.log.Log_RefreshCanvasSize();
+        //r2.log.Log_RefreshCanvasSize();
     };
 
 }(window.r2 = window.r2 || {}));
