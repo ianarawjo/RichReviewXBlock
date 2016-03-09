@@ -93,7 +93,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         });
                     },
                     synthesize: function synthesize(talkens, options) {
-                        return r2.audiosynth.synthesize(talkens, options).then(function (rsc) {
+                        return r2.audiosynth.synthesize(talkens, { mode: 'TTS', transfer: options }).then(function (rsc) {
                             var url = rsc.url;var blob = rsc.blob;
                             return new Promise(function (resolve, reject) {
                                 if (!url) reject("Audio.synthesize: Null url.");else resolve(Audio.for(url, blob));
@@ -502,7 +502,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
-                } else if (mode != 'natural' && mode != 'anon') {
+                } else if (mode !== 'natural' && mode !== 'anon') {
                     console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }
@@ -540,13 +540,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     });
                 };
 
-                if (mode == 'natural') return Audio.stitch(talkens).then(after_stitching).catch(function (err) {
-                    console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
-                    _stitching = false;
-                });else if (mode == 'anon') return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function (err) {
-                    console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
-                    _stitching = false;
-                });
+                if (mode === 'natural') {
+                    return Audio.stitch(talkens).then(after_stitching).catch(function (err) {
+                        console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
+                        _stitching = false;
+                    });
+                } else if (mode === 'anon') {
+                    return Audio.synthesize(talkens, '').then(after_stitching).catch(function (err) {
+                        console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
+                        _stitching = false;
+                    });
+                }
             };
             return pub;
         };
@@ -734,12 +738,15 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             // Download text-to-speech audio from reputable synthesizer
             // (1) If no post-processing is needed, just return Watson's response.
-            if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) return getTTSAudioFromWatson(ssml).then(function (rsc) {
-                var aud = { 'url': rsc[0], 'blob': rsc[1] };
-                return new Promise(function (resolve, reject) {
-                    resolve(aud);
+            if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) {
+                console.warn('Only returning raw TTS with config', config.transfer);
+                return getTTSAudioFromWatson(ssml).then(function (rsc) {
+                    var aud = { 'url': rsc[0], 'blob': rsc[1] };
+                    return new Promise(function (resolve, reject) {
+                        resolve(aud);
+                    });
                 });
-            });
+            }
 
             // (2) Perform post-processing.
             var src_ts = toTimestamps(talkens);

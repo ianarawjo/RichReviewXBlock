@@ -1535,7 +1535,7 @@
 
         this.simplespeech.monitor();
 
-        //this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+        this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
 
         this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
 
