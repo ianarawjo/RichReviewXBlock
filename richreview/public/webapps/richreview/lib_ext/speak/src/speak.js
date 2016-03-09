@@ -332,7 +332,6 @@
                 if (!_needscompile) return; // nothing to do!
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
-                debugger;
                 _needscompile = false;
             };
             var _compile = (talkens, edits) => {
@@ -449,7 +448,7 @@
                         _stitching = false;
                     });
                 else if (mode == 'anon')
-                    return Audio.synthesize(talkens, '').then(after_stitching).catch(function(err) {
+                    return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function(err) {
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });

@@ -1488,24 +1488,8 @@
         this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
-        if (this.UIMODE === 'simplespeech') {
-            this.simplespeech.stopMonitoring();
-            return;
-        }
-        var i;
-        for(i = 0; i < this._temporary_n; ++i){
-            $(this.dom_textbox).find(':last-child').remove();
-        }
-        for(let w of words){
-            var $span = $(document.createElement('span'));
-            $span.text(w[0]+' ');
-            $(this.dom_textbox).append($span);
-        }
-        this._temporary_n = words.length;
-        if(this.updateSizeWithTextInput()){
-            r2App.invalidate_size = true;
-            r2App.invalidate_page_layout = true;
-        }
+        this.simplespeech.stopMonitoring();
+        return;
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
 
@@ -1548,9 +1532,10 @@
         }
     };
     r2.PieceSimpleSpeech.prototype.compileSpeech = function() {
+
         this.simplespeech.monitor();
 
-        this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+        //this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
 
         this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
 

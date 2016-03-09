@@ -430,7 +430,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (!_needscompile) return; // nothing to do!
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
-                debugger;
                 _needscompile = false;
             };
             var _compile = function _compile(talkens, edits) {
@@ -544,7 +543,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (mode == 'natural') return Audio.stitch(talkens).then(after_stitching).catch(function (err) {
                     console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                     _stitching = false;
-                });else if (mode == 'anon') return Audio.synthesize(talkens, '').then(after_stitching).catch(function (err) {
+                });else if (mode == 'anon') return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function (err) {
                     console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                     _stitching = false;
                 });
