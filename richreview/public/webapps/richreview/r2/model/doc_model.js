@@ -1089,6 +1089,9 @@
 
         var dom = this.CreateDom();
 
+        // Set a callback for getting the audio URL when recording finishes:
+        r2App.annots[this._annotid].onEndRecording = this.onEndRecording.bind(this);
+
         r2.dom_model.appendPieceEditableAudio(
             this._username,
             this._annotid,
@@ -1134,6 +1137,9 @@
             this.dom_textbox.setAttribute('contenteditable', 'false');
         }
 
+        // Create edit controller
+        this.speak_ctrl = new r2.speak.controller();
+
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
@@ -1157,6 +1163,11 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
             $(this.dom).css("pointer-events", 'none');
+
+            this.updateSpeakCtrl();
+            this.compileSpeechEdits();
+            this.renderAudio();
+
             if(this.__contentschanged){
                 console.log('>>>>__contentschanged:', this.ExportToTextChange());
                 r2Sync.PushToUploadCmd(this.ExportToTextChange());
@@ -1169,6 +1180,19 @@
 
         return this.dom;
     };
+    r2.PieceNewSpeak.prototype.updateSpeakCtrl = function() {
+        this.speak_ctrl.update($(this.dom_textbox).text());
+    };
+    r2.PieceNewSpeak.prototype.compileSpeechEdits = function() {
+        this.speak_ctrl.compile();
+    };
+    r2.PieceNewSpeak.prototype.renderAudio = function() {
+        this.speak_ctrl.renderAudio().then((function(audio) {
+            console.log("Audio rendered to url ", audio.url);
+            this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+        }).bind(r2App.annots[this.GetAnnotId()]));
+    };
+
     r2.PieceNewSpeak.prototype.updateSizeWithTextInput = function(){
         var getHeight = function($target){
             var $next = $target.next();
@@ -1221,6 +1245,7 @@
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
         }
+        this._last_words = words;
         this._temporary_n = words.length;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
@@ -1238,10 +1263,46 @@
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
         }
+
+        this._last_words = words;
+
+        if (this._last_audio_url) {
+
+            console.log('hello1');
+            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+            this.updateSpeakCtrl();
+            this.compileSpeechEdits();
+            this.renderAudio();
+
+            this._last_words = null;
+            this._last_audio_url = null;
+        }
+
         this._temporary_n = 0;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
             r2App.invalidate_page_layout = true;
+        }
+    };
+    r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
+        console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
+
+        if (this._last_words === null) {
+            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
+            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
+            this._last_audio_url = audioURL;
+        }
+        else {
+
+            this._last_audio_url = audioURL;
+
+            console.log('hello 2');
+            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+            this.updateSpeakCtrl();
+            this.compileSpeechEdits();
+            this.renderAudio();
+
+            this._last_words = null;
         }
     };
     r2.PieceNewSpeak.prototype.doneCaptioning = function(){
@@ -1275,9 +1336,6 @@
 
         // Set a callback for getting the audio URL when recording finishes:
         r2App.annots[this._annotid].onEndRecording = this.onEndRecording.bind(this);
-
-        // Set user interface type
-        this.UIMODE = 'simplespeech'; // newspeak || simplespeech
 
         var dom = this.CreateDom();
 
@@ -1329,11 +1387,10 @@
         // Create edit controller
         this.speak_ctrl = new r2.speak.controller();
 
-        if (this.UIMODE === 'simplespeech') { // SimpleSpeech UI wrapper
-            this.simplespeech = new simplespeech.ui(this.dom_textbox, function(editHistory) {
-                this.speak_ctrl.updateSimpleSpeech(editHistory);
-            }.bind(this));
-        }
+        // SimpleSpeech UI wrapper
+        this.simplespeech = new simplespeech.ui(this.dom_textbox, function(editHistory) {
+            this.speak_ctrl.updateSimpleSpeech(editHistory);
+        }.bind(this));
 
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
@@ -1341,9 +1398,7 @@
         this.dom_textbox.addEventListener('input', function() {
 
             // Notify audio controller that text has changed
-            if (this.UIMODE === 'simplespeech') {
-                // do nothing -- input is handled in simplespeech-ui
-            }
+            // * happens automatically in SSUI *
             //else this.speak_ctrl.update($(this.dom_textbox).text());
 
             // * For now, compile immediately...
@@ -1369,12 +1424,8 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
-            else
-                this.speak_ctrl.update($(this.dom_textbox).text());
+            this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
 
-            this.speak_ctrl.compile();
             this.speak_ctrl.renderAudioAnon().then((function(audio) {
                 console.log("Audio rendered to url ", audio.url);
                 this.SetRecordingAudioFileUrl(audio.url, audio.blob);
@@ -1436,7 +1487,7 @@
         }
         this.resizeDom();
     };
-    r2.PieceEditableAudio.prototype.setCaptionTemporary = function(words){
+    r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
         if (this.UIMODE === 'simplespeech') {
             this.simplespeech.stopMonitoring();
             return;
@@ -1458,60 +1509,21 @@
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
 
-        if (this.UIMODE === 'simplespeech') {
-            var ts = '';
-            for (let w of words) {
-                ts += w[0] + ' ';
-            }
-            this.simplespeech.set(ts.trim());
-        } else {
-            var i;
-            for(i = 0; i < this._temporary_n; ++i){
-                $(this.dom_textbox).find(':last-child').remove();
-            }
-            for(let w of words){
-                var $span = $(document.createElement('span'));
-                /*$span.css("border-style","solid");
-                $span.css("border-width","0.1em");
-                $span.css("border-color","PaleTurquoise");
-                $span.css("background-color","#bbe3f5");
-                $span.css("margin","0.1em");
-                $span.text(' ' + w[0] + ' ');*/
-                $span.text(w[0] + ' ');
-                $(this.dom_textbox).append($span);
-
-                /*var $space = $(document.createElement('span'));
-                $space.css("border-style","solid");
-                $space.css("border-width","0.1em");
-                $space.css("border-color","#7f8000");
-                $space.css("background-color","#ffff99");
-                $space.css("margin","0.04em");
-                $space.text(' ');
-                $(this.dom_textbox).append($space);*/
-            }
+        var ts = '';
+        for (let w of words) {
+            ts += w[0] + ' ';
         }
+        this.simplespeech.set(ts.trim());
 
         this._last_words = words;
 
         console.log("setCaptionFinal with words", this, words, "url", this._last_audio_url);
 
         if (this._last_audio_url) {
+            this.compileSpeech();
 
-            if (this.UIMODE === 'simplespeech')
-                this.simplespeech.monitor();
-
-            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
             this._last_words = null;
             this._last_audio_url = null;
-
-            if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
-
-            this.speak_ctrl.compile();
-            this.speak_ctrl.renderAudioAnon().then((function(audio) {
-                console.log("Audio rendered to url ", audio.url);
-                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
-            }).bind(r2App.annots[this.GetAnnotId()]));
         }
 
         this._temporary_n = 0;
@@ -1530,21 +1542,22 @@
         }
         else {
 
-            if (this.UIMODE === 'simplespeech')
-                this.simplespeech.monitor();
-
-            this.speak_ctrl.insertVoice(0, this._last_words, audioURL); // for now
+            this._last_audio_url = audioURL;
+            this.compileSpeech();
             this._last_words = null;
-
-            if (this.UIMODE === 'simplespeech')
-                this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
-
-            this.speak_ctrl.compile();
-            this.speak_ctrl.renderAudioAnon().then((function(audio) {
-                console.log("Audio rendered to url ", audio.url);
-                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
-            }).bind(r2App.annots[this.GetAnnotId()]));
         }
+    };
+    r2.PieceSimpleSpeech.prototype.compileSpeech = function() {
+        this.simplespeech.monitor();
+
+        this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+
+        this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getEditHistory());
+
+        this.speak_ctrl.renderAudioAnon().then((function(audio) {
+            console.log("Audio rendered to url ", audio.url);
+            this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+        }).bind(r2App.annots[this.GetAnnotId()]));
     };
     r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){
         this.Focus();

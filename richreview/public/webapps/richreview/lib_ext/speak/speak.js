@@ -429,6 +429,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.compile = function () {
                 if (!_needscompile) return; // nothing to do!
                 edited = _compile(base, ops);
+                console.log('edited: ', edited);
+                debugger;
                 _needscompile = false;
             };
             var _compile = function _compile(talkens, edits) {

@@ -331,6 +331,8 @@
             pub.compile = () => {
                 if (!_needscompile) return; // nothing to do!
                 edited = _compile(base, ops);
+                console.log('edited: ', edited);
+                debugger;
                 _needscompile = false;
             };
             var _compile = (talkens, edits) => {
