@@ -456,7 +456,7 @@ var r2Ctrl = {};
         else if(obj_front instanceof r2.PieceKeyboard){
             obj_front.Focus();
         }
-        else if(obj_front instanceof r2.PieceEditableAudio){
+        else if(obj_front instanceof r2.PieceSimpleSpeech){
             obj_front.Focus();
         }
         else{
@@ -636,14 +636,16 @@ var r2Ctrl = {};
                         }
                         break;
                     case CONST.KEY_ENTER: // enter
-                        if (pub.ctrlkey_dn) {
-                            createPieceKeyboard(isprivate = true);
-                            r2.log.Log_Simple("CreatePieceKeyboard_Private_Enter");
-                        }
-                        else if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
+                        if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
                             if(!r2App.pieceSelector.isNull()){
                                 r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.SIMPLE_SPEECH);
                                 r2.log.Log_Simple("Recording_Bgn_Enter_SimpleSpeech");
+                            }
+                        }
+                        else if(pub.ctrlkey_dn){
+                            if(!r2App.pieceSelector.isNull()){
+                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.NEW_SPEAK);
+                                r2.log.Log_Simple("Recording_Bgn_Enter_NewSpeak");
                             }
                         }
                         else { // trigger recording using Waveform UI
@@ -666,14 +668,16 @@ var r2Ctrl = {};
                     case CONST.KEY_ENTER: // enter
                         r2.log.Log_AudioStop('enter_0', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                         r2.rich_audio.stop();
-                        if (pub.ctrlkey_dn) {
-                            createPieceKeyboard(isprivate = true);
-                            r2.log.Log_Simple("CreatePieceKeyboard_Private_Enter");
-                        }
-                        else if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
+                        if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
                             if(!r2App.pieceSelector.isNull()){
                                 r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.SIMPLE_SPEECH);
                                 r2.log.Log_Simple("Recording_Bgn_Enter_SimpleSpeech");
+                            }
+                        }
+                        else if(pub.ctrlkey_dn){
+                            if(!r2App.pieceSelector.isNull()){
+                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.NEW_SPEAK);
+                                r2.log.Log_Simple("Recording_Bgn_Enter_NewSpeak");
                             }
                         }
                         else {
