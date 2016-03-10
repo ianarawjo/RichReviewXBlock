@@ -1211,7 +1211,6 @@
             $(this.dom).css("pointer-events", 'none');
 
             this.updateSpeakCtrl();
-            this.compileSpeechEdits();
             this.renderAudio();
 
             if(this.__contentschanged){
@@ -1228,9 +1227,6 @@
     };
     r2.PieceNewSpeak.prototype.updateSpeakCtrl = function() {
         this.speak_ctrl.update($(this.dom_textbox).text());
-    };
-    r2.PieceNewSpeak.prototype.compileSpeechEdits = function() {
-        this.speak_ctrl.compile();
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         this.speak_ctrl.renderAudio().then((function(audio) {
@@ -1317,7 +1313,6 @@
             console.log('hello1');
             this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
             this.updateSpeakCtrl();
-            this.compileSpeechEdits();
             this.renderAudio();
 
             this._last_words = null;
@@ -1345,7 +1340,6 @@
             console.log('hello 2');
             this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
             this.updateSpeakCtrl();
-            this.compileSpeechEdits();
             this.renderAudio();
 
             this._last_words = null;

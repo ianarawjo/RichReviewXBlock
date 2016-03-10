@@ -27,7 +27,7 @@
             var base = [];
             var ops = [];
             var edited = [];
-            var _needscompile = false;
+            var _needsupdate = false;
             var _stitching = false;
 
             // Internal utils
@@ -221,7 +221,7 @@
                 // Insert talkens at index in list of stored talkens
                 utils.injectArray(base, talkens, index);
 
-                _needscompile = true;
+                _needsupdate = true;
                 return true;
             };
 
@@ -243,14 +243,14 @@
                 redostack.record();
                 var prev_ts = undostack.pop();
                 base = prev_ts;
-                _needscompile = true;
+                _needsupdate = true;
             };
             pub.redo = () => {
                 if (redostack.length === 0) return;
                 undostack.record();
                 var next_ts = redostack.pop();
                 base = next_ts;
-                _needscompile = true;
+                _needsupdate = true;
             };
             pub.remove = (start_idx, len) => {
                 undostack.record();
@@ -259,7 +259,7 @@
                     console.warn("r2.speak.remove: Incorrect range.");
                     return false; }
                 base.splice(start_idx, len);
-                _needscompile = true;
+                _needsupdate = true;
                 return true;
             };
             pub.cut = (start_idx, len) => {
@@ -275,14 +275,14 @@
                 undostack.record();
                 redostack.clear();
                 if (start_idx > base.length) {
-                    console.log("r2.speak.parse: caution: start index past length of array.", start_idx);
+                    console.log("r2.speak.paste: caution: start index past length of array.", start_idx);
                     start_idx = base.length;
                 }
                 if (!clipboard) {
                     console.warn("r2.speak.paste: Nothing in clipboard.");
                     return false; }
                 base.splice(start_idx, 0, Talken.clone(clipboard));
-                _needscompile = true;
+                _needsupdate = true;
                 return true;
             };
 
@@ -306,20 +306,19 @@
                 // Store
                 ops = edits;
 
-                _needscompile = true;
+                // Compile edits
+                edited = _compile(base, ops);
+                console.log('edited: ', edited);
 
+                _needsupdate = false;
             };
 
-            pub.updateSimpleSpeech = (editHistory) => {
-                var bs = Talken.clone(base);
-                edited = editHistory.apply(bs, function(op) {
-                    return new Talken(op.word, 0, 0, null);
-                });
+            pub.updateSimpleSpeech = (ctrl_talkens) => {
 
-                console.log('Base w/ edit graph applied: ', edited);
+                // Convert simple speech talkens into Array of Talken objects
+                edited = ctrl_talkens.map((($span) => new Talken($span[0].word, $span[0].bgn, $span[0].end, Audio.for($span[0].audioURL))));
 
-                _needscompile = false;
-                ops = []; // compile does nothing now.
+                _needsupdate = false;
             };
 
             /*
@@ -328,13 +327,9 @@
                 NOTE: If you pass nothing, it'll compile on r2.speak variables base and ops.
                 NOTE: If you just pass talkens, it'll try to use stored edit operations from update().
              */
-            pub.compile = () => {
-                if (!_needscompile) return; // nothing to do!
-                edited = _compile(base, ops);
-                console.log('edited: ', edited);
-                _needscompile = false;
-            };
             var _compile = (talkens, edits) => {
+
+                console.log("Compiling talkens, edits: ", talkens, edits);
 
                 var ts = Talken.clone(talkens);
 
@@ -354,31 +349,36 @@
                 for (var i = 0; i < edits.length; i++) {
                     var e = edits[i];
 
+                    console.log(" :: For edit ", e);
+
                     if (e.type === EditType.REPL) {
 
-                        // We call a function here that we'll specify
-                        // later... If text is
+                        console.log(" :: -> replacing word ", ts[j].word, 'with', e.text);
                         ts[j].replaceWord(e.text);
 
                     } else if (e.type === EditType.DEL) {
                         checkmatch(e, ts[j]); // the word of the deleted talken should match the word deleted in the edit
 
+                        console.log(" :: -> removing talken ", ts[j]);
+
                         // At index j remove 1 talken.
                         ts.splice(j, 1);
 
-                        j--;
+                        //j--;
                     } else if (e.type === EditType.INS) {
 
                         // At index j insert a new talken.
                         // NOTE: We don't know what the audio is yet, so we pass null.
                         // This should flag the synthesis func that we need audio
                         // for this talken before stitching can take place.
+                        console.log(" :: -> inserting talken at", j, "w/ word", e.text);
                         ts.splice(j, 0, new Talken(e.text, 0, 0, null));
 
                         j++; // skip over the inserted talken
-                    } else checkmatch(e, ts[j]); // nothing better have changed!
-
-                    j++;
+                    } else {
+                        checkmatch(e, ts[j]); // nothing better have changed!
+                        j++;
+                    }
                 }
 
                 return ts;
@@ -401,7 +401,11 @@
                     console.warn("Error @ r2.speak.render: Audio is currently being stitched from a previous play() call. Please wait.");
                     return null;
                 }
-                if (!edited || edited.length === 0) {
+                else if (_needsupdate) {
+                    console.error("Error @ r2.speak.render: Unsure whether internal model of talkens matches visual. Please call update method before rendering.");
+                    return null;
+                }
+                else if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
                 } else if (mode !== 'natural' && mode !== 'anon') {
@@ -449,7 +453,7 @@
                     });
                 }
                 else if (mode === 'anon') {
-                    return Audio.synthesize(talkens, '').then(after_stitching).catch(function(err) {
+                    return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function(err) {
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
@@ -646,7 +650,7 @@
             }).then(function(target_ts) {          // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
                 if (!target_ts) throw 'No timestamps returned.';
-                else if (target_ts.length !== src_timestamps.length) throw 'Timestamp data mismatch: ' + src_timestamps.length + ' != ' + target_ts.length;
+                else if (target_ts.length !== src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
                 console.log('synthesize: Data checked. Transferring prosody...');
                 return Praat.transfer(srcwav, twav, src_ts, target_ts, config.transfer);   // Transfer properties from speech to TTS waveform.
             }).then(function(resynth_blob) { // Transfer blob data to URL
