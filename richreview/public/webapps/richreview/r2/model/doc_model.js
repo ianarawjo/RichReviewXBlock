@@ -1172,7 +1172,9 @@
         this.dom.appendChild(this.dom_tr);
 
         this.dom_textbox = document.createElement('div');
+        this.dom_textbox.setAttribute('contenteditable', 'true');
         this.dom_textbox.classList.toggle('r2_piece_simplespeech', true);
+        this.dom_textbox.classList.toggle('text_selectable', true);
         this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
         this.dom_tr.appendChild(this.dom_textbox);
 
@@ -1202,23 +1204,26 @@
             var color = r2.userGroup.GetUser(this._username).color_piecekeyboard_box_shadow;
             this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
             $(this.dom).css("pointer-events", 'auto');
+            $(this.dom_textbox).toggleClass('editing', true);
         }.bind(this));
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
-            $(this.dom).css("pointer-events", 'none');
 
             this.updateSpeakCtrl();
             this.renderAudio();
 
+            $(this.dom).css("pointer-events", 'none');
+            $(this.dom_textbox).toggleClass('editing', false);
             if(this.__contentschanged){
-                console.log('>>>>__contentschanged:', this.ExportToTextChange());
-                r2Sync.PushToUploadCmd(this.ExportToTextChange());
+                //console.log('>>>>__contentschanged:', this.ExportToTextChange());
+                //r2Sync.PushToUploadCmd(this.ExportToTextChange());
                 this.__contentschanged = false;
             }
         }.bind(this));
+
         /* add event handlers*/
 
         this.resizeDom();
@@ -1287,7 +1292,6 @@
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
         }
-        this._last_words = words;
         this._temporary_n = words.length;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
@@ -1306,18 +1310,25 @@
             $(this.dom_textbox).append($span);
         }
 
-        this._last_words = words;
-
-        if (this._last_audio_url) {
-
-            console.log('hello1');
-            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
-            this.updateSpeakCtrl();
-            this.renderAudio();
-
-            this._last_words = null;
-            this._last_audio_url = null;
+        if (!this._last_words)
+            this._last_words = words;
+        else {
+            var lw = this._last_words;
+            words.forEach(function(wrd) {
+                lw.push(wrd);
+            });
         }
+
+        // if (this._last_audio_url) {
+        //
+        //     console.log('hello1');
+        //     this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+        //     this.updateSpeakCtrl();
+        //     this.renderAudio();
+        //
+        //     this._last_words = null;
+        //     this._last_audio_url = null;
+        // }
 
         this._temporary_n = 0;
         if(this.updateSizeWithTextInput()){

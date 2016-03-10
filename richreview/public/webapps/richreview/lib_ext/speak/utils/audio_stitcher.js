@@ -32,6 +32,8 @@
                     wav_urls.push(snippet.url);
             });
 
+            console.log("Running r2.audioStitcher for snippets: ", snippets);
+
             loadWavFromUrls(wav_urls, src_wavs).then(
                 function(wavs){
                     final_wav = getWavFormat(wavs);
