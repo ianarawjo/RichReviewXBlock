@@ -158,27 +158,14 @@
 
         pub.set = function(txt) {
             // Add words (set initial state)
-            var words = txt.split(' '); var $vt, $ct, guid;
+            var words = txt.split(' '); var $vt, $ct, uid;
             var setops = [];
             words.forEach(function(word) {
-
-                // Create unique id for text element
-                guid = r2.util.generateGuid();
-
-                $vt = generateViewTalken(guid, word);
-                $overlay.append($vt);
-
-                $ct = generateCtrlTalken($vt, guid, word);
-                $textbox.append($ct);
-
-                $ct.attr('idx', $textbox.children().index($ct));
-                console.log('index: ', $ct.attr('idx'));
-
-                setops.push([guid, word]);
-
-                positionViewTalken($ct, $textbox);
-
+                uid = createTalken(word);
+                setops.push([uid, word]);
             });
+
+            renderViewTalkens();
 
             if (pub.onset) pub.onset(setops);
         };
@@ -188,6 +175,79 @@
         };
         pub.stopMonitoring = function() {
             observer.disconnect();
+        };
+
+        pub.setCaptionTemporary = function(words){
+            removeTempTalkens();
+            words.forEach(function(word){
+                createTalken(word[0], true); // is_temp = true
+            });
+            renderViewTalkens();
+        };
+        pub.setCaptionFinal = function(words){
+            removeTempTalkens();
+            words.forEach(function(word){
+                createTalken(word[0], false); // is_temp = false
+            });
+            renderViewTalkens();
+        };
+        pub.doneCaptioning = function(){
+
+        };
+
+        var createTalken = function(word, is_temp){
+            function newViewTalken(uid, word) {
+                var $vt = $(document.createElement('div'));
+                $vt.addClass('ssui-viewtalken');
+                $vt.attr('uid', uid);
+
+                var $vt_span = $(document.createElement('span'));
+                $vt_span.addClass('ssui-viewtalken-span');
+                $vt_span.text(word);
+                $vt.append($vt_span);
+
+                if (word.indexOf('\xa0') === -1) $vt.addClass('ssui-blue'); // blue if not a space
+                else $vt.addClass('pause');
+                return $vt;
+            }
+            function newCtrlTalken($vt, uid, word) {
+                var $ct = $(document.createElement('span'));
+                $ct.addClass('ssui-ctrltalken');
+                $ct.text('\xa0');
+
+                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+                $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
+                $ct.attr('uid', uid);
+                $ct.attr('word', word);
+                $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
+                return $ct;
+            }
+
+            var uid = r2.util.generateGuid();
+
+            var $vt = newViewTalken(uid, word);
+            $overlay.append($vt);
+
+            var $ct = newCtrlTalken($vt, uid, word);
+            $textbox.append($ct);
+
+            if(is_temp){
+                $vt.toggleClass('temp', true);
+                $ct.toggleClass('temp', true);
+            }
+
+            return uid;
+        };
+
+        var removeTempTalkens = function(){
+            $overlay.find('.temp').remove();
+            $textbox.find('.temp').remove();
+        };
+
+        var renderViewTalkens = function(){
+            $textbox.children('span').each(function(idx) {
+                positionViewTalken($(this), $textbox);
+            });
         };
 
         // Events
@@ -341,32 +401,6 @@
             var arr = [];
             for(var i = nl.length; i--; arr.unshift(nl[i]));
             return arr;
-        }
-        function generateViewTalken(uid, word) {
-            var $vt = $(document.createElement('div'));
-            $vt.addClass('ssui-viewtalken');
-            $vt.attr('id', uid);
-
-            var $vt_span = $(document.createElement('span'));
-            $vt_span.addClass('ssui-viewtalken-span');
-            $vt_span.text(word);
-            $vt.append($vt_span);
-
-            if (word.indexOf('\xa0') === -1) $vt.addClass('ssui-blue'); // blue if not a space
-            else $vt.addClass('pause');
-            return $vt;
-        }
-        function generateCtrlTalken($vt, uid, word) {
-            var $ct = $(document.createElement('span'));
-            $ct.addClass('ssui-ctrltalken');
-            $ct.text('\xa0');
-
-            $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
-            $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
-            $ct.attr('uid', uid);
-            $ct.attr('word', word);
-            $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
-            return $ct;
         }
 
         function transferPx2Em(px, this_font_size){
