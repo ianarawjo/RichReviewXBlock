@@ -310,13 +310,9 @@
 
             };
 
-            pub.updateSimpleSpeech = (editHistory) => {
-                var bs = Talken.clone(base);
-                edited = editHistory.apply(bs, function(op) {
-                    return new Talken(op.word, 0, 0, null);
-                });
+            pub.updateSimpleSpeech = (ctrl_talkens) => {
 
-                console.log('Base w/ edit graph applied: ', edited);
+                edited = ctrl_talkens.map((($span) => new Talken($span[0].word, $span[0].bgn, $span[0].end, Audio.for($span[0].audioURL))));
 
                 _needscompile = false;
                 ops = []; // compile does nothing now.
@@ -356,8 +352,6 @@
 
                     if (e.type === EditType.REPL) {
 
-                        // We call a function here that we'll specify
-                        // later... If text is
                         ts[j].replaceWord(e.text);
 
                     } else if (e.type === EditType.DEL) {
@@ -449,7 +443,7 @@
                     });
                 }
                 else if (mode === 'anon') {
-                    return Audio.synthesize(talkens, '').then(after_stitching).catch(function(err) {
+                    return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function(err) {
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
@@ -646,7 +640,7 @@
             }).then(function(target_ts) {          // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
                 if (!target_ts) throw 'No timestamps returned.';
-                else if (target_ts.length !== src_timestamps.length) throw 'Timestamp data mismatch: ' + src_timestamps.length + ' != ' + target_ts.length;
+                else if (target_ts.length !== src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
                 console.log('synthesize: Data checked. Transferring prosody...');
                 return Praat.transfer(srcwav, twav, src_ts, target_ts, config.transfer);   // Transfer properties from speech to TTS waveform.
             }).then(function(resynth_blob) { // Transfer blob data to URL

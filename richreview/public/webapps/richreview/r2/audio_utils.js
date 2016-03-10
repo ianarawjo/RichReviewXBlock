@@ -68,6 +68,12 @@
             m_audio = new Audio(cmd.param_url);
             m_audio.preload = "auto";
             m_audio.loop = false;
+
+            // This doesn't add streaming functionality. Wonder why...
+            //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
+            //m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
+            //console.log(m_audio);
+
             m_audio.addEventListener('ended', function() {
                 if(r2.log)
                     r2.log.Log_AudioStop('auto', pub.getCurAudioFileId(), pub.getPlaybackTime());
