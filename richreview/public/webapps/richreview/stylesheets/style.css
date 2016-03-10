@@ -294,7 +294,6 @@ a:active {
 .r2_piece_editable_audio {
   border: 0;
   pointer-events: none;
-  z-index: 18;
 }
 .r2_piece_editable_audio_tr {
   position: relative;
