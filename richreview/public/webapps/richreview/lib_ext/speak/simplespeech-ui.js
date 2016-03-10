@@ -104,9 +104,6 @@
         var $textbox = $(_textbox);
         var $overlay = $(_overlay);
 
-        // Mutation observer
-        var observer, config;
-
         // Edit history
         var edit_history;
         pub.getEditHistory = function() {
@@ -151,9 +148,8 @@
             edit_history.listen(pub, cbOnEdit);
 
             // Setup event handlers
-            $textbox[0].addEventListener('keydown', onkeydown);
-            observer = new MutationObserver(onmutation);
-            config = { attributes: true, childList: true, characterData: true, subtree:true };
+            $textbox[0].addEventListener('keydown', onKeyDown);
+            document.onselectionchange = onSelectionChange;
         };
 
         pub.set = function(txt) {
@@ -168,13 +164,6 @@
             renderViewTalkens();
 
             if (pub.onset) pub.onset(setops);
-        };
-
-        pub.monitor = function() {
-            observer.observe($textbox[0], config);
-        };
-        pub.stopMonitoring = function() {
-            observer.disconnect();
         };
 
         pub.setCaptionTemporary = function(words){
@@ -251,121 +240,38 @@
         };
 
         // Events
-        var onkeydown = function(e) {
-            var allowed_keys = [8, 37, 38, 39, 40, 8];
-            var allowed_keys_with_mod = [86, 88, 90, 67];
-            if (e.keyCode === 32) { // SPACE
+        var onKeyDown = function(e) {
+            console.log('keyCode', e.keyCode);
+            var key_enable_default = [
+                r2.keyboard.CONST.KEY_LEFT,
+                r2.keyboard.CONST.KEY_RGHT,
+                r2.keyboard.CONST.KEY_UP,
+                r2.keyboard.CONST.KEY_DN
+            ];
 
-                var c = caret()+2;
-                var $o = overlayAtIndex(c);
-                if ($o.hasClass('pause')) {
+            if(key_enable_default.indexOf(e.keyCode) > -1){
 
-                    console.log('extending space');
-
-                    var added_space = $o.text() + '\xa0';
-                    $o.text(added_space);
-                    $o.attr('word', added_space);
-
-                    var $s = spanAtIndex(c);
-                    $s.css('letter-spacing', $o.width());
-                    $s.attr('word', added_space);
-
-                    pub.onreplace(c, $o.attr('uid'), added_space);
-
-                } else if (overlayAtIndex(c+1).length > 0 && overlayAtIndex(c+1).hasClass('pause')) {
-
-                } else { // insert space
-
-                    console.log('inserting space');
-
-                    // We don't want the MutationObserver to respond to this change...
-                    safeDOMChangeWrapper(function() {
-
-                        var guid = r2.util.generateGuid();
-                        var $space_overlay = generateViewTalken(guid, '\xa0');
-                        $o.after($space_overlay);
-
-                        var $space = generateCtrlTalken($space_overlay, guid, '\xa0');
-                        spanAtIndex(c).after($space);
-
-                        $space.css('letter-spacing', $space_overlay.width());
-
-                        updateIdx();
-
-                        pub.oninsert(c+1, guid, '\xa0');
-
-                    });
-
+            }
+            else {
+                if(e.keyCode === r2.keyboard.CONST.KEY_SPACE) {
                 }
-
                 e.preventDefault();
-
-            } else if ($.inArray(e.keyCode, allowed_keys) > -1) {
-
-            } else if ($.inArray(e.keyCode, allowed_keys_with_mod) > -1)  { // backspace / delete, x, z, c, v
-
-            } else e.preventDefault();
-        };
-
-        var onmutation = function(mutations) {
-            var addedNodes = [];
-
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes') return;
-
-                console.log(mutation);
-
-                updateIdx();
-
-                $(mutation.removedNodes).each(function(value, index) {
-                    if(this.nodeType === 1 && $(this).hasClass('ssui-ctrltalken')) {
-                        var uid = $(this).attr('uid');
-                        $('#' + uid).remove();
-                        console.log($(this).attr('idx'), this);
-
-                        pub.onremove($(this).attr('idx'), uid, $(this).attr('word'));
-                    }
-                });
-
-                // Sort any added nodes:
-                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-                    var arr = nltoarr(mutation.addedNodes);
-                    arr.forEach(function(a){
-                        if ($(a).hasClass('ssui-ctrltalken'))
-                            addedNodes.push(a);
-                    });
-                }
-            });
-
-            if (addedNodes.length > 0) {
-                addedNodes.sort(function(a,b) {
-                    console.log($(a).attr('idx'), $(b).attr('idx'));
-                    return Number($(a).attr('idx')) - Number($(b).attr('idx'));
-                });
-                console.log('added ', addedNodes);
-                var previdx = Number($(addedNodes[0]).attr('idx'));
-                $(addedNodes).each(function(value, index) {
-                    if(this.nodeType === 1) {
-                        var $prevtxt = overlayAtIndex(previdx+1);
-                        //var $prevtxt = $('#' + $(this).prev().attr('uid'));
-                        console.log(value, previdx, $prevtxt[0]);
-                        var uid = $(this).attr('uid');
-                        var word = $(this).attr('word');
-                        var $t = generateViewTalken(uid, word);
-                        if (previdx === 1) {
-                            var $next = overlayAtIndex(previdx+1);
-                            if (!$next || $next.length === 0) $overlay.prepend($t);
-                            else                              $t.insertBefore($next);
-                        } else
-                            $t.insertAfter($prevtxt);
-                        console.log("Added: ", word, this);
-                        previdx++;
-
-                        pub.oninsert(previdx, uid, word);
-                    }
-                });
             }
         };
+        var onSelectionChange = function(e){
+
+            console.log(
+                'selection_change'
+            );
+            console.log(
+                window.getSelection().anchorNode.parentNode,
+                window.getSelection().focusNode.parentNode,
+                window.getSelection().anchorOffset,
+                window.getSelection().focusOffset,
+                window.getSelection().isCollapsed
+            );
+        };
+
         var positionViewTalken = function($ctrl_talken, $edit_box){
             var $vt = $ctrl_talken[0].$vt;
 
@@ -386,21 +292,6 @@
         }
         function spanAtIndex(c) {
             return $($textbox.children()[c-1]);
-        }
-        function updateIdx() {
-            $textbox.children('span').each(function(value) {
-                $(this).attr('idx', value+1);
-            });
-        }
-        function safeDOMChangeWrapper(func) {
-            observer.disconnect();
-            func();
-            observer.observe($textbox[0], config);
-        }
-        function nltoarr(nl) {
-            var arr = [];
-            for(var i = nl.length; i--; arr.unshift(nl[i]));
-            return arr;
         }
 
         function transferPx2Em(px, this_font_size){

@@ -1536,7 +1536,6 @@
     };
     r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
         this.simplespeech.setCaptionTemporary(words);
-        this.simplespeech.stopMonitoring();
         return;
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
@@ -1578,7 +1577,6 @@
             this._last_audio_url = audioURL;
         }
         else {
-
             this._last_audio_url = audioURL;
             this.compileSpeech();
             this._last_words = null;
@@ -1586,11 +1584,9 @@
     };
     r2.PieceSimpleSpeech.prototype.compileSpeech = function() {
 
-        this.simplespeech.monitor();
-
         this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getGetCtrlTalkens());
 
-        this.speak_ctrl.renderAudioAnon().then((function(audio) {
+        this.speak_ctrl.renderAudio().then((function(audio) {
             console.log("Audio rendered to url ", audio.url);
             this.SetRecordingAudioFileUrl(audio.url, audio.blob);
         }).bind(r2App.annots[this.GetAnnotId()]));

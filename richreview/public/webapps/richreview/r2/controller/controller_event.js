@@ -550,6 +550,7 @@ var r2Ctrl = {};
             KEY_MINUS: 109,
 
             KEY_C: 67,
+            KEY_V: 86,
             KEY_X: 88,
             KEY_Z: 90,
 
@@ -568,6 +569,7 @@ var r2Ctrl = {};
         var mode = r2.KeyboardModeEnum.NORMAL;
         pub.ctrlkey_dn = false;
         pub.shift_key_dn = false;
+        pub.CONST = CONST;
 
         pub.getMode = function(){
             return mode;
