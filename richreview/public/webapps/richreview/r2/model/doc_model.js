@@ -1172,8 +1172,7 @@
         this.dom.appendChild(this.dom_tr);
 
         this.dom_textbox = document.createElement('div');
-        this.dom_textbox.classList.toggle('r2_piece_editable_audio_textbox', true);
-        this.dom_textbox.setAttribute('contenteditable', 'true');
+        this.dom_textbox.classList.toggle('r2_piece_simplespeech', true);
         this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
         this.dom_tr.appendChild(this.dom_textbox);
 
@@ -1402,7 +1401,7 @@
         return dom;
     };
     r2.PieceSimpleSpeech.prototype.setForTesting = function(){
-        this.simplespeech.set('This is an automated voice system');
+        //this.simplespeech.set('This is an automated voice system. Quick brown fox, jumps over.');
     };
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         if(this._annotid != null){
@@ -1419,16 +1418,22 @@
         this.dom_tr = document.createElement('div');
         this.dom_tr.classList.toggle('r2_piece_editable_audio_tr', true);
         this.dom_tr.classList.toggle('unselectable', true);
-        this.dom.appendChild(this.dom_tr);
-
-        this.dom_textbox = document.createElement('div');
-        this.dom_textbox.classList.toggle('r2_piece_editable_audio_textbox', true);
-        this.dom_textbox.setAttribute('contenteditable', 'true');
-        this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
-        this.dom_tr.appendChild(this.dom_textbox);
-
         $(this.dom_tr).css('left', this.GetTtIndent()*r2Const.FONT_SIZE_SCALE+'em');
         $(this.dom_tr).css('width', this.GetTtIndentedWidth()*r2Const.FONT_SIZE_SCALE+'em');
+        this.dom.appendChild(this.dom_tr);
+
+        var dom_overlay = document.createElement('div');
+        dom_overlay.classList.toggle('ssui-overlay', true);
+        dom_overlay.classList.toggle('unselectable', true);
+
+        this.dom_tr.appendChild(dom_overlay);
+
+        this.dom_textbox = document.createElement('div');
+        this.dom_textbox.setAttribute('contenteditable', 'true');
+        this.dom_textbox.classList.toggle('r2_piece_simplespeech', true);
+        this.dom_textbox.classList.toggle('text_selectable', true);
+        this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
+        this.dom_tr.appendChild(this.dom_textbox);
 
         if(this._username != r2.userGroup.cur_user.name){
             this.dom_textbox.setAttribute('contenteditable', 'false');
@@ -1438,7 +1443,7 @@
         this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
-        this.simplespeech = new simplespeech.ui(this.dom_textbox, function(editHistory) {
+        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, function(editHistory) {
             this.speak_ctrl.updateSimpleSpeech(editHistory);
         }.bind(this));
 
@@ -1467,6 +1472,7 @@
             var color = r2.userGroup.GetUser(this._username).color_piecekeyboard_box_shadow;
             this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
             $(this.dom).css("pointer-events", 'auto');
+            $(this.dom_textbox).toggleClass('editing', true);
         }.bind(this));
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
@@ -1482,6 +1488,7 @@
             }).bind(r2App.annots[this.GetAnnotId()]));
 
             $(this.dom).css("pointer-events", 'none');
+            $(this.dom_textbox).toggleClass('editing', false);
             if(this.__contentschanged){
                 //console.log('>>>>__contentschanged:', this.ExportToTextChange());
                 //r2Sync.PushToUploadCmd(this.ExportToTextChange());

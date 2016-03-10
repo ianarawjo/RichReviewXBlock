@@ -45,7 +45,11 @@
                     done();
                 }
                 else{ // if auth context not set
-                    bluemix_stt.getAuthInfo().then(
+                    bluemix_stt.getAuthInfo().catch(
+                        function(e){
+                            alert('Please login to https://richreview.net for Bluemix Authentication');
+                        }
+                    ).then(
                         function(authToken) {
                             console.log('auth', authToken);
                             r2App.bluemix_tts_auth_context = {
@@ -55,9 +59,7 @@
                             };
                             return done();
                         }
-                    ).catch(function(e){
-                        alert('Please login to https://richreview.net for Bluemix Authentication');
-                    });
+                    );
                 }
             }
         };

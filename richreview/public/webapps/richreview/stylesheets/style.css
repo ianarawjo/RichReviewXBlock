@@ -302,51 +302,60 @@ a:active {
   width: 1em; /* will be tt_w */
   z-index: 18;
 }
-.r2_piece_editable_audio_textbox {
+.r2_piece_simplespeech {
   border: 0;
   overflow: auto;
   padding: 0.3em;
   font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
-  font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
-  line-height: 1.5em;
+  line-height: 1.0em;
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
   z-index: 2;
 }
-.r2_piece_editable_audio_textbox > .ssui-charwidth {
-    position:relative;
-    margin-left: 1px;
-    border-style: solid;
-    border-width: 1px;
-    letter-spacing: 20px;
-    margin-right: -2px;
-    z-index: 2;
+.r2_piece_simplespeech.editing {
+  background: rgba(255, 255, 255, 0.74902);
+}
+.r2_piece_simplespeech > .ssui-ctrltalken {
+  position:relative;
+  margin: 0;
+
+  font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
+  letter-spacing: 0;
+  z-index: 2;
 }
 .ssui-overlay {
-    position: absolute;
-    z-index: 0;
-    -moz-user-select: -moz-none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -o-user-select: none;
-    user-select: none;
-    color: black;
+  position: absolute;
+  padding: 0;
+  width: 0;
+  height: 0;
+  z-index: 0;
 }
-.ssui-overlay > .ssui-textwidth {
-    margin-left: 6px;
-    margin-right: 2px;
-    z-index: 7;
-    display: inline-block;
+.ssui-overlay > .ssui-viewtalken {
+  display: inline-block;
+  position: absolute;
+  margin: 0;
+  z-index: 7;
+
+  height: 0.8em;
+  border: solid 0.02em rgb(220, 220, 220);
+}
+.ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-span {
+  display: -webkit-inline-box;
+  font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
+  margin: 0;
+  padding: 0;
 }
 .ssui-overlay > .pause {
     background-color: #ffff99;
     border-color: #7f8000;
 }
+.ssui-editbox {
+
+}
 .ssui-blue {
-    background-color: #bbe3f5;
-    border-color: Grey;
-    color: black;
+  background-color: rgb(240, 240, 240);
+  color: black;
 }
 
 /*

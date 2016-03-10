@@ -1545,6 +1545,10 @@
             return rtn;
         };
 
+        pub.getCanvasWidth = function(){
+            return page_canvas.dom_width;
+        };
+
         /** helper */
         function getDomWidth(dom){
             return dom.getBoundingClientRect().width;

@@ -97,13 +97,12 @@
         };
     };
 
-    simplespeech.ui = function(__div, cbOnEdit) {
+    simplespeech.ui = function(_textbox, _overlay, cbOnEdit) {
         var pub = {};
 
         // DOM elements
-        var $textbox = $(__div);
-        var $overlay;
-        var $ctrl_token_template, $view_talken_template;
+        var $textbox = $(_textbox);
+        var $overlay = $(_overlay);
 
         // Mutation observer
         var observer, config;
@@ -151,28 +150,6 @@
             edit_history = new EditHistory();
             edit_history.listen(pub, cbOnEdit);
 
-            $overlay = generateOverlayDiv();
-            console.log('Overlay div generated: ', $overlay[0]);
-            console.log('Adding overlay div to textbox: ', $textbox[0]);
-            $textbox.append($overlay);
-
-            var $whitebox = $(document.createElement('div'));
-            $whitebox.css('display', 'inline-block');
-            $whitebox.css('position', 'absolute');
-            $whitebox.css('width', '100%');
-            $whitebox.css('height', '100%');
-            $whitebox.css('background-color', 'white');
-            $whitebox.css('opacity', 0);
-            $whitebox.css('z-index', '1');
-            $overlay.append($whitebox);
-
-            $ctrl_token_template = $(document.createElement('span'));
-            $ctrl_token_template.addClass('ssui-charwidth');
-            $ctrl_token_template.text('\xa0');
-
-            $view_talken_template = $(document.createElement('span'));
-            $view_talken_template.addClass('ssui-textwidth');
-
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onkeydown);
             observer = new MutationObserver(onmutation);
@@ -188,14 +165,9 @@
                 // Create unique id for text element
                 guid = r2.util.generateGuid();
 
-                // Create ghosted text span
                 $vt = generateViewTalken(guid, word);
                 $overlay.append($vt);
 
-                //$t.children('div').css('width', $t.children('span').width());
-                //$t.children('div').css('height', $t.children('span').height());
-
-                // Created selectable span + set at width of text
                 $ct = generateCtrlTalken($vt, guid, word);
                 $textbox.append($ct);
 
@@ -203,6 +175,8 @@
                 console.log('index: ', $ct.attr('idx'));
 
                 setops.push([guid, word]);
+
+                positionViewTalken($ct, $textbox);
 
             });
 
@@ -284,7 +258,7 @@
                 updateIdx();
 
                 $(mutation.removedNodes).each(function(value, index) {
-                    if(this.nodeType === 1 && $(this).hasClass('ssui-charwidth')) {
+                    if(this.nodeType === 1 && $(this).hasClass('ssui-ctrltalken')) {
                         var uid = $(this).attr('uid');
                         $('#' + uid).remove();
                         console.log($(this).attr('idx'), this);
@@ -295,10 +269,9 @@
 
                 // Sort any added nodes:
                 if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-
                     var arr = nltoarr(mutation.addedNodes);
                     arr.forEach(function(a){
-                        if ($(a).hasClass('ssui-charwidth'))
+                        if ($(a).hasClass('ssui-ctrltalken'))
                             addedNodes.push(a);
                     });
                 }
@@ -333,6 +306,16 @@
                 });
             }
         };
+        var positionViewTalken = function($ctrl_talken, $edit_box){
+            var $vt = $ctrl_talken[0].$vt;
+
+            var ct_rect = $ctrl_talken[0].getBoundingClientRect();
+            var eb_rect = $edit_box[0].getBoundingClientRect();
+
+            var dx = (ct_rect.width-$ctrl_talken[0].$vt_rect.width)*0.5;
+            $vt.css('left', transferPx2Em(ct_rect.left - eb_rect.left + dx, 1.0));
+            $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
+        };
 
         // Utils
         function caret() {
@@ -360,25 +343,34 @@
             return arr;
         }
         function generateViewTalken(uid, word) {
-            var $vt = $view_talken_template.clone();
+            var $vt = $(document.createElement('div'));
+            $vt.addClass('ssui-viewtalken');
             $vt.attr('id', uid);
-            $vt.text(word);
+
+            var $vt_span = $(document.createElement('span'));
+            $vt_span.addClass('ssui-viewtalken-span');
+            $vt_span.text(word);
+            $vt.append($vt_span);
+
             if (word.indexOf('\xa0') === -1) $vt.addClass('ssui-blue'); // blue if not a space
             else $vt.addClass('pause');
             return $vt;
         }
         function generateCtrlTalken($vt, uid, word) {
-            var $ct = $ctrl_token_template.clone();
-            console.log($vt.width());
-            $ct.css('letter-spacing', $vt.width());
+            var $ct = $(document.createElement('span'));
+            $ct.addClass('ssui-ctrltalken');
+            $ct.text('\xa0');
+
+            $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+            $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
             $ct.attr('uid', uid);
             $ct.attr('word', word);
+            $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
             return $ct;
         }
-        function generateOverlayDiv() {
-            var $od = $(document.createElement('div'));
-            $od.addClass('ssui-overlay');
-            return $od;
+
+        function transferPx2Em(px, this_font_size){
+            return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
         }
 
         _init();
