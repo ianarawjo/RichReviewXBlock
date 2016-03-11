@@ -1407,7 +1407,6 @@
         return dom;
     };
     r2.PieceSimpleSpeech.prototype.setForTesting = function(){
-        //this.simplespeech.set('This is an automated voice system. Quick brown fox, jumps over.');
     };
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         if(this._annotid != null){
@@ -1557,13 +1556,6 @@
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
         this.simplespeech.setCaptionFinal(words);
-
-
-        /*var ts = '';
-        words.forEach(function(w){
-            ts += w[0] + ' ';
-        });
-        this.simplespeech.set(ts.trim());*/
 
         this._last_words = words;
 

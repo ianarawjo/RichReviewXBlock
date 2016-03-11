@@ -186,6 +186,11 @@ var bluemix_stt = (function(bluemix_stt) {
         pub.run = function(msg){
             if(msg.results && msg.results.length){
                 var best_alternative = msg.results[0].alternatives[0];
+                for(var i = 0; i < best_alternative.timestamps.length; ++i){
+                    if(best_alternative.timestamps[i][0]=='%HESITATION'){
+                        best_alternative.timestamps[i][0] = '...';
+                    }
+                }
                 if(msg.results[0].final){
                     callbacks.onFinal(best_alternative.timestamps, best_alternative.word_confidence);
                 }

@@ -162,30 +162,20 @@
             document.onselectionchange = onSelectionChange;
         };
 
-        pub.set = function(txt) {
-            // Add words (set initial state)
-            var words = txt.split(' '); var $vt, $ct;
-            words.forEach(function(word) {
-                var $ct = createTalken(word);
-                $textbox.append($ct);
-            });
-
-            renderViewTalkens();
-
-        };
-
         pub.setCaptionTemporary = function(words){
             removeTempTalkens();
-            words.forEach(function(word){
-                var $ct = createTalken(word[0], true); // is_temp = true
+            words.forEach(function(data){
+                var $ct = createTalken(data, true); // is_temp = true
+                insertPauseTalken($textbox.children().last(), $ct, true);
                 $textbox.append($ct);
             });
             renderViewTalkens();
         };
         pub.setCaptionFinal = function(words){
             removeTempTalkens();
-            words.forEach(function(word){
-                var $ct = createTalken(word[0], false); // is_temp = false
+            words.forEach(function(data){
+                var $ct = createTalken(data, false); // is_temp = false
+                insertPauseTalken($textbox.children().last(), $ct, false);
                 $textbox.append($ct);
             });
             renderViewTalkens();
@@ -197,7 +187,21 @@
 
         };
 
-        var createTalken = function(word, is_temp){
+        var insertPauseTalken = function($last, $ct, is_temp){
+            if($last[0]){
+                if($ct[0].data[1]-$last[0].data[2] > 0.3){
+                    var $ct = createTalken(
+                        ['\xa0', $last[0].data[2], $ct[0].data[1]],
+                        is_temp // is_temp
+                    );
+                    $ct[0].$vt.addClass('ssui-pause');
+                    $textbox.append($ct);
+                }
+            }
+        };
+
+        var createTalken = function(data, is_temp){
+            var word = data[0];
             function newViewTalken(uid, word) {
                 var $vt = $(document.createElement('div'));
                 $vt.addClass('ssui-viewtalken');
@@ -208,8 +212,12 @@
                 $vt_span.text(word);
                 $vt.append($vt_span);
 
-                if (word.indexOf('\xa0') === -1) $vt.addClass('ssui-blue'); // blue if not a space
-                else $vt.addClass('pause');
+                if (word.indexOf('\xa0') === -1){
+                    $vt.addClass('ssui-word'); // blue if not a space
+                }
+                else{
+                    $vt.addClass('ssui-pause');
+                }
                 return $vt;
             }
             function newCtrlTalken($vt, uid, word) {
@@ -217,13 +225,12 @@
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
-                $ct[0].word = word;
+                $ct[0].data = data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
                 $ct.attr('uid', uid);
                 $ct.attr('word', word);
-
 
                 return $ct;
             }
@@ -421,7 +428,7 @@
 
                 copied_ctrl_talkens.each(
                     function(){
-                        jquery_insert($textbox, createTalken(this.word, false), idx);
+                        jquery_insert($textbox, createTalken(this.data, false), idx);
                         ++idx;
                     }
                 );
