@@ -337,7 +337,6 @@ a:active {
   z-index: 7;
 
   height: 0.8em;
-  border: solid 0.02em rgb(220, 220, 220);
 }
 
 .ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-span {
@@ -347,26 +346,23 @@ a:active {
   padding: 0;
 }
 
-.ssui-overlay > .ssui-viewtalken.temp {
-  border: solid 0.02em rgb(240, 240, 240);
+.ssui-overlay > .ssui-pause {
+  background-color: rgb(220, 220, 220);
+  border: solid 0.1em rgb(220, 220, 220);
+  border-radius: 0.2em;
 }
-
-.ssui-overlay > .pause {
-    background-color: #ffff99;
-    border-color: #7f8000;
-}
-.ssui-editbox {
-
-}
-
-.ssui-blue {
-  background-color: rgb(240, 240, 240);
+.ssui-overlay > .ssui-word {
+  background-color: rgb(220, 220, 220);
+  border: solid 0.1em rgb(220, 220, 220);
   color: black;
 }
-.ssui-blue.temp {
+.ssui-overlay > .ssui-word.temp {
   background-color: rgb(250, 250, 250);
+  border: solid 0.02em rgb(240, 240, 240);
   color: gray;
 }
+
+
 
 /*
 * booklet
