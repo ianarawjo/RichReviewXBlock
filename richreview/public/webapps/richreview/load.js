@@ -44,6 +44,7 @@
                 ['r2/audio_utils.js', 'js'],
                 ['lib_ext/praat/praat.js', 'js'], // NONSPEAK AUDIO PRAAT API
                 ['lib_ext/speak/jsdiff.js', 'js'], // NONSPEAK AUDIO DEPENDENCY
+                ['lib_ext/speak/diff.min.js', 'js'], // NONSPEAK AUDIO DEPENDENCY
                 ['lib_ext/speak/speak.js', 'js'], // NONSPEAK AUDIO CORE
                 ['lib_ext/speak/simplespeech-ui.js', 'js'], // NONSPEAK AUDIO UI
                 ['lib_ext/speak/utils/audio_stitcher.js', 'js'], // NONSPEAK AUDIO UTILS

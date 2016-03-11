@@ -474,7 +474,18 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                 // Calculate diff between base and new transcript
                 // *** REQUIRES jsdiff.js ***
-                var diff = diffString(bt, stripped_transcript);
+                console.log('Computing diff with base "' + bt + '" and new "' + stripped_transcript + '"');
+
+                var diffParts = JsDiff.diffWords(bt, stripped_transcript);
+                var diff = '';
+                diffParts.forEach(function (part) {
+                    part.value.split(/\s+/).forEach(function (wrd) {
+                        if (wrd.replace(/\s+/, '').length === 0) return;
+                        if (part.removed) diff += "<del>" + wrd.trim() + "</del> ";else if (part.added) diff += "<ins>" + wrd.trim() + "</ins> ";else diff += wrd.trim() + " ";
+                    });
+                });
+
+                //var diff = diffString(bt, stripped_transcript);
                 if (diff === bt) return; // Nothing changed.
                 console.log("Compiled diff: ", diff);
 
