@@ -385,6 +385,9 @@
                 _needsupdate = false;
                 _needsrender = true;
             };
+            pub.getCompiledTalkens = () => {
+                return edited;
+            };
             pub.needsRender = () => {
                 return _needsrender;
             };

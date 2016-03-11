@@ -490,6 +490,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 _needsupdate = false;
                 _needsrender = true;
             };
+            pub.getCompiledTalkens = function () {
+                return edited;
+            };
             pub.needsRender = function () {
                 return _needsrender;
             };

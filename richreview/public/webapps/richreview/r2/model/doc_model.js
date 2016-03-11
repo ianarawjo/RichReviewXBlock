@@ -1231,7 +1231,16 @@
         return this.dom;
     };
     r2.PieceNewSpeak.prototype.updateSpeakCtrl = function() {
+
+        // Update audio model w/ new edits (if any)
         this.speak_ctrl.update($(this.dom_textbox).text());
+
+        // Resynthesize annot gestures
+        var annotid = this._annotid;
+        var tks = this.speak_ctrl.getCompiledTalkens().map(function(tk) {
+            return [tk.audio ? annotid : null, tk.bgn, tk.end];
+        }); // NOTE: This assumes all talkens have the same audio.
+        r2.annotSynthesizer.run([annotid], tks);
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
