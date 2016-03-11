@@ -432,6 +432,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             };
 
             pub.updateSimpleSpeech = function (ctrl_talkens) {
+                return;
 
                 // Convert simple speech talkens into Array of Talken objects
                 edited = ctrl_talkens.map(function ($span) {

@@ -103,6 +103,14 @@
         // DOM elements
         var $textbox = $(_textbox);
         var $overlay = $(_overlay);
+        var carret = {
+            idx_anchor: 0,
+            idx_focus: 0,
+            is_collapsed: true,
+            idx_bgn: 0,
+            idx_end: 0
+        };
+        var copied_ctrl_talkens = [];
 
         // Edit history
         var edit_history;
@@ -140,6 +148,8 @@
          */
         pub.onset = null;
 
+        pub.on_input = null;
+
         // Init
         var _init = function() {
 
@@ -154,33 +164,36 @@
 
         pub.set = function(txt) {
             // Add words (set initial state)
-            var words = txt.split(' '); var $vt, $ct, uid;
-            var setops = [];
+            var words = txt.split(' '); var $vt, $ct;
             words.forEach(function(word) {
-                uid = createTalken(word);
-                setops.push([uid, word]);
+                var $ct = createTalken(word);
+                $textbox.append($ct);
             });
 
             renderViewTalkens();
 
-            if (pub.onset) pub.onset(setops);
         };
 
         pub.setCaptionTemporary = function(words){
             removeTempTalkens();
             words.forEach(function(word){
-                createTalken(word[0], true); // is_temp = true
+                var $ct = createTalken(word[0], true); // is_temp = true
+                $textbox.append($ct);
             });
             renderViewTalkens();
         };
         pub.setCaptionFinal = function(words){
             removeTempTalkens();
             words.forEach(function(word){
-                createTalken(word[0], false); // is_temp = false
+                var $ct = createTalken(word[0], false); // is_temp = false
+                $textbox.append($ct);
             });
             renderViewTalkens();
         };
         pub.doneCaptioning = function(){
+
+        };
+        pub.getCtrlTalkens = function(){
 
         };
 
@@ -204,11 +217,14 @@
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
+                $ct[0].word = word;
+                $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
                 $ct.attr('uid', uid);
                 $ct.attr('word', word);
-                $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
+
+
                 return $ct;
             }
 
@@ -218,14 +234,13 @@
             $overlay.append($vt);
 
             var $ct = newCtrlTalken($vt, uid, word);
-            $textbox.append($ct);
 
             if(is_temp){
                 $vt.toggleClass('temp', true);
                 $ct.toggleClass('temp', true);
             }
 
-            return uid;
+            return $ct;
         };
 
         var removeTempTalkens = function(){
@@ -234,10 +249,27 @@
         };
 
         var renderViewTalkens = function(){
+            var positionViewTalken = function($ctrl_talken, $edit_box){
+                var $vt = $ctrl_talken[0].$vt;
+
+                var ct_rect = $ctrl_talken[0].getBoundingClientRect();
+                var eb_rect = $edit_box[0].getBoundingClientRect();
+
+                var dx = (ct_rect.width-$ctrl_talken[0].$vt_rect.width)*0.5;
+                $vt.css('left', transferPx2Em(ct_rect.left - eb_rect.left + dx, 1.0));
+                $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
+            };
+
+            $overlay.find('.ssui-viewtalken').remove();
             $textbox.children('span').each(function(idx) {
+                $overlay.append(this.$vt);
                 positionViewTalken($(this), $textbox);
             });
         };
+
+        function transferPx2Em(px, this_font_size){
+            return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
+        }
 
         // Events
         var onKeyDown = function(e) {
@@ -253,50 +285,153 @@
 
             }
             else {
-                if(e.keyCode === r2.keyboard.CONST.KEY_SPACE) {
-                }
                 e.preventDefault();
+                onSelectionChange();
+
+                if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
+                    if(carret.is_collapsed){
+                        op.remove(
+                            carret.idx_bgn,
+                            carret.idx_end+1
+                        );
+                    }
+                    else{
+                        op.remove(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                    }
+                }
+                else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
+                    if(carret.is_collapsed){
+                        op.remove(
+                            carret.idx_bgn-1,
+                            carret.idx_end
+                        );
+                    }
+                    else{
+                        op.remove(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                    }
+                }
+                else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
+                    if(carret.is_collapsed){
+                        ;
+                    }
+                    else{
+                        op.copy(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                    }
+                }
+                else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
+                    if(carret.is_collapsed){
+                        ;
+                    }
+                    else{
+                        op.copy(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                        op.remove(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                    }
+                }
+                else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
+                    if(carret.is_collapsed){
+                        op.paste(
+                            carret.idx_focus
+                        );
+                    }
+                    else{
+                        op.remove(
+                            carret.idx_bgn,
+                            carret.idx_end
+                        );
+                        op.paste(
+                            carret.idx_bgn
+                        );
+                    }
+                }
+
+                renderViewTalkens();
+
+                if(pub.on_input)
+                    pub.on_input();
             }
         };
+
         var onSelectionChange = function(e){
+            var sel = window.getSelection();
+            if(sel.anchorNode.parentNode.parentNode !== $textbox[0]){ // when focused to textbox
+                sel = setCarret(sel.anchorOffset);
+            }
+            carret.idx_anchor = sel.anchorOffset + $textbox.children().index($(sel.anchorNode.parentNode));
+            carret.idx_focus = sel.focusOffset + $textbox.children().index($(sel.focusNode.parentNode));
 
-            console.log(
-                'selection_change'
-            );
-            console.log(
-                window.getSelection().anchorNode.parentNode,
-                window.getSelection().focusNode.parentNode,
-                window.getSelection().anchorOffset,
-                window.getSelection().focusOffset,
-                window.getSelection().isCollapsed
-            );
+            carret.is_collapsed = sel.isCollapsed;
+
+            carret.idx_bgn = Math.min(carret.idx_anchor, carret.idx_focus);
+            carret.idx_end = Math.max(carret.idx_anchor, carret.idx_focus);
+            console.log(carret.idx_bgn, carret.idx_end, carret.is_collapsed);
         };
 
-        var positionViewTalken = function($ctrl_talken, $edit_box){
-            var $vt = $ctrl_talken[0].$vt;
-
-            var ct_rect = $ctrl_talken[0].getBoundingClientRect();
-            var eb_rect = $edit_box[0].getBoundingClientRect();
-
-            var dx = (ct_rect.width-$ctrl_talken[0].$vt_rect.width)*0.5;
-            $vt.css('left', transferPx2Em(ct_rect.left - eb_rect.left + dx, 1.0));
-            $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
+        var setCarret = function(idx){
+            var sel = window.getSelection();
+            var range = document.createRange();
+            if(idx!==0){
+                var n = $textbox.children()[idx-1];
+                range.setStartAfter(n);
+            }
+            else{
+                var n = $textbox.children()[0];
+                range.setStartBefore(n);
+            }
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return sel;
         };
 
-        // Utils
-        function caret() {
-            return getCaretOffset($textbox[0]); // no idea why its -67
-        }
-        function overlayAtIndex(c) {
-            return $($overlay.children()[c-2]);
-        }
-        function spanAtIndex(c) {
-            return $($textbox.children()[c-1]);
-        }
+        var op = (function(){
+            var pub_op = {};
 
-        function transferPx2Em(px, this_font_size){
-            return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
-        }
+            pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
+                console.log('remove', idx_bgn, idx_end);
+                $textbox.children().slice(idx_bgn, idx_end).remove();
+            };
+
+            pub_op.copy = function(idx_bgn, idx_end){
+                copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
+            };
+
+            pub_op.paste = function(idx){
+
+                function jquery_insert($target, $elem, idx){
+                    var idx_last = $target.children().size();
+                    $target.append($elem);
+                    if (idx < idx_last) {
+                        $target.children().eq(idx).before($target.children().last())
+                    }
+                }
+
+                copied_ctrl_talkens.each(
+                    function(){
+                        jquery_insert($textbox, createTalken(this.word, false), idx);
+                        ++idx;
+                    }
+                );
+                setCarret(idx);
+            };
+
+            return pub_op;
+        }());
+
+
 
         _init();
 

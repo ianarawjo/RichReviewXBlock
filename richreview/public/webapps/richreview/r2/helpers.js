@@ -1631,6 +1631,7 @@
         pub.is_mobile = false;
         pub.is_msedge = false;
         pub.is_supported_browser = false;
+        pub.is_mac = navigator.platform.indexOf('Mac') > -1;
 
         pub.init = function(){
             return new Promise(function(resolve, reject){

@@ -569,6 +569,7 @@ var r2Ctrl = {};
         var mode = r2.KeyboardModeEnum.NORMAL;
         pub.ctrlkey_dn = false;
         pub.shift_key_dn = false;
+        pub.modifier_key_dn = false;
         pub.CONST = CONST;
 
         pub.getMode = function(){
@@ -661,6 +662,10 @@ var r2Ctrl = {};
                 switch(event.which){
                     case CONST.KEY_CTRL: // left ctrl
                         pub.ctrlkey_dn = true;
+                        pub.modifier_key_dn = modifierKeyCtrl.dn(event.which);
+                        break;
+                    case CONST.KEY_CMD:
+                        pub.modifier_key_dn = modifierKeyCtrl.dn(event.which);
                         break;
                     case CONST.KEY_SHIFT: // left shift
                         pub.shift_key_dn = true;
@@ -762,6 +767,10 @@ var r2Ctrl = {};
             switch(event.which){
                 case CONST.KEY_CTRL: // left ctrl
                     pub.ctrlkey_dn = false;
+                    pub.modifier_key_dn = modifierKeyCtrl.up(event.which);
+                    break;
+                case CONST.KEY_CMD:
+                    pub.modifier_key_dn = modifierKeyCtrl.up(event.which);
                     break;
                 case CONST.KEY_SHIFT: // left shift
                     pub.shift_key_dn = false;
@@ -778,6 +787,28 @@ var r2Ctrl = {};
                     break;
             }
         };
+
+        var modifierKeyCtrl = (function(){
+            var pub_mk = {};
+
+            var is_dn = false;
+
+            pub_mk.dn = function(which){
+                if(which === r2.environment_detector.is_mac ? CONST.KEY_CMD : CONST.KEY_CTRL){
+                    is_dn = true;
+                }
+                return is_dn;
+            };
+
+            pub_mk.up = function(which){
+                if(which === r2.environment_detector.is_mac ? CONST.KEY_CMD : CONST.KEY_CTRL){
+                    is_dn = false;
+                }
+                return is_dn;
+            };
+
+            return pub_mk;
+        }());
 
         document.onkeyup = pub.handleUp;
         document.onkeydown = pub.handleDn;

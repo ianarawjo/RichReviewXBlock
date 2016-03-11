@@ -1451,7 +1451,7 @@
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
-        this.dom_textbox.addEventListener('input', function() {
+        this.simplespeech.on_input = function() {
 
             // Notify audio controller that text has changed
             // * happens automatically in SSUI *
@@ -1466,7 +1466,7 @@
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
             }
-        }.bind(this), false);
+        }.bind(this);
 
         this.dom_textbox.addEventListener('focus', function(event){
             r2App.cur_focused_piece_keyboard = this;
@@ -1547,7 +1547,11 @@
     };
     r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
         this.simplespeech.setCaptionTemporary(words);
-        return;
+
+        if(this.updateSizeWithTextInput()){
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+        }
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
         this.simplespeech.setCaptionFinal(words);
@@ -1595,7 +1599,7 @@
     };
     r2.PieceSimpleSpeech.prototype.compileSpeech = function() {
 
-        this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getGetCtrlTalkens());
+        this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getCtrlTalkens());
 
         this.speak_ctrl.renderAudio().then((function(audio) {
             console.log("Audio rendered to url ", audio.url);
