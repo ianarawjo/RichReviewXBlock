@@ -37,6 +37,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             var ops = [];
             var edited = [];
             var _needsupdate = false;
+            var _needsrender = true;
             var _stitching = false;
 
             // Internal utils
@@ -229,15 +230,40 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         this.word = txt;
                     }
                 }, {
+                    key: "setPauseAfter",
+                    value: function setPauseAfter(ms) {
+                        this._pauseAfter = ms;
+                    }
+                }, {
+                    key: "setPauseBefore",
+                    value: function setPauseBefore(ms) {
+                        this._pauseBefore = ms;
+                    }
+                }, {
                     key: "clone",
                     value: function clone() {
-                        return Talken.clone(this);
+                        var t = new Talken(this.word, this.bgn, this.end, this.audio);
+                        if (this.pauseBefore > 0) t.setPauseBefore(this.pauseBefore);
+                        if (this.pauseAfter > 0) t.setPauseAfter(this.pauseAfter);
+                        return t;
+                    }
+                }, {
+                    key: "pauseBefore",
+                    get: function get() {
+                        return this._pauseBefore || 0;
+                    }
+                }, {
+                    key: "pauseAfter",
+                    get: function get() {
+                        return this._pauseAfter || 0;
                     }
                 }], [{
                     key: "generate",
                     value: function generate(timestamps, audioURL) {
                         var talkens = [];
                         var audio = Audio.for(audioURL);
+                        var prev_t = null;
+                        var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
                         var _iteratorNormalCompletion2 = true;
                         var _didIteratorError2 = false;
                         var _iteratorError2 = undefined;
@@ -246,7 +272,22 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             for (var _iterator2 = timestamps[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
                                 var t = _step2.value;
 
+
+                                // Create new talken for timestamp
                                 talkens.push(new Talken(t[0], t[1], t[2], audio));
+
+                                // Detect + store pauses in original timestamp data.
+                                if (prev_t) {
+                                    if (t[1] === 0 && t[2] === 0 || prev_t[1] === 0 && prev_t[2] === 0) {} else {
+                                        var pause_len_ms = Math.round((t[1] - prev_t[2]) * 1000.0); // current bgn - previous end
+                                        if (pause_len_ms > PAUSE_THRESHOLD_MS) {
+                                            // if pause length is significant...
+                                            talkens[talkens.length - 1].setPauseBefore(pause_len_ms); // set pause before current talken
+                                            talkens[talkens.length - 2].setPauseAfter(pause_len_ms); // set pause after prev talken
+                                        }
+                                    }
+                                }
+                                prev_t = t;
                             }
                         } catch (err) {
                             _didIteratorError2 = true;
@@ -266,10 +307,19 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         return talkens;
                     }
                 }, {
+                    key: "generateFromHTK",
+                    value: function generateFromHTK(audioURL, perfect_transcript) {
+                        return Praat.calcTimestamps(audioURL, perfect_transcript).then(function (ts) {
+                            return new Promise(function (resolve, reject) {
+                                resolve(Talken.generate(ts, audioURL));
+                            });
+                        });
+                    }
+                }, {
                     key: "clone",
                     value: function clone(t) {
-                        if (t instanceof Talken) return new Talken(t.word, t.bgn, t.end, t.audio);else if (t instanceof Array) return t.map(function (tn) {
-                            return new Talken(tn.word, tn.bgn, tn.end, tn.audio);
+                        if (t instanceof Talken) return t.clone();else if (t instanceof Array) return t.map(function (tn) {
+                            return tn.clone();
                         });else {
                             console.log("Error @ Talken.clone: Object is not instance of Talken or Array!", t);
                             return null;
@@ -408,9 +458,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
              * TODO: Move edit graph update elsewhere.
              * @param  {string} transcript The new transcript || an edit graph on the base transcript.
              */
+            var _last_transcript = '';
             pub.update = function (new_transcript) {
+                if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
+
+                // remove punctuation
+                new_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+
+                // lowercase
+                new_transcript = new_transcript.toLowerCase();
 
                 // Calculate diff between base and new transcript
                 // *** REQUIRES jsdiff.js ***
@@ -428,7 +486,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
 
+                _last_transcript = new_transcript;
                 _needsupdate = false;
+                _needsrender = true;
+            };
+            pub.needsRender = function () {
+                return _needsrender;
             };
 
             pub.updateSimpleSpeech = function (ctrl_talkens) {
@@ -439,6 +502,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 });
 
                 _needsupdate = false;
+                _needsrender = true;
             };
 
             /*
@@ -518,7 +582,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.renderAudioAnon = function () {
                 var options = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-                return _render('anon', options);
+                return _render('anon+htk', options);
             };
             var _render = function _render(mode, options) {
                 if (_stitching) {
@@ -530,7 +594,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 } else if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
-                } else if (mode !== 'natural' && mode !== 'anon') {
+                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk') {
                     console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }
@@ -562,6 +626,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                     // No longer stitching!
                     _stitching = false;
+                    _needsrender = false;
 
                     return new Promise(function (resolve, reject) {
                         resolve(stitched_resource);
@@ -575,7 +640,22 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     });
                 } else if (mode === 'anon') {
                     return Audio.synthesize(talkens, options).then(after_stitching).catch(function (err) {
-                        console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
+                        console.warn("Error @ r2.speak.render: Audio synthesize failed.", err);
+                        _stitching = false;
+                    });
+                } else if (mode === 'anon+htk') {
+                    return Audio.stitch(base).then(function (stitched_base) {
+                        console.log('..stitched base talkens. Generating new talkens from HTK...');
+                        return Talken.generateFromHTK(stitched_base.url, r2.audiosynth.toTranscript(talkens));
+                    }).then(function (perfect_talkens) {
+                        console.log('..HTK returned: ', perfect_talkens);
+                        console.log('..synthesizing..');
+                        return Audio.synthesize(perfect_talkens, options).then(after_stitching).catch(function (err) {
+                            console.warn("Error @ r2.speak.render: Audio synthesize failed.", err);
+                            _stitching = false;
+                        });
+                    }).catch(function (err) {
+                        console.warn("Error @ r2.speak.generateFromHTK: ", err);
                         _stitching = false;
                     });
                 }
@@ -603,16 +683,19 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             });
             return ts;
         };
+        pub.toTimestamps = toTimestamps;
 
         /** Helper function to convert talkens to string transcript.
          *  This will *not* skip over audioless talkens. */
         var toTranscript = function toTranscript(talkens) {
             var ts = '';
             talkens.forEach(function (t) {
-                ts += t.word + ' ';
+                var word = t.word.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ""); // strip any punctuation (just in case)
+                ts += word + ' ';
             });
             return ts.trim();
         };
+        pub.toTranscript = toTranscript;
 
         /**
          * Generate transcript with SSML given transcript from text box (as edited array of talkens).
@@ -630,15 +713,14 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             }
 
             // Calculate breaks
-            var prev_break_i = 0;
-            var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
+            //var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
             var PAUSE_MAX_MS = 1000; // cap pauses at a full second
             for (var i = 1; i < words.length; i++) {
                 var word = words[i].replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ""); // strip any punctuation (just in case)
                 var ts = talkens[i];
                 var prev_ts = talkens[i - 1];
 
-                if (ts.word != word) {
+                if (ts.word !== word) {
                     console.warn('Error: toSSML: word "' + ts.word + '" in timestamp does not match displayed text "' + word + '".');
                     //continue;
                 } else if (ts.bgn === 0 && ts.end === 0 || prev_ts.bgn === 0 && prev_ts.end === 0) {
@@ -647,13 +729,14 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         continue;
                     }
 
-                var pause_len_ms = Math.round((ts.bgn - prev_ts.end) * 1000.0); // current bgn - previous end
+                if (ts.pauseBefore > 0) breaks.push(Math.min(ts.pauseBefore, PAUSE_MAX_MS));else if (prev_ts.pauseAfter > 0) breaks.push(Math.min(prev_ts.pauseAfter, PAUSE_MAX_MS));else breaks.push(0);
+
+                /*var pause_len_ms = Math.round((ts.bgn - prev_ts.end) * 1000.0); // current bgn - previous end
                 if (pause_len_ms > PAUSE_THRESHOLD_MS) {
                     breaks.push(Math.min(pause_len_ms, PAUSE_MAX_MS));
-                    prev_break_i = i;
-                } else {
+                 } else {
                     breaks.push(0);
-                }
+                }*/
             }
 
             // Reconstruct text w/ SSML.
@@ -712,9 +795,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
          * @return {Promise}          - A Promise passing the audio URL.
          */
         pub.stitch = function (talkens) {
-            var snippets = talkens.map(function (t) {
-                return { 'url': t.audio.url, 't_bgn': t.bgn, 't_end': t.end };
+            var snippets = [];
+            talkens.forEach(function (t) {
+                snippets.push({ 'url': t.audio.url, 't_bgn': t.bgn, 't_end': t.end });
+                if (t.pauseAfter > 0) snippets.push({ 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': t.pauseAfter / 1000.0 });
             });
+
             return new Promise(function (resolve, reject) {
                 r2.audioStitcher.run(snippets, function (rsc) {
                     var url = rsc[0];var blob = rsc[1];

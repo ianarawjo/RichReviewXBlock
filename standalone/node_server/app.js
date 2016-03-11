@@ -67,6 +67,10 @@ app.use(
     express.static(path.resolve(__dirname, env.path.temp_pdfs), { maxAge: 30*1000 })
 );
 app.use(
+    '/static_audio',
+    express.static(path.join(__dirname, 'static_audio'))
+);
+app.use(
     expressSession(
         {
             store: new RedisStore(
