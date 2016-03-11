@@ -162,9 +162,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                                     });
                                 }
                             }
-
-                            // Second-pass: Replacing DEL-INS back-to-backs with REPLACE.
-                            // * Makes our jobs a bit easier later. *
                         } catch (err) {
                             _didIteratorError = true;
                             _iteratorError = err;
@@ -180,13 +177,34 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             }
                         }
 
-                        var e;
-                        for (var i = 0; i < es.length - 1; i++) {
-                            if (es[i].type === EditType.DEL && es[i + 1].type === EditType.INS) {
-                                es.splice(i, 2, new EditOp(es[i + 1].text, EditType.REPL));
+                        console.log('raw editops: ', es);
+
+                        // Second-pass: Collapse multiple back-to-back DEL-INS (e.g. DEL DEL DEL INS INS INS)
+                        // to a series of REPL:
+                        var i;
+                        var dels = [];
+                        for (i = 0; i < es.length; i++) {
+                            if (es[i].type === EditType.DEL) {
+                                dels.push(i);
+                            } else if (dels.length > 0 && es[i].type === EditType.INS) {
+                                es.splice(dels[0], 1, new EditOp(es[i].text, EditType.REPL)); // replace DEL op w/ REPL op
+                                es.splice(i, 1); // remove INS op
+                                dels.splice(0, 1); // delete recorded DEL index (as this op is now REPL)
+                                i--;
+                            } else dels = [];
+                        }
+
+                        console.log('mod editops: ', es);
+
+                        // Second-pass: Replacing DEL-INS back-to-backs with REPLACE.
+                        // * Makes our jobs a bit easier later. *
+                        /*var e;
+                        for (i = 0; i < es.length-1; i++) {
+                            if (es[i].type === EditType.DEL && es[i+1].type === EditType.INS) {
+                                es.splice(i, 2, new EditOp(es[i+1].text, EditType.REPL));
                                 i--;
                             }
-                        }
+                        }*/
 
                         return es;
                     }
@@ -398,6 +416,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 // *** REQUIRES jsdiff.js ***
                 var diff = diffString(bt, new_transcript);
                 if (diff === bt) return; // Nothing changed.
+                console.log("Compiled diff: ", diff);
 
                 // Generate array of EditOp's
                 var edits = EditOp.generate(diff);
@@ -457,6 +476,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                         console.log(" :: -> replacing word ", ts[j].word, 'with', e.text);
                         ts[j].replaceWord(e.text);
+
+                        j++;
                     } else if (e.type === EditType.DEL) {
                         checkmatch(e, ts[j]); // the word of the deleted talken should match the word deleted in the edit
 
@@ -494,10 +515,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.renderAudio = function () {
                 return _render('natural');
             };
-            pub.renderAudioAnon = function (idx) {
-                return _render('anon');
+            pub.renderAudioAnon = function () {
+                var options = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
+
+                return _render('anon', options);
             };
-            var _render = function _render(mode) {
+            var _render = function _render(mode, options) {
                 if (_stitching) {
                     console.warn("Error @ r2.speak.render: Audio is currently being stitched from a previous play() call. Please wait.");
                     return null;
@@ -551,7 +574,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         _stitching = false;
                     });
                 } else if (mode === 'anon') {
-                    return Audio.synthesize(talkens, 'intensity').then(after_stitching).catch(function (err) {
+                    return Audio.synthesize(talkens, options).then(after_stitching).catch(function (err) {
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
@@ -616,9 +639,13 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 var prev_ts = talkens[i - 1];
 
                 if (ts.word != word) {
-                    console.log('Error: toSSML: word in timestamp does not match displayed text.');
-                    continue;
-                }
+                    console.warn('Error: toSSML: word "' + ts.word + '" in timestamp does not match displayed text "' + word + '".');
+                    //continue;
+                } else if (ts.bgn === 0 && ts.end === 0 || prev_ts.bgn === 0 && prev_ts.end === 0) {
+                        console.warn('toSSML: Skipping null talken.');
+                        breaks.push(0);
+                        continue;
+                    }
 
                 var pause_len_ms = Math.round((ts.bgn - prev_ts.end) * 1000.0); // current bgn - previous end
                 if (pause_len_ms > PAUSE_THRESHOLD_MS) {
