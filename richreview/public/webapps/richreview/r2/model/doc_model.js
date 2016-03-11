@@ -1234,10 +1234,12 @@
         this.speak_ctrl.update($(this.dom_textbox).text());
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
-        this.speak_ctrl.renderAudioAnon().then((function(audio) {
-            console.log("Audio rendered to url ", audio.url);
-            this.SetRecordingAudioFileUrl(audio.url, audio.blob);
-        }).bind(r2App.annots[this.GetAnnotId()]));
+        if (this.speak_ctrl.needsRender()) {
+            this.speak_ctrl.renderAudioAnon('prosody').then((function(audio) {
+                console.log("Audio rendered to url ", audio.url);
+                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            }).bind(r2App.annots[this.GetAnnotId()]));
+        }
     };
 
     r2.PieceNewSpeak.prototype.updateSizeWithTextInput = function(){
