@@ -690,7 +690,7 @@
          * @param  {string} ssml - Transcript as SSML
          * @return {Promise}     - Returns url to the TTS audio blob.
          */
-        var getTTSAudioFromWatson = (ssml, voice) => {
+        var getTTSAudioFromWatson = (ssml, voice, asStreamingOgg=false) => {
             if (typeof voice === "undefined") voice = "en-US_MichaelVoice";
 
             var $dummy_ta = $('<textarea>');
@@ -702,23 +702,31 @@
             // 2. Change from GET to POST request.
             // 3. Make voice (e.g. Michael) customizable!
             // 4. MAYBE: Split ssml into multiple chunks if it's long...
-            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice + '&accept=audio/wav';
+            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice;
             console.log("Getting TTS from url ", tts_audiourl);
 
-            // Request Watson TTS server
-            return new Promise(function(resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', tts_audiourl, true);
-                xhr.responseType = 'blob';
-                xhr.onreadystatechange = function(e) {
-                  if (this.readyState == 4 && this.status == 200) {
-                    var blob = this.response;
-                    resolve([URL.createObjectURL(blob), blob]);
-                  }
-                  else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
-                };
-                xhr.send();
-            });
+            if (asStreamingOgg === true) {
+                return new Promise(function(resolve, reject) {
+                    resolve([tts_audiourl, null]);
+                });
+            } else {
+                tts_audiourl += '&accept=audio/wav';
+
+                // Request Watson TTS server
+                return new Promise(function(resolve, reject) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', tts_audiourl, true);
+                    xhr.responseType = 'blob';
+                    xhr.onreadystatechange = function(e) {
+                      if (this.readyState == 4 && this.status == 200) {
+                        var blob = this.response;
+                        resolve([URL.createObjectURL(blob), blob]);
+                      }
+                      else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
+                    };
+                    xhr.send();
+                });
+            }
         };
 
         /**
@@ -771,8 +779,8 @@
             // (1) If no post-processing is needed, just return Watson's response.
             if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) {
                 console.warn('Only returning raw TTS with config', config.transfer);
-                return getTTSAudioFromWatson(ssml).then(function(rsc) {
-                    var aud = { 'url':rsc[0], 'blob':rsc[1] };
+                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice', true).then(function(rsc) {
+                    var aud = { 'url':rsc[0], 'blob':null };
                     return new Promise(function(resolve, reject) {
                         resolve(aud);
                     });

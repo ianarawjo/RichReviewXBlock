@@ -2063,6 +2063,7 @@
         return r2.util.normalizeUrl(this._audiofileurl);
     };
     r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob){
+        //url = 'https://newspeak-tts.mybluemix.net/synthesize?text=The+greatest+teacher+is+experience.+It+is+only+through+first+hand+experience,+that+any+new+knowledge+can+get+fixed+in+the+mind.&voice=en-US_MichaelVoice';
         console.log("Annot URL set to ", url);
         this._audiofileurl = url;
         this._reacordingaudioblob = blob;
