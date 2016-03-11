@@ -1668,5 +1668,38 @@
         return pub;
     }());
 
+    r2.annotSynthesizer = (function(){
+        var pub = {};
+
+        pub.run = function(annot_ids, talkens){
+            /*
+            // data description
+             annot_ids = ['<2015.Mar.4:xx>','<2015.Mar.4:xx>','<2015.Mar.4:xx>', ...]
+             talkens = [
+                [
+                    '<2015.Mar.4:xx>', or null
+                    0.6,
+                    0.8
+                ],
+             ]
+             r2.annots['<2015.Mar.4:xx>']
+             // data description
+
+            You can use it like...
+
+            r2.annotSynthesizer.run([this._annotid], [...]).then(
+                function(synthesized_annot_id){
+                    this._annotid = synthesized_annot_id;
+                }
+            )
+            */
+            return new Promise(function(resolve, reject){
+                resolve(annot_ids[0]);
+            });
+        };
+
+        return pub;
+    }())
+
 }(window.r2 = window.r2 || {}));
 
