@@ -543,6 +543,13 @@
                         return Talken.generateFromHTK(stitched_base.url, r2.audiosynth.toTranscript(talkens));
                     }).then(function(perfect_talkens) {
                         console.log('..HTK returned: ', perfect_talkens);
+
+                        // repair words
+                        for(let i = 0; i < perfect_talkens.length; i++) {
+                            let pt = perfect_talkens[i];
+                            pt.replaceWord(talkens[i].word);
+                        }
+
                         console.log('..synthesizing..');
                         return Audio.synthesize(perfect_talkens, options).then(after_stitching).catch(function(err) {
                             console.warn("Error @ r2.speak.render: Audio synthesize failed.", err);
@@ -701,7 +708,7 @@
             talkens.forEach(function(t) {
                 snippets.push({'url':t.audio.url, 't_bgn':t.bgn, 't_end':t.end});
                 if (t.pauseAfter > 0)
-                    snippets.push({'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':t.pauseAfter / 1000.0});
+                    snippets.push({'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':Math.max(t.pauseAfter / 1000.0, 1.0)});
             });
 
             return new Promise(function(resolve, reject) {
