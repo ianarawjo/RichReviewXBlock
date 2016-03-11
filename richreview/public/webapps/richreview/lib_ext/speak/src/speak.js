@@ -358,16 +358,18 @@
                 if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
+                bt = bt.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+                bt = bt.toLowerCase();
 
                 // remove punctuation
-                new_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,"");
+                var stripped_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,"");
 
                 // lowercase
-                new_transcript = new_transcript.toLowerCase();
+                stripped_transcript = stripped_transcript.toLowerCase();
 
                 // Calculate diff between base and new transcript
                 // *** REQUIRES jsdiff.js ***
-                var diff = diffString(bt, new_transcript);
+                var diff = diffString(bt, stripped_transcript);
                 if (diff === bt) return; // Nothing changed.
                 console.log("Compiled diff: ", diff);
 
@@ -380,6 +382,15 @@
                 // Compile edits
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
+
+                // Repair punctuation + capitalization
+                var wrds = new_transcript.trim().split(/\s+/);
+                if (wrds.length !== edited.length)
+                    console.warn('Warning @ r2.speak.update: # of talkens doesn\'t match # of words.', wrds);
+                for (let i = 0; i < wrds.length; i++) {
+                    if (wrds[i].length === 0) continue;
+                    edited[i].replaceWord(wrds[i]);
+                }
 
                 _last_transcript = new_transcript;
                 _needsupdate = false;
@@ -476,7 +487,7 @@
                 return _render('natural');
             };
             pub.renderAudioAnon = (options='') => {
-                return _render('anon+htk', options);
+                return _render('anon', options);
             };
             var _render = (mode, options) => {
                 if (_stitching) {
@@ -544,7 +555,8 @@
                 else if (mode === 'anon+htk') {
                     return Audio.stitch(base).then(function(stitched_base) {
                         console.log('..stitched base talkens. Generating new talkens from HTK...');
-                        return Talken.generateFromHTK(stitched_base.url, r2.audiosynth.toTranscript(talkens));
+                        var transcript = r2.audiosynth.toTranscript(talkens).replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
+                        return Talken.generateFromHTK(stitched_base.url, transcript);
                     }).then(function(perfect_talkens) {
                         console.log('..HTK returned: ', perfect_talkens);
 
@@ -598,8 +610,7 @@
         var toTranscript = (talkens) => {
             var ts = '';
             talkens.forEach((t) => {
-                var word = t.word.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
-                ts += word + ' ';
+                ts += t.word + ' ';
             });
             return ts.trim();
         };
@@ -628,10 +639,7 @@
                 var ts = talkens[i];
                 var prev_ts = talkens[i-1];
 
-                if (ts.word !== word) {
-                    console.warn('Error: toSSML: word "' + ts.word + '" in timestamp does not match displayed text "' + word + '".');
-                    //continue;
-                } else if ((ts.bgn === 0 && ts.end === 0) || (prev_ts.bgn === 0 && prev_ts.end === 0)) {
+                if ((ts.bgn === 0 && ts.end === 0) || (prev_ts.bgn === 0 && prev_ts.end === 0)) {
                     console.warn('toSSML: Skipping null talken.');
                     breaks.push(0);
                     continue;
