@@ -463,16 +463,29 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
+                bt = bt.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+                bt = bt.toLowerCase();
 
                 // remove punctuation
-                new_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+                var stripped_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
 
                 // lowercase
-                new_transcript = new_transcript.toLowerCase();
+                stripped_transcript = stripped_transcript.toLowerCase();
 
                 // Calculate diff between base and new transcript
                 // *** REQUIRES jsdiff.js ***
-                var diff = diffString(bt, new_transcript);
+                console.log('Computing diff with base "' + bt + '" and new "' + stripped_transcript + '"');
+
+                var diffParts = JsDiff.diffWords(bt, stripped_transcript);
+                var diff = '';
+                diffParts.forEach(function (part) {
+                    part.value.split(/\s+/).forEach(function (wrd) {
+                        if (wrd.replace(/\s+/, '').length === 0) return;
+                        if (part.removed) diff += "<del>" + wrd.trim() + "</del> ";else if (part.added) diff += "<ins>" + wrd.trim() + "</ins> ";else diff += wrd.trim() + " ";
+                    });
+                });
+
+                //var diff = diffString(bt, stripped_transcript);
                 if (diff === bt) return; // Nothing changed.
                 console.log("Compiled diff: ", diff);
 
@@ -486,9 +499,20 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
 
+                // Repair punctuation + capitalization
+                var wrds = new_transcript.trim().split(/\s+/);
+                if (wrds.length !== edited.length) console.warn('Warning @ r2.speak.update: # of talkens doesn\'t match # of words.', wrds);
+                for (var i = 0; i < wrds.length; i++) {
+                    if (wrds[i].length === 0) continue;
+                    edited[i].replaceWord(wrds[i]);
+                }
+
                 _last_transcript = new_transcript;
                 _needsupdate = false;
                 _needsrender = true;
+            };
+            pub.getCompiledTalkens = function () {
+                return edited;
             };
             pub.needsRender = function () {
                 return _needsrender;
@@ -583,7 +607,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.renderAudioAnon = function () {
                 var options = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-                return _render('anon+htk', options);
+                return _render('anon', options);
             };
             var _render = function _render(mode, options) {
                 if (_stitching) {
@@ -647,9 +671,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 } else if (mode === 'anon+htk') {
                     return Audio.stitch(base).then(function (stitched_base) {
                         console.log('..stitched base talkens. Generating new talkens from HTK...');
-                        return Talken.generateFromHTK(stitched_base.url, r2.audiosynth.toTranscript(talkens));
+                        var transcript = r2.audiosynth.toTranscript(talkens).replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ""); // strip any punctuation (just in case)
+                        return Talken.generateFromHTK(stitched_base.url, transcript);
                     }).then(function (perfect_talkens) {
                         console.log('..HTK returned: ', perfect_talkens);
+
+                        // repair words
+                        for (var i = 0; i < perfect_talkens.length; i++) {
+                            var pt = perfect_talkens[i];
+                            pt.replaceWord(talkens[i].word);
+                        }
+
                         console.log('..synthesizing..');
                         return Audio.synthesize(perfect_talkens, options).then(after_stitching).catch(function (err) {
                             console.warn("Error @ r2.speak.render: Audio synthesize failed.", err);
@@ -691,8 +723,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         var toTranscript = function toTranscript(talkens) {
             var ts = '';
             talkens.forEach(function (t) {
-                var word = t.word.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ""); // strip any punctuation (just in case)
-                ts += word + ' ';
+                ts += t.word + ' ';
             });
             return ts.trim();
         };
@@ -721,14 +752,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 var ts = talkens[i];
                 var prev_ts = talkens[i - 1];
 
-                if (ts.word !== word) {
-                    console.warn('Error: toSSML: word "' + ts.word + '" in timestamp does not match displayed text "' + word + '".');
-                    //continue;
-                } else if (ts.bgn === 0 && ts.end === 0 || prev_ts.bgn === 0 && prev_ts.end === 0) {
-                        console.warn('toSSML: Skipping null talken.');
-                        breaks.push(0);
-                        continue;
-                    }
+                if (ts.bgn === 0 && ts.end === 0 || prev_ts.bgn === 0 && prev_ts.end === 0) {
+                    console.warn('toSSML: Skipping null talken.');
+                    breaks.push(0);
+                    continue;
+                }
 
                 if (ts.pauseBefore > 0) breaks.push(Math.min(ts.pauseBefore, PAUSE_MAX_MS));else if (prev_ts.pauseAfter > 0) breaks.push(Math.min(prev_ts.pauseAfter, PAUSE_MAX_MS));else breaks.push(0);
 
@@ -759,6 +787,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
          * @return {Promise}     - Returns url to the TTS audio blob.
          */
         var getTTSAudioFromWatson = function getTTSAudioFromWatson(ssml, voice) {
+            var asStreamingOgg = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
+
             if (typeof voice === "undefined") voice = "en-US_MichaelVoice";
 
             var $dummy_ta = $('<textarea>');
@@ -770,22 +800,30 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             // 2. Change from GET to POST request.
             // 3. Make voice (e.g. Michael) customizable!
             // 4. MAYBE: Split ssml into multiple chunks if it's long...
-            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice + '&accept=audio/wav';
+            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice;
             console.log("Getting TTS from url ", tts_audiourl);
 
-            // Request Watson TTS server
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', tts_audiourl, true);
-                xhr.responseType = 'blob';
-                xhr.onreadystatechange = function (e) {
-                    if (this.readyState == 4 && this.status == 200) {
-                        var blob = this.response;
-                        resolve([URL.createObjectURL(blob), blob]);
-                    } else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
-                };
-                xhr.send();
-            });
+            if (asStreamingOgg === true) {
+                return new Promise(function (resolve, reject) {
+                    resolve([tts_audiourl, null]);
+                });
+            } else {
+                tts_audiourl += '&accept=audio/wav';
+
+                // Request Watson TTS server
+                return new Promise(function (resolve, reject) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', tts_audiourl, true);
+                    xhr.responseType = 'blob';
+                    xhr.onreadystatechange = function (e) {
+                        if (this.readyState == 4 && this.status == 200) {
+                            var blob = this.response;
+                            resolve([URL.createObjectURL(blob), blob]);
+                        } else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
+                    };
+                    xhr.send();
+                });
+            }
         };
 
         /**
@@ -799,7 +837,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             var snippets = [];
             talkens.forEach(function (t) {
                 snippets.push({ 'url': t.audio.url, 't_bgn': t.bgn, 't_end': t.end });
-                if (t.pauseAfter > 0) snippets.push({ 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': t.pauseAfter / 1000.0 });
+                if (t.pauseAfter > 0) snippets.push({ 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.max(t.pauseAfter / 1000.0, 1.0) });
             });
 
             return new Promise(function (resolve, reject) {
@@ -859,8 +897,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             // (1) If no post-processing is needed, just return Watson's response.
             if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) {
                 console.warn('Only returning raw TTS with config', config.transfer);
-                return getTTSAudioFromWatson(ssml).then(function (rsc) {
-                    var aud = { 'url': rsc[0], 'blob': rsc[1] };
+                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice', true).then(function (rsc) {
+                    var aud = { 'url': rsc[0], 'blob': null };
                     return new Promise(function (resolve, reject) {
                         resolve(aud);
                     });

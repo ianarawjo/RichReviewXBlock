@@ -1228,11 +1228,20 @@
         return this.dom;
     };
     r2.PieceNewSpeak.prototype.updateSpeakCtrl = function() {
+
+        // Update audio model w/ new edits (if any)
         this.speak_ctrl.update($(this.dom_textbox).text());
+
+        // Resynthesize annot gestures
+        var annotid = this._annotid;
+        var tks = this.speak_ctrl.getCompiledTalkens().map(function(tk) {
+            return [tk.audio ? annotid : null, tk.bgn, tk.end];
+        }); // NOTE: This assumes all talkens have the same audio.
+        r2.annotSynthesizer.run([annotid], tks);
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
-            this.speak_ctrl.renderAudioAnon('prosody').then((function(audio) {
+            this.speak_ctrl.renderAudioAnon().then((function(audio) {
                 console.log("Audio rendered to url ", audio.url);
                 this.SetRecordingAudioFileUrl(audio.url, audio.blob);
             }).bind(r2App.annots[this.GetAnnotId()]));
@@ -2022,6 +2031,7 @@
         return r2.util.normalizeUrl(this._audiofileurl);
     };
     r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob){
+        //url = 'https://newspeak-tts.mybluemix.net/synthesize?text=The+greatest+teacher+is+experience.+It+is+only+through+first+hand+experience,+that+any+new+knowledge+can+get+fixed+in+the+mind.&voice=en-US_MichaelVoice';
         console.log("Annot URL set to ", url);
         this._audiofileurl = url;
         this._reacordingaudioblob = blob;

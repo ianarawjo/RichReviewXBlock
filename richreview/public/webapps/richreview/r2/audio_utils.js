@@ -70,8 +70,8 @@
             m_audio.loop = false;
 
             // This doesn't add streaming functionality. Wonder why...
-            //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
-            //m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
+            m_audio.setAttribute('autoplay', ''); // NEWSPEAK
+            m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
             //console.log(m_audio);
 
             m_audio.addEventListener('ended', function() {
@@ -83,16 +83,20 @@
                 status = pub.Status.STOPPED;
             }, false);
             m_audio.addEventListener('canplaythrough', function() {
+                console.log(" >>>>>> canplaythrough");
                 if(cur_cmd.cb_loading_end)
                     cur_cmd.cb_loading_end();
                 processCmd();
             }, false);
             m_audio.addEventListener('loadedmetadata', function(event){
+                console.log(" >>>>>> loadedmetadata");
             }, false);
             m_audio.addEventListener('play', function() {
+                console.log(" >>>>>> played");
                 processCmd();
             }, false);
             m_audio.addEventListener('pause', function() {
+                console.log(" >>>>>> paused");
                 processCmd();
             }, false);
             m_audio.addEventListener('error', function(event) {
@@ -109,6 +113,7 @@
                 processCmd();
             });
             m_audio.addEventListener('progress', function(event) {
+                console.log(" >>>>>> progress");
                 // progress rate: m_audio.buffered.end(m_audio.buffered.length-1)/m_audio.duration
             });
             status = pub.Status.LOADING;
