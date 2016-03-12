@@ -173,11 +173,12 @@
         pub.getCtrlTalkens = function(url){
             var rtn = []
             $textbox.children().each(function(idx){
-                this.word = this.data[0];
-                this.bgn = this.data[1];
-                this.end = this.data[2];
-                this.audioURL = url;
-                rtn.push($(this))
+                rtn.push({
+                    word : this.data[0],
+                    bgn : this.data[1],
+                    end : this.data[2],
+                    audio_url : url
+                })
             });
             return rtn;
         };

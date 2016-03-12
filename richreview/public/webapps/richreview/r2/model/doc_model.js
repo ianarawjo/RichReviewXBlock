@@ -1409,6 +1409,7 @@
         this.dom_textbox = null;
         this.done_recording = true;
         this.done_captioning = true;
+        this.annotids = [];
     };
     r2.PieceSimpleSpeech.prototype = Object.create(r2.Piece.prototype);
     r2.PieceSimpleSpeech.prototype.Destructor = function(){
@@ -1499,11 +1500,11 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getCtrlTalkens(r2App.annots[this._annotid].getAudioUrl()));
-            this.speak_ctrl.renderAudio().then(
-                function(audio) {
-                    console.log("Audio rendered to url ", audio.url);
-                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(audio.url, audio.blob);
+            r2.audioSynthesizer.run(
+                this.simplespeech.getCtrlTalkens(this.annotids[0])
+            ).then(
+                function(result){
+                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(result.url, result.blob);
                 }.bind(this)
             );
 
@@ -1566,16 +1567,16 @@
         this.simplespeech.setCaptionTemporary(words);
 
         if(this.updateSizeWithTextInput()){
-            r2App.invalidate_size = true;
-            r2App.invalidate_page_layout = true;
+            //r2App.invalidate_size = true;
+            //r2App.invalidate_page_layout = true;
         }
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
         this.simplespeech.setCaptionFinal(words);
 
         if(this.updateSizeWithTextInput()){
-            r2App.invalidate_size = true;
-            r2App.invalidate_page_layout = true;
+            //r2App.invalidate_size = true;
+            //r2App.invalidate_page_layout = true;
         }
     };
     r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){
@@ -1585,15 +1586,16 @@
     };
     r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         this.done_recording = true;
+        this.annotids.push(audioURL);
         this.doneCommenting();
     };
     r2.PieceSimpleSpeech.prototype.doneCommenting = function() {
         if(this.done_captioning && this.done_recording){
-            this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getCtrlTalkens(r2App.annots[this._annotid].getAudioUrl()));
-            this.speak_ctrl.renderAudio().then(
-                function(audio) {
-                    console.log("Audio rendered to url ", audio.url);
-                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(audio.url, audio.blob);
+            r2.audioSynthesizer.run(
+                this.simplespeech.getCtrlTalkens(this.annotids[0])
+            ).then(
+                function(result){
+                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(result.url, result.blob);
                 }.bind(this)
             );
         }
@@ -1995,9 +1997,6 @@
             aid: this._id,
             page: r2App.pieces_cache[this._anchorpid].GetNumPage()
         };
-    };
-    r2.Annot.prototype.getAudioUrl = function(){
-        return this._audiofileurl;
     };
     r2.Annot.prototype.GetDuration = function(){
         return this._duration;
