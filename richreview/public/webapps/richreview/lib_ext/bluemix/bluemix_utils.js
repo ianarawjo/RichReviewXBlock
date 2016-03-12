@@ -140,7 +140,7 @@ var bluemix_stt = (function(bluemix_stt) {
         };
 
         function onOpen(socket) {
-            console.log('Bluemix microphone socket: opened');
+            //console.log('Bluemix microphone socket: opened');
         }
 
         function onListening(socket) {

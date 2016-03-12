@@ -97,7 +97,7 @@
         };
     };
 
-    simplespeech.ui = function(_textbox, _overlay, cbOnEdit) {
+    simplespeech.ui = function(_textbox, _overlay) {
         var pub = {};
 
         // DOM elements
@@ -111,12 +111,6 @@
             idx_end: 0
         };
         var copied_ctrl_talkens = [];
-
-        // Edit history
-        var edit_history;
-        pub.getEditHistory = function() {
-            return edit_history;
-        };
 
         // Listener callbacks
         /**
@@ -153,10 +147,6 @@
         // Init
         var _init = function() {
 
-            // Init edit history
-            edit_history = new EditHistory();
-            edit_history.listen(pub, cbOnEdit);
-
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onKeyDown);
             document.onselectionchange = onSelectionChange;
@@ -180,11 +170,16 @@
             });
             renderViewTalkens();
         };
-        pub.doneCaptioning = function(){
-
-        };
-        pub.getCtrlTalkens = function(){
-
+        pub.getCtrlTalkens = function(url){
+            var rtn = []
+            $textbox.children().each(function(idx){
+                this.word = this.data[0];
+                this.bgn = this.data[1];
+                this.end = this.data[2];
+                this.audioURL = url;
+                rtn.push($(this))
+            });
+            return rtn;
         };
 
         var insertPauseTalken = function($last, $ct, is_temp){

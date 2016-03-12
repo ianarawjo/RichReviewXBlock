@@ -14,9 +14,9 @@
 
         pub.initHT = function(resource_urls){
             var promises = l.map(function(template){
-                return pub.loadOnce(resource_urls, template);
+                return function(){ return pub.loadOnce(resource_urls, template); }
             });
-            return Promise.all(promises);
+            return r2.runSerialPromises(promises);
         };
 
         pub.add = function(name){
@@ -24,12 +24,19 @@
         };
 
         pub.loadOnce = function(resource_urls, name){
-            return r2.util.getUrlData(resource_urls['htmls/' + name + '.xml'], '').then(
-                function(resp) {
-                    $("#" + name).html(resp);
-                    return null;
-                }
-            );
+            return new Promise(function(resolve, reject){
+                r2.util.getUrlData(resource_urls['htmls/' + name + '.xml'], '').then(
+                    function(resp) {
+                        $("#" + name).html(resp);
+                        resolve();
+                    }
+                ).catch(
+                    function(err){
+                        reject(err);
+                    }
+                );
+            });
+
         };
 
         return pub;

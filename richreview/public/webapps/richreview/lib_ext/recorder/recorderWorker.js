@@ -19,9 +19,6 @@ this.onmessage = function(e){
         case 'getDbs':
             getDbs();
             break;
-        case 'clear':
-            clear();
-            break;
     }
 };
 
@@ -34,14 +31,11 @@ function recordChannelBuffer(channel_buffer){
     channel_buffers.push(channel_buffer);
 }
 
-function clear(){
-    channel_buffers = [];
-}
-
 function exportWAV(){
     var merged = mergeBuffers(channel_buffers);
     var downsampled = downsample(merged, downsample_ratio);
     var encoded = encodeWAV(downsampled);
+    channel_buffers = []; // clear
     this.postMessage(
         {
             command: 'exportWAV',
