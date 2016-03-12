@@ -271,13 +271,16 @@
             recorder && recorder.record();
         };
 
-        pub.EndRecording = function(cb){
-            recorder && recorder.stop();
-            // create a WAV file download link using audio data blob
-            recorder && recorder.exportWAV(function(blob, buffer) {
-                var url = (window.URL || window.webkitURL).createObjectURL(blob);
-                cb(url, blob, buffer);
-                recorder.clear();
+        pub.EndRecording = function(){
+            return new Promise(function(resolve, reject){
+                // stop the recording
+                recorder && recorder.stop();
+
+                // and create a WAV file download link using audio data blob
+                recorder && recorder.exportWAV(function(blob, buffer) {
+                    var url = (window.URL || window.webkitURL).createObjectURL(blob);
+                    resolve({url: url, blob: blob, buffer: buffer});
+                });
             });
         };
 
@@ -341,7 +344,6 @@
 
             var url = (window.URL || window.webkitURL).createObjectURL(audioBlob);
             cb(url, audioBlob);
-
         };
 
         pub.downloadAudioFile = function (urlOrBlob, filename) {
@@ -366,5 +368,17 @@
 
         return pub;
     })();
+
+    r2.audioSynthesizer = (function(){
+        var pub = {};
+
+        pub.run = function(talkens){
+
+        };
+
+
+
+        return pub;
+    }());
 
 }(window.r2 = window.r2 || {}));

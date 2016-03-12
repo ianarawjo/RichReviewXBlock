@@ -495,10 +495,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             };
 
             pub.updateSimpleSpeech = function (ctrl_talkens) {
-                return;
 
                 // Convert simple speech talkens into Array of Talken objects
                 edited = ctrl_talkens.map(function ($span) {
+                    console.log($span[0].word, $span[0].bgn, $span[0].end, $span[0].audioURL);
                     return new Talken($span[0].word, $span[0].bgn, $span[0].end, Audio.for($span[0].audioURL));
                 });
 

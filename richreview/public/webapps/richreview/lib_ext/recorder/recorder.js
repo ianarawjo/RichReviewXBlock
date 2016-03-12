@@ -28,11 +28,11 @@
         this.node.onaudioprocess = function(event){
             if (!recording) return;
             var channel_buffer = event.inputBuffer.getChannelData(0);
+            worker.postMessage({
+                command: 'recordChannelBuffer',
+                channel_buffer: channel_buffer
+            });
             if(callbacks.onExportChunk) {
-                worker.postMessage({
-                    command: 'recordChannelBuffer',
-                    channel_buffer: channel_buffer
-                });
                 worker.postMessage({
                     command: 'exportChunk',
                     channel_buffer: channel_buffer
@@ -105,10 +105,6 @@
 
         this.stop = function(){
             recording = false;
-        };
-
-        this.clear = function(){
-            worker.postMessage({ command: 'clear' });
         };
 
     };
