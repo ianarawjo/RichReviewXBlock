@@ -135,7 +135,8 @@ var bluemix_stt = (function(bluemix_stt) {
             'continuous': true,
             'word_confidence': true,
             'timestamps': true,
-            'max_alternatives': 3
+            'max_alternatives': 5
+            //'word_alternatives_threshold': 0.005 // uncomment to get alternative words when prob is < 0.5% (BETA)
         };
 
         function onOpen(socket) {
@@ -192,7 +193,7 @@ var bluemix_stt = (function(bluemix_stt) {
                     }
                 }
                 if(msg.results[0].final){
-                    callbacks.onFinal(best_alternative.timestamps, best_alternative.word_confidence);
+                    callbacks.onFinal(best_alternative.timestamps, msg.results[0].alternatives);
                 }
                 else{
                     callbacks.onTemp(best_alternative.timestamps);

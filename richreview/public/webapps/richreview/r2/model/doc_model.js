@@ -1173,7 +1173,7 @@
 
         this.dom_textbox = document.createElement('div');
         this.dom_textbox.setAttribute('contenteditable', 'true');
-        this.dom_textbox.classList.toggle('r2_piece_simplespeech', true);
+        this.dom_textbox.classList.toggle('r2_piece_newspeak', true);
         this.dom_textbox.classList.toggle('text_selectable', true);
         this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
         this.dom_tr.appendChild(this.dom_textbox);
@@ -1294,11 +1294,15 @@
     };
     r2.PieceNewSpeak.prototype.setCaptionTemporary = function(words){
         var i;
+        function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
         }
         for(i = 0; i < words.length; ++i){
             var w = words[i];
+            if (i === 0) w[0] = capitalize(w[0]); // capitalize first word of transcription
             var $span = $(document.createElement('span'));
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
@@ -1309,15 +1313,36 @@
             r2App.invalidate_page_layout = true;
         }
     };
-    r2.PieceNewSpeak.prototype.setCaptionFinal = function(words){
+    r2.PieceNewSpeak.prototype.setCaptionFinal = function(words, alternatives){
+        console.log(alternatives);
+
         var i;
+        var SENTENCE_PAUSE_THRESHOLD_MS = 500;
+        function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
         }
+
+        words[0][0] = capitalize(words[0][0]); // capitalize first word of transcription
+
         for(i = 0; i < words.length; ++i){
             var w = words[i];
             var $span = $(document.createElement('span'));
+
+            if (i < words.length-1) {
+                console.log(w, words[i+1], words[i+1][1] - w[2]);
+                if (1000.0 * (words[i+1][1] - w[2]) > SENTENCE_PAUSE_THRESHOLD_MS) {
+                    w[0] += '.'; // add period and capitalize next word...
+                    words[i+1][0] = capitalize(words[i+1][0]);
+                }
+            } else {
+                w[0] += '.';
+            }
+
             $span.text(w[0]+' ');
+
             $(this.dom_textbox).append($span);
         }
 

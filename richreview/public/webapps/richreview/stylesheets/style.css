@@ -301,6 +301,17 @@ a:active {
   width: 1em; /* will be tt_w */
   z-index: 18;
 }
+.r2_piece_newspeak {
+  border: 0;
+  overflow: auto;
+  padding: 0.3em;
+  font-family: "Tahoma","Helvetica", "sans-serif";
+  line-height: 1.0em;
+  text-align: left;
+  white-space: pre;
+  white-space: pre-wrap;
+  z-index: 2;
+}
 .r2_piece_simplespeech {
   border: 0;
   overflow: auto;
