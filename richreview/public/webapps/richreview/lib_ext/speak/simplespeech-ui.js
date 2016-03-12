@@ -252,6 +252,12 @@
         };
 
         var renderViewTalkens = function(){
+            var arrayDiff = function(a, b) {
+                return a.filter(function(i) {
+                    return b.index(i) < 0;
+                });
+            };
+
             var positionViewTalken = function($ctrl_talken, $edit_box){
                 var $vt = $ctrl_talken[0].$vt;
 
@@ -263,9 +269,27 @@
                 $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
             };
 
-            $overlay.find('.ssui-viewtalken').remove();
+            var overlay_uids = $overlay.children('.ssui-viewtalken').map(function(idx){
+                return $(this).attr('uid');
+            });
+            var textbox_uids = $textbox.children('.ssui-ctrltalken').map(function(idx){
+                return $(this).attr('uid');
+            });
+
+            var to_remove = arrayDiff(overlay_uids, textbox_uids);
+            var to_append = arrayDiff(textbox_uids, overlay_uids);
+
+            to_remove.each(function(uid){
+                $overlay.find(".ssui-viewtalken[uid='"+to_remove[uid]+"']").remove();
+            });
+
+            to_append.each(function(uid){
+                $overlay.append(
+                    $textbox.find(".ssui-ctrltalken[uid='"+to_append[uid]+"']")[0].$vt
+                );
+            });
+
             $textbox.children('span').each(function(idx) {
-                $overlay.append(this.$vt);
                 positionViewTalken($(this), $textbox);
             });
         };
@@ -381,7 +405,7 @@
 
             carret.idx_bgn = Math.min(carret.idx_anchor, carret.idx_focus);
             carret.idx_end = Math.max(carret.idx_anchor, carret.idx_focus);
-            console.log(carret.idx_bgn, carret.idx_end, carret.is_collapsed);
+            //console.log(carret.idx_bgn, carret.idx_end, carret.is_collapsed);
         };
 
         var setCarret = function(idx){

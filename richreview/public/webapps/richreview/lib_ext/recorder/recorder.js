@@ -12,9 +12,9 @@
         this.config.sample_rate_src = this.context.sampleRate;
         this.config.sample_rate_dst = this.context.sampleRate / cfg.downsample_ratio;
 
+
         this.node = (
-            this.context.createScriptProcessor ||
-            this.context.createJavaScriptNode
+            this.context.createScriptProcessor || this.context.createJavaScriptNode
         ).call(
             this.context, this.config.buffer_size, 1, 1  // # of input channel and output channel
         );
@@ -27,6 +27,7 @@
 
         this.node.onaudioprocess = function(event){
             if (!recording) return;
+
             var channel_buffer = event.inputBuffer.getChannelData(0);
             worker.postMessage({
                 command: 'recordChannelBuffer',

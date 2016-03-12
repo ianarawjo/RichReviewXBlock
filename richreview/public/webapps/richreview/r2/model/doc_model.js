@@ -1441,6 +1441,14 @@
             return this._annotid;
         }
     };
+    r2.PieceSimpleSpeech.prototype.GetAnchorTo = function(){
+        // anchorTo: {type: 'PieceText', id: pid, page: 2} or
+        var anchorCmd = {};
+        anchorCmd.type = 'PieceSimpleSpeech';
+        anchorCmd.id = this.GetId();
+        anchorCmd.page = this.GetNumPage();
+        return anchorCmd;
+    };
     r2.PieceSimpleSpeech.prototype.CreateDom = function(){
         this.dom = document.createElement('div');
         this.dom.classList.toggle('r2_piece_editable_audio', true);
@@ -1484,6 +1492,8 @@
             if(func_UpdateSizeWithTextInput()){
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
+                r2App.invalidate_dynamic_scene = true;
+                r2App.invalidate_static_scene = true;
             }
         }.bind(this);
 
@@ -1567,16 +1577,20 @@
         this.simplespeech.setCaptionTemporary(words);
 
         if(this.updateSizeWithTextInput()){
-            //r2App.invalidate_size = true;
-            //r2App.invalidate_page_layout = true;
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+            r2App.invalidate_dynamic_scene = true;
+            r2App.invalidate_static_scene = true;
         }
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
         this.simplespeech.setCaptionFinal(words);
 
         if(this.updateSizeWithTextInput()){
-            //r2App.invalidate_size = true;
-            //r2App.invalidate_page_layout = true;
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+            r2App.invalidate_dynamic_scene = true;
+            r2App.invalidate_static_scene = true;
         }
     };
     r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){

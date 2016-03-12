@@ -123,14 +123,15 @@
                     /* update system variables */
                     r2.dom.enableRecordingIndicators();
                     r2App.mode = r2App.AppModeEnum.RECORDING;
-                    r2App.invalidate_size = true;
-                    r2App.invalidate_page_layout = true;
                 }
             ).catch(
                 function(err){
                     console.error(err);
                 }
             );
+
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
         };
 
         var createPieceAudio = function(anchor_piece, annotid){
@@ -296,6 +297,8 @@
 
                     r2App.invalidate_size = true;
                     r2App.invalidate_page_layout = true;
+                    r2App.invalidate_dynamic_scene = true;
+                    r2App.invalidate_static_scene = true;
 
                     funcOn();
                 }
@@ -347,6 +350,8 @@
 
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
+                r2App.invalidate_dynamic_scene = true;
+                r2App.invalidate_static_scene = true;
 
                 /* dom */
                 r2.dom_model.appendPieceVoice(annot.GetId(), npiece-1, r2App.cur_recording_annot.GetBgnTime(), pieceaudio);
