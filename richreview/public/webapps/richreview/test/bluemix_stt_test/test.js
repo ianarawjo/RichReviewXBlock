@@ -6,6 +6,9 @@
 (function(test){
     "use strict";
 
+    var recording = null;
+    var word_list = [];
+
     bluemix_stt.getAuthInfo().then(
         function(authToken) {
             // create context
@@ -57,9 +60,9 @@
             r2.audioRecorder,
             function(err, socket) { // opened
                 if (err) {
-
+                    console.error(err);
                 } else {
-
+                    r2.audioRecorder.BgnRecording();
                 }
             },
             function(msg){ // transcript
@@ -69,14 +72,40 @@
                 console.log('Done');
             }
         );
-        r2.audioRecorder.BgnRecording();
+
     };
 
     test.recordStop = function(){
         $.publish('hardsocketstop');
         r2.audioRecorder.EndRecording().then(
             function(result){
-                console.log(result.url);
+                recording = result;
+            }
+        );
+    };
+
+    test.play = function(){
+        r2.audioPlayer.play(recording.id, recording.url, word_list[1][1]*1000.);
+    };
+
+    test.synthesize = function(){
+        var talkens = [];
+        var i;
+        for(i in word_list){
+            if(i%2 === 0){
+                var word = word_list[i];
+                talkens.push(
+                    {
+                        audio_url: recording.url,
+                        bgn: word[1],
+                        end: word[2]
+                    }
+                );
+            }
+        }
+        r2.audioSynthesizer.run(talkens).then(
+            function(result){
+                r2.audioPlayer.play(1, result.url, 0);
             }
         );
     };
@@ -96,7 +125,8 @@
                 $p.find(':last-child').remove();
                 console.log('remove');
             }
-            for(let w of words){
+            for(i in words){
+                var w = words[i];
                 var $span = $(document.createElement('div'));
                 $span.text(w[0]);
                 $p.append($span);
@@ -110,10 +140,12 @@
                 $p.find(':last-child').remove();
                 console.log('remove');
             }
-            for(let w of words){
+            for(i in words){
+                var w = words[i];
                 var $span = $(document.createElement('div'));
                 $span.text(w[0]);
                 $p.append($span);
+                word_list.push(w);
             }
             last_temp_n = 0;
         };

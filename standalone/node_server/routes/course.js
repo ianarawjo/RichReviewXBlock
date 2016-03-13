@@ -143,6 +143,7 @@ cmsUtil.assertStudent = function(req, res, func){
 var postCms = {};
 
 postCms.getAnnouncements = function(req, res){
+    console.log('<<<<',req.headers.origin);
     if(js_utils.identifyUser(req, res)){
         cmsUtil.catchErr(
             RedisClient.HGET('crs:'+req.body.course_id, 'announcements').then(

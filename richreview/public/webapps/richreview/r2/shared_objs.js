@@ -88,7 +88,8 @@ var r2App = (function() {
     pub.RecordingUI = {
         WAVEFORM : 0,
         SIMPLE_SPEECH : 1,
-        NEW_SPEAK: 2
+        SIMPLE_SPEECH_INSERT : 2,
+        NEW_SPEAK: 3
     };
 
     r2.util.setAjaxCsrfToken();

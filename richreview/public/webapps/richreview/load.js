@@ -70,13 +70,13 @@
             });
 
             r2.runSerialPromises(promises).then(
-                function(){
+                function(result){
                     PDFJS.workerSrc = resource_urls['lib_ext/pdfjs/pdf.worker.js'];
                     return r2.main.Run(resource_urls);
                 }
             ).catch(
                 function(err){
-                    console.log(err);
+                    console.error(err);
                     alert(err);
                     //ToDo redirect back to the webpage when failed to load a resource.
                 }

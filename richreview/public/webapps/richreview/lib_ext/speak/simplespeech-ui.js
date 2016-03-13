@@ -11,92 +11,6 @@
 (function(simplespeech) {
     'use strict';
 
-    var EditHistory = function() {
-
-        var base = [];
-        var g = [];
-        var edittype = { NONE: 0, INS: 1, DEL: 2, REPL: 3 };
-        var op = function(type, idx, uid, word) {
-            this.type = type;
-            this.idx = idx;
-            this.uid = uid;
-            this.word = word;
-        };
-
-        var onchange = null;
-
-        var onset = function(setops) {
-            g = []; base = [];
-            for(var i = 0; i < setops.length; ++i){
-                var s = setops[i];
-                base.push(new op(edittype.NONE, i, s[0], s[1]));
-            }
-        };
-
-        var oninsert = function(idx, uid, word) {
-            if (idx > g.length || idx < 0) {
-                console.log("Error @ oninsert: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.INS, idx, uid, word));
-            if (onchange) onchange();
-        };
-        var onremove = function(idx, uid, word) {
-            if (idx >= g.length || idx < 0) {
-                console.log("Error @ onremove: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.DEL, idx, uid, word));
-            if (onchange) onchange();
-        };
-        var onreplace = function(idx, uid, word) {
-            if (idx >= g.length || idx < 0) {
-                console.log("Error @ onreplace: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.REPL, idx, uid, word));
-            if (onchange) onchange();
-        };
-
-        return {
-            listen: function(ssui, cbOnChange) {
-                ssui.oninsert = oninsert;
-                ssui.onremove = onremove;
-                ssui.onreplace = onreplace;
-                ssui.onset = onset;
-                onchange = cbOnChange;
-            },
-            disconnect: function() {
-                ssui.oninsert = null;
-                ssui.onremove = null;
-                ssui.onreplace = null;
-                ssui.onset = null;
-                onchange = null;
-            },
-
-            /**
-             * Applies edit ops to array (talkens, timestamps, etc) where each obj must have .word attribute.
-             * createFunc should be a function which takes the op and returns a new obj to add to ts.
-             */
-            apply: function(ts, createFunc) {
-
-                g.forEach(function(o){
-                    if (o.type === edittype.INS) {
-                        ts.splice(o.idx, 0, createFunc(o));
-                    }
-                    else if (o.type === edittype.DEL) {
-                        ts.splice(o.idx, 1);
-                    }
-                    else if (o.type === edittype.REPL) {
-                        ts[idx].word = o.word;
-                    }
-                });
-
-                return ts;
-            }
-        };
-    };
-
     simplespeech.ui = function(_textbox, _overlay) {
         var pub = {};
 
@@ -111,6 +25,8 @@
             idx_end: 0
         };
         var copied_ctrl_talkens = [];
+        var content_changed = false;
+        var insert_pos = 0;
 
         // Listener callbacks
         /**
@@ -143,60 +59,146 @@
         pub.onset = null;
 
         pub.on_input = null;
+        pub.play = null;
 
         // Init
         var _init = function() {
 
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onKeyDown);
-            document.onselectionchange = onSelectionChange;
         };
 
-        pub.setCaptionTemporary = function(words){
+        pub.setCaptionTemporary = function(words, annotid){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(data, true); // is_temp = true
-                insertPauseTalken($textbox.children().last(), $ct, true);
-                $textbox.append($ct);
+                var next_base_data = {
+                    word: data[0],
+                    bgn: data[1],
+                    end: data[2],
+                    annotid: annotid
+                };
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                if(pause_talken_data){
+                    insertTalken(pause_talken_data, insert_pos++, true);
+                }
+
+                insertTalken(next_base_data, insert_pos++, true);
             });
             renderViewTalkens();
+            content_changed = true;
         };
-        pub.setCaptionFinal = function(words){
+        pub.setCaptionFinal = function(words, annotid){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(data, false); // is_temp = false
-                insertPauseTalken($textbox.children().last(), $ct, false);
-                $textbox.append($ct);
+                var next_base_data = {
+                    word: data[0],
+                    bgn: data[1],
+                    end: data[2],
+                    annotid: annotid
+                };
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                if(pause_talken_data){
+                    insertTalken(pause_talken_data, insert_pos++, false);
+                }
+                insertTalken(next_base_data, insert_pos++, false);
+                setCarret(insert_pos);
             });
             renderViewTalkens();
+            insert_pos++;
+            content_changed = true;
         };
-        pub.getCtrlTalkens = function(url){
-            var rtn = []
+        pub.bgnCommenting = function(){
+            $textbox.focus();
+            $textbox.children('span').each(function(idx) {
+                this.$vt.toggleClass('old', true);
+            });
+            insert_pos = getCarret().idx_anchor;
+        };
+        pub.endCommenting = function(){
+            $textbox.children('span').each(function(idx) {
+                this.$vt.toggleClass('old', false);
+            });
+        };
+        pub.getCtrlTalkens = function(){
+            var rtn = [];
+            setRenderedTiming();
             $textbox.children().each(function(idx){
-                this.word = this.data[0];
-                this.bgn = this.data[1];
-                this.end = this.data[2];
-                this.audioURL = url;
-                rtn.push($(this))
+                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
+                rtn.push(this.base_data);
             });
             return rtn;
         };
+        var getCarretRenderedTime = function(carret){
+            setRenderedTiming();
+            return $textbox.children('span')[carret.idx_bgn].rendered_data.bgn*1000.;
+        };
+        var setRenderedTiming = function(){
+            var rendered_time = 0;
+            $textbox.children().each(function(idx){
+                this.rendered_data = {};
+                this.rendered_data.bgn = rendered_time;
+                rendered_time += this.base_data.end-this.base_data.bgn;
+                this.rendered_data.end = rendered_time;
+            });
+        };
+        pub.drawDynamic = function(duration){
+            if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                $textbox.children().each(function(idx){
+                    if(this.rendered_data.bgn < duration/1000. && duration/1000. < this.rendered_data.end){
+                        this.$vt.toggleClass('replay_highlight', true);
+                        setCarret(idx+1);
+                    }
+                    else{
+                        this.$vt.toggleClass('replay_highlight', false);
+                    }
+                });
+            }
+            else{
+                $textbox.children().each(function(idx){
+                    this.$vt.toggleClass('replay_highlight', false);
+                });
+            }
+        };
+        pub.synthesizeNewAnnot = function(_annot_id){
+            return r2.audioSynthesizer.run(
+                pub.getCtrlTalkens()
+            ).then(
+                function(result){
+                    r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
+                    content_changed = false;
+                    return null;
+                }
+            );
+        };
+        pub.isContentChanged = function(){
+            return content_changed;
+        };
 
-        var insertPauseTalken = function($last, $ct, is_temp){
+        function jquery_insert($target, $elem, idx){
+            var idx_last = $target.children().size();
+            $target.append($elem);
+            if (idx < idx_last) {
+                $target.children().eq(idx).before($target.children().last())
+            }
+        }
+        var insertTalken = function(base_data, idx, temp){
+            jquery_insert($textbox, createTalken(base_data, temp), idx);
+        };
+
+        var getPauseTalkenDataToInsert = function($last, next_base_data){
             if($last[0]){
-                if($ct[0].data[1]-$last[0].data[2] > 0.3){
-                    var $ct = createTalken(
-                        ['\xa0', $last[0].data[2], $ct[0].data[1]],
-                        is_temp // is_temp
-                    );
-                    $ct[0].$vt.addClass('ssui-pause');
-                    $textbox.append($ct);
+                if(next_base_data.bgn-$last[0].base_data.end > 0.3){
+                    return {
+                        word:'\xa0',
+                        bgn: $last[0].base_data.end,
+                        end: next_base_data.bgn,
+                        annotid: next_base_data.annotid
+                    }
                 }
             }
         };
 
-        var createTalken = function(data, is_temp){
-            var word = data[0];
+        var createTalken = function(base_data, is_temp){
             function newViewTalken(uid, word) {
                 var $vt = $(document.createElement('div'));
                 $vt.addClass('ssui-viewtalken');
@@ -220,7 +222,7 @@
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
-                $ct[0].data = data;
+                $ct[0].base_data = base_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
@@ -232,10 +234,10 @@
 
             var uid = r2.util.generateGuid();
 
-            var $vt = newViewTalken(uid, word);
+            var $vt = newViewTalken(uid, base_data.word);
             $overlay.append($vt);
 
-            var $ct = newCtrlTalken($vt, uid, word);
+            var $ct = newCtrlTalken($vt, uid, base_data.word);
 
             if(is_temp){
                 $vt.toggleClass('temp', true);
@@ -247,10 +249,18 @@
 
         var removeTempTalkens = function(){
             $overlay.find('.temp').remove();
+            insert_pos-=$textbox.find('.temp').length;
             $textbox.find('.temp').remove();
+
         };
 
         var renderViewTalkens = function(){
+            var arrayDiff = function(a, b) {
+                return a.filter(function(i) {
+                    return b.index(i) < 0;
+                });
+            };
+
             var positionViewTalken = function($ctrl_talken, $edit_box){
                 var $vt = $ctrl_talken[0].$vt;
 
@@ -262,9 +272,27 @@
                 $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
             };
 
-            $overlay.find('.ssui-viewtalken').remove();
+            var overlay_uids = $overlay.children('.ssui-viewtalken').map(function(idx){
+                return $(this).attr('uid');
+            });
+            var textbox_uids = $textbox.children('.ssui-ctrltalken').map(function(idx){
+                return $(this).attr('uid');
+            });
+
+            var to_remove = arrayDiff(overlay_uids, textbox_uids);
+            var to_append = arrayDiff(textbox_uids, overlay_uids);
+
+            to_remove.each(function(uid){
+                $overlay.find(".ssui-viewtalken[uid='"+to_remove[uid]+"']").remove();
+            });
+
+            to_append.each(function(uid){
+                $overlay.append(
+                    $textbox.find(".ssui-ctrltalken[uid='"+to_append[uid]+"']")[0].$vt
+                );
+            });
+
             $textbox.children('span').each(function(idx) {
-                $overlay.append(this.$vt);
                 positionViewTalken($(this), $textbox);
             });
         };
@@ -275,7 +303,6 @@
 
         // Events
         var onKeyDown = function(e) {
-            console.log('keyCode', e.keyCode);
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -288,7 +315,7 @@
             }
             else {
                 e.preventDefault();
-                onSelectionChange();
+                var carret = getCarret();
 
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     if(carret.is_collapsed){
@@ -360,15 +387,45 @@
                         );
                     }
                 }
+                else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
+                    if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                        r2.rich_audio.stop();
+                    }
+                    else if(r2App.mode === r2App.AppModeEnum.IDLE){
+                        var ctrl_talkens = $textbox.children('span');
+                        if(carret.idx_bgn < ctrl_talkens.length){
+                            pub.synthesizeAndPlay(content_changed, getCarretRenderedTime(carret)).then(
+                                function(){
+                                    content_changed = false;
+                                }
+                            );
+                        }
+                    }
+                }
+                else if(e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
+                    if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+
+                    }
+                    else{
+                        if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                            r2.rich_audio.stop();
+                        }
+                        pub.insertRecording();
+                    }
+                }
 
                 renderViewTalkens();
 
+                content_changed = true;
                 if(pub.on_input)
                     pub.on_input();
             }
         };
 
-        var onSelectionChange = function(e){
+        var getCarret = function(){
+            if($textbox.children().length === 0){
+                return {idx_anchor:0};
+            }
             var sel = window.getSelection();
             if(sel.anchorNode.parentNode.parentNode !== $textbox[0]){ // when focused to textbox
                 sel = setCarret(sel.anchorOffset);
@@ -380,7 +437,7 @@
 
             carret.idx_bgn = Math.min(carret.idx_anchor, carret.idx_focus);
             carret.idx_end = Math.max(carret.idx_anchor, carret.idx_focus);
-            console.log(carret.idx_bgn, carret.idx_end, carret.is_collapsed);
+            return carret;
         };
 
         var setCarret = function(idx){
@@ -403,7 +460,6 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                console.log('remove', idx_bgn, idx_end);
                 $textbox.children().slice(idx_bgn, idx_end).remove();
             };
 
@@ -412,18 +468,9 @@
             };
 
             pub_op.paste = function(idx){
-
-                function jquery_insert($target, $elem, idx){
-                    var idx_last = $target.children().size();
-                    $target.append($elem);
-                    if (idx < idx_last) {
-                        $target.children().eq(idx).before($target.children().last())
-                    }
-                }
-
                 copied_ctrl_talkens.each(
                     function(){
-                        jquery_insert($textbox, createTalken(this.data, false), idx);
+                        insertTalken(this.base_data, idx, false);
                         ++idx;
                     }
                 );
@@ -433,38 +480,9 @@
             return pub_op;
         }());
 
-
-
         _init();
 
         return pub;
     };
-
-    /* Thanks to Tim Down @ SO
-    http://stackoverflow.com/questions/4811822/get-a-ranges-start-and-end-offsets-relative-to-its-parent-container/4812022#4812022 */
-    function getCaretOffset(element) {
-        var caretOffset = 0;
-        var doc = element.ownerDocument || element.document;
-        var win = doc.defaultView || doc.parentWindow;
-        var sel;
-        if (typeof win.getSelection != "undefined") {
-            sel = win.getSelection();
-            if (sel.rangeCount > 0) {
-                var range = win.getSelection().getRangeAt(0);
-                var preCaretRange = range.cloneRange();
-                preCaretRange.selectNodeContents(element);
-                preCaretRange.setStart(preCaretRange.startContainer, 4);
-                preCaretRange.setEnd(range.endContainer, range.endOffset);
-                caretOffset = preCaretRange.toString().length;
-            }
-        } else if ( (sel = doc.selection) && sel.type != "Control") {
-            var textRange = sel.createRange();
-            var preCaretTextRange = doc.body.createTextRange();
-            preCaretTextRange.moveToElementText(element);
-            preCaretTextRange.setEndPoint("EndToEnd", textRange);
-            caretOffset = preCaretTextRange.text.length;
-        }
-        return caretOffset;
-    }
 
 }(window.simplespeech = window.simplespeech || {}));

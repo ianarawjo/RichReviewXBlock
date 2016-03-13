@@ -521,9 +521,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.updateSimpleSpeech = function (ctrl_talkens) {
 
                 // Convert simple speech talkens into Array of Talken objects
+                console.log('');
                 edited = ctrl_talkens.map(function ($span) {
                     return new Talken($span[0].word, $span[0].bgn, $span[0].end, Audio.for($span[0].audioURL));
                 });
+                console.log('');
 
                 _needsupdate = false;
                 _needsrender = true;
