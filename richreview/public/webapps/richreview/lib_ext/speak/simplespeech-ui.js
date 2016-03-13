@@ -101,6 +101,7 @@
                     insertTalken(pause_talken_data, insert_pos++, false);
                 }
                 insertTalken(next_base_data, insert_pos++, false);
+                setCarret(insert_pos);
             });
             renderViewTalkens();
             insert_pos++;

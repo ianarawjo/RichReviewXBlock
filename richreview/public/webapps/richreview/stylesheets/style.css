@@ -368,7 +368,8 @@ a:active {
   border: solid 0.1em rgb(220, 220, 220);
   color: black;
 }
-.ssui-overlay > .ssui-word.temp {
+.ssui-overlay > .ssui-word.temp,
+.ssui-overlay > .ssui-word.old{
   background-color: rgb(250, 250, 250);
   border: solid 0.02em rgb(240, 240, 240);
   color: gray;
