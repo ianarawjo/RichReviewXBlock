@@ -104,7 +104,6 @@
                 setCarret(insert_pos);
             });
             renderViewTalkens();
-            insert_pos++;
             content_changed = true;
         };
         pub.bgnCommenting = function(){
@@ -413,6 +412,9 @@
                         pub.insertRecording();
                     }
                 }
+                else{ //alphanumeric
+
+                }
 
                 renderViewTalkens();
 
@@ -443,13 +445,19 @@
         var setCarret = function(idx){
             var sel = window.getSelection();
             var range = document.createRange();
-            if(idx!==0){
-                var n = $textbox.children()[idx-1];
-                range.setStartAfter(n);
+            try{
+
+                if(idx!==0){
+                    var n = $textbox.children()[idx-1];
+                    range.setStartAfter(n);
+                }
+                else{
+                    var n = $textbox.children()[0];
+                    range.setStartBefore(n);
+                }
             }
-            else{
-                var n = $textbox.children()[0];
-                range.setStartBefore(n);
+            catch(e){
+                var x = 0;
             }
             sel.removeAllRanges();
             sel.addRange(range);
