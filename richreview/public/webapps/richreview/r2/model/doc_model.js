@@ -1496,7 +1496,7 @@
         this.simplespeech.synthesizeAndPlay = function(content_changed, time){
             return new Promise(function(resolve, reject){
                 if(content_changed){
-                    this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids).then(
+                    this.simplespeech.synthesizeNewAnnot(this._annotid).then(
                         function(){
                             r2.rich_audio.play(this._annotid, time);
                             resolve();
@@ -1530,7 +1530,8 @@
             $(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
             if(this.simplespeech.isContentChanged()){
-                this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids);
+                if(r2App.mode !== r2App.AppModeEnum.RECORDING)
+                    this.simplespeech.synthesizeNewAnnot(this._annotid);
 
                 //console.log('>>>>__contentschanged:', this.ExportToTextChange());
                 //r2Sync.PushToUploadCmd(this.ExportToTextChange());
@@ -1588,16 +1589,18 @@
             r2App.invalidate_static_scene = true;
         }
     };
-    r2.PieceSimpleSpeech.prototype.bgnCommenting = function(){
+    r2.PieceSimpleSpeech.prototype.bgnCommenting = function(recording_annot_id){
+        this.annotids.push(recording_annot_id);
         this.done_recording = false;
         this.done_captioning = false;
+        this.simplespeech.bgnCommenting();
     };
     r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
-        this.simplespeech.setCaptionTemporary(words);
+        this.simplespeech.setCaptionTemporary(words, this.annotids[this.annotids.length-1]);
         this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.setCaptionFinal = function(words){
-        this.simplespeech.setCaptionFinal(words);
+        this.simplespeech.setCaptionFinal(words, this.annotids[this.annotids.length-1]);
         this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){
@@ -1607,12 +1610,12 @@
     };
     r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         this.done_recording = true;
-        this.annotids.push(audioURL);
         this.doneCommenting();
     };
     r2.PieceSimpleSpeech.prototype.doneCommenting = function() {
         if(this.done_captioning && this.done_recording){
-            this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids);
+            this.simplespeech.endCommenting();
+            this.simplespeech.synthesizeNewAnnot(this._annotid);
         }
     };
     r2.PieceSimpleSpeech.prototype.Focus = function(){

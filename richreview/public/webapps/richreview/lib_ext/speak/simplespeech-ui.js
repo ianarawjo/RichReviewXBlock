@@ -26,6 +26,7 @@
         };
         var copied_ctrl_talkens = [];
         var content_changed = false;
+        var insert_pos = 0;
 
         // Listener callbacks
         /**
@@ -67,45 +68,61 @@
             $textbox[0].addEventListener('keydown', onKeyDown);
         };
 
-        pub.setCaptionTemporary = function(words){
+        pub.setCaptionTemporary = function(words, annotid){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(
-                    {
-                        word: data[0],
-                        bgn: data[1],
-                        end: data[2]
-                    },
-                    true
-                ); // is_temp = true
-                insertPauseTalken($textbox.children().last(), $ct, true);
-                $textbox.append($ct);
+                var next_base_data = {
+                    word: data[0],
+                    bgn: data[1],
+                    end: data[2],
+                    annotid: annotid
+                };
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                if(pause_talken_data){
+                    insertTalken(pause_talken_data, insert_pos++, true);
+                }
+
+                insertTalken(next_base_data, insert_pos++, true);
             });
             renderViewTalkens();
             content_changed = true;
         };
-        pub.setCaptionFinal = function(words){
+        pub.setCaptionFinal = function(words, annotid){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(
-                    {
-                        word: data[0],
-                        bgn: data[1],
-                        end: data[2]
-                    },
-                    false
-                ); // is_temp = false
-                insertPauseTalken($textbox.children().last(), $ct, false);
-                $textbox.append($ct);
+                var next_base_data = {
+                    word: data[0],
+                    bgn: data[1],
+                    end: data[2],
+                    annotid: annotid
+                };
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                if(pause_talken_data){
+                    insertTalken(pause_talken_data, insert_pos++, false);
+                }
+                insertTalken(next_base_data, insert_pos++, false);
             });
             renderViewTalkens();
+            insert_pos++;
             content_changed = true;
         };
-        pub.getCtrlTalkens = function(url){
+        pub.bgnCommenting = function(){
+            $textbox.focus();
+            $textbox.children('span').each(function(idx) {
+                this.$vt.toggleClass('old', true);
+            });
+            insert_pos = getCarret().idx_anchor;
+        };
+        pub.endCommenting = function(){
+            $textbox.children('span').each(function(idx) {
+                this.$vt.toggleClass('old', false);
+            });
+        };
+        pub.getCtrlTalkens = function(){
             var rtn = [];
             setRenderedTiming();
             $textbox.children().each(function(idx){
-                this.base_data.audio_url = url;
+                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
                 rtn.push(this.base_data);
             });
             return rtn;
@@ -141,9 +158,9 @@
                 });
             }
         };
-        pub.synthesizeNewAnnot = function(_annot_id, annotids){
+        pub.synthesizeNewAnnot = function(_annot_id){
             return r2.audioSynthesizer.run(
-                pub.getCtrlTalkens(annotids[0])
+                pub.getCtrlTalkens()
             ).then(
                 function(result){
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
@@ -156,19 +173,26 @@
             return content_changed;
         };
 
-        var insertPauseTalken = function($last, $ct, is_temp){
+        function jquery_insert($target, $elem, idx){
+            var idx_last = $target.children().size();
+            $target.append($elem);
+            if (idx < idx_last) {
+                $target.children().eq(idx).before($target.children().last())
+            }
+        }
+        var insertTalken = function(base_data, idx, temp){
+            jquery_insert($textbox, createTalken(base_data, temp), idx);
+        };
+
+        var getPauseTalkenDataToInsert = function($last, next_base_data){
             if($last[0]){
-                if($ct[0].base_data.bgn-$last[0].base_data.end > 0.3){
-                    var $ct = createTalken(
-                        {
-                            word:'\xa0',
-                            bgn: $last[0].base_data.end,
-                            end:$ct[0].base_data.bgn
-                        },
-                        is_temp // is_temp
-                    );
-                    $ct[0].$vt.addClass('ssui-pause');
-                    $textbox.append($ct);
+                if(next_base_data.bgn-$last[0].base_data.end > 0.3){
+                    return {
+                        word:'\xa0',
+                        bgn: $last[0].base_data.end,
+                        end: next_base_data.bgn,
+                        annotid: next_base_data.annotid
+                    }
                 }
             }
         };
@@ -224,7 +248,9 @@
 
         var removeTempTalkens = function(){
             $overlay.find('.temp').remove();
+            insert_pos-=$textbox.find('.temp').length;
             $textbox.find('.temp').remove();
+
         };
 
         var renderViewTalkens = function(){
@@ -395,7 +421,10 @@
             }
         };
 
-        var getCarret = function(e){
+        var getCarret = function(){
+            if($textbox.children().length === 0){
+                return {idx_anchor:0};
+            }
             var sel = window.getSelection();
             if(sel.anchorNode.parentNode.parentNode !== $textbox[0]){ // when focused to textbox
                 sel = setCarret(sel.anchorOffset);
@@ -430,7 +459,6 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                console.log('remove', idx_bgn, idx_end);
                 $textbox.children().slice(idx_bgn, idx_end).remove();
             };
 
@@ -439,18 +467,9 @@
             };
 
             pub_op.paste = function(idx){
-
-                function jquery_insert($target, $elem, idx){
-                    var idx_last = $target.children().size();
-                    $target.append($elem);
-                    if (idx < idx_last) {
-                        $target.children().eq(idx).before($target.children().last())
-                    }
-                }
-
                 copied_ctrl_talkens.each(
                     function(){
-                        jquery_insert($textbox, createTalken(this.base_data, false), idx);
+                        insertTalken(this.base_data, idx, false);
                         ++idx;
                     }
                 );

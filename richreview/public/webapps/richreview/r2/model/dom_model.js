@@ -460,7 +460,7 @@
                         'play or stop audio',
                         function(){
                             if(r2App.mode === r2App.AppModeEnum.RECORDING){
-                                if(annot_id === r2App.cur_recording_annot.GetId()){
+                                if(annot_id === piece.GetAnnotId()){
                                     r2.recordingCtrl.stop(true); /* to upload */
                                     r2.log.Log_Simple("Recording_Stop_RadialMenu");
                                     r2.radialMenu.changeCenterIcon('rm_'+annot_id_esc, 'fa-play');

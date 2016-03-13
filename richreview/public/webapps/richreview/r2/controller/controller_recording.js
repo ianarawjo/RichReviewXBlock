@@ -171,16 +171,16 @@
             return new Promise(function(resolve, reject){
                 var time_simple_speech = r2App.cur_time+128;
                 var piece_annot_id = new Date(time_simple_speech).toISOString();
-                r2App.cur_recording_annot = new r2.Annot();
-                r2App.cur_recording_annot.SetAnnot(
+                var piece_annot = new r2.Annot();
+                piece_annot.SetAnnot(
                     piece_annot_id, anchor_piece.GetId(), time_simple_speech, time_simple_speech, [], r2.userGroup.cur_user.name, ""
                 );
-                r2App.annots[piece_annot_id] = r2App.cur_recording_annot;
+                r2App.annots[piece_annot_id] = piece_annot;
 
                 var piece_simple_speech = new r2.PieceSimpleSpeech();
                 piece_simple_speech.SetPiece(
                     r2.pieceHashId.voice(piece_annot_id, 0),
-                    r2App.cur_recording_annot.GetBgnTime(),
+                    piece_annot.GetBgnTime(),
                     anchor_piece.GetNewPieceSize(),
                     anchor_piece.GetTTData()
                 );
@@ -333,9 +333,10 @@
                     r2.PieceAudio.prototype.NormalizePieceAudio(r2App.cur_recording_pieceaudios, refresh_all = true);
 
                     /* annot */
+                    r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob);
                     if(r2App.cur_recording_piece.onEndRecording)
                         r2App.cur_recording_piece.onEndRecording(result.url);
-                    r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob);
+
 
                     /* upload */
                     if(to_upload)
