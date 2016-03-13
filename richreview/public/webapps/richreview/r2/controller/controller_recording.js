@@ -225,8 +225,8 @@
                     function(words){
                         piece_new_speak.setCaptionTemporary(words);
                     },
-                    function(words, conf){
-                        piece_new_speak.setCaptionFinal(words);
+                    function(words, alternatives){
+                        piece_new_speak.setCaptionFinal(words, alternatives);
                     }
                 );
                 // begin recording

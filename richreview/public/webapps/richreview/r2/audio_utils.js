@@ -70,7 +70,7 @@
             m_audio.loop = false;
 
             // This doesn't add streaming functionality. Wonder why...
-            m_audio.setAttribute('autoplay', ''); // NEWSPEAK
+            //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
             m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
             //console.log(m_audio);
 

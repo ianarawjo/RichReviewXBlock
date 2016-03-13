@@ -1314,7 +1314,7 @@
         console.log(alternatives);
 
         var i;
-        var SENTENCE_PAUSE_THRESHOLD_MS = 500;
+        var SENTENCE_PAUSE_THRESHOLD_MS = 700;
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
@@ -1589,6 +1589,7 @@
     };
     r2.PieceSimpleSpeech.prototype.doneCommenting = function() {
         if(this.done_captioning && this.done_recording){
+            console.log('ctrl talkens: ', this.simplespeech.getCtrlTalkens(r2App.annots[this._annotid].getAudioUrl()));
             this.speak_ctrl.updateSimpleSpeech(this.simplespeech.getCtrlTalkens(r2App.annots[this._annotid].getAudioUrl()));
             this.speak_ctrl.renderAudio().then(
                 function(audio) {

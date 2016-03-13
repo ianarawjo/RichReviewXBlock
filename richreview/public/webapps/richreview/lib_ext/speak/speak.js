@@ -522,7 +522,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                 // Convert simple speech talkens into Array of Talken objects
                 edited = ctrl_talkens.map(function ($span) {
-                    console.log($span[0].word, $span[0].bgn, $span[0].end, $span[0].audioURL);
                     return new Talken($span[0].word, $span[0].bgn, $span[0].end, Audio.for($span[0].audioURL));
                 });
 
@@ -587,6 +586,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                             j++; // skip over the inserted talken
                         } else {
+                                if (j >= ts.length) continue;
                                 checkmatch(e, ts[j]); // nothing better have changed!
                                 j++;
                             }
@@ -634,24 +634,24 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 // Compile the audio
                 var after_stitching = function after_stitching(stitched_resource) {
 
+                    // No longer stitching!
+                    _stitching = false;
+                    _needsrender = false;
+
                     console.log("stitched talkens: ", stitched_resource);
 
                     // Repair talken urls to point to stitched resource:
-                    var _bgn = 0; // running time
-                    talkens.forEach(function (t) {
+                    // * CANNOT TRUST THIS IN PRACTICE *. Just leave it be.
+                    /*var _bgn = 0; // running time
+                    talkens.forEach(function(t) {
                         var len = t.end - t.bgn;
                         t.bgn = _bgn;
                         t.end = _bgn + len;
                         t.audio = stitched_resource;
                         _bgn += len;
                     });
-
-                    // Set edited talkens
-                    edited = talkens;
-
-                    // No longer stitching!
-                    _stitching = false;
-                    _needsrender = false;
+                     // Set edited talkens
+                    edited = talkens;*/
 
                     return new Promise(function (resolve, reject) {
                         resolve(stitched_resource);
