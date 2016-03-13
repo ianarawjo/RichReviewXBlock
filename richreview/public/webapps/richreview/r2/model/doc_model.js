@@ -1238,7 +1238,7 @@
         var tks = this.speak_ctrl.getCompiledTalkens().map(function(tk) {
             return [tk.audio ? annotid : null, tk.bgn, tk.end];
         }); // NOTE: This assumes all talkens have the same audio.
-        r2.annotSynthesizer.run([annotid], tks);
+        //r2.annotSynthesizer.run(this._annotid, tks);
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
@@ -1376,13 +1376,7 @@
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
 
-        if (this._last_words === null) {
-            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
-            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
-            this._last_audio_url = audioURL;
-        }
-        else {
-
+        if (this._last_words) {
             this._last_audio_url = audioURL;
 
             console.log('hello 2');
@@ -1391,6 +1385,11 @@
             this.renderAudio();
 
             this._last_words = null;
+        }
+        else {
+            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
+            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
+            this._last_audio_url = audioURL;
         }
     };
     r2.PieceNewSpeak.prototype.doneCaptioning = function(){
