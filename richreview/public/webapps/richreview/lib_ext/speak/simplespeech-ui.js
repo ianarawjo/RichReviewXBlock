@@ -11,92 +11,6 @@
 (function(simplespeech) {
     'use strict';
 
-    var EditHistory = function() {
-
-        var base = [];
-        var g = [];
-        var edittype = { NONE: 0, INS: 1, DEL: 2, REPL: 3 };
-        var op = function(type, idx, uid, word) {
-            this.type = type;
-            this.idx = idx;
-            this.uid = uid;
-            this.word = word;
-        };
-
-        var onchange = null;
-
-        var onset = function(setops) {
-            g = []; base = [];
-            for(var i = 0; i < setops.length; ++i){
-                var s = setops[i];
-                base.push(new op(edittype.NONE, i, s[0], s[1]));
-            }
-        };
-
-        var oninsert = function(idx, uid, word) {
-            if (idx > g.length || idx < 0) {
-                console.log("Error @ oninsert: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.INS, idx, uid, word));
-            if (onchange) onchange();
-        };
-        var onremove = function(idx, uid, word) {
-            if (idx >= g.length || idx < 0) {
-                console.log("Error @ onremove: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.DEL, idx, uid, word));
-            if (onchange) onchange();
-        };
-        var onreplace = function(idx, uid, word) {
-            if (idx >= g.length || idx < 0) {
-                console.log("Error @ onreplace: Invalid index: ", idx);
-                return;
-            }
-            g.push(new op(edittype.REPL, idx, uid, word));
-            if (onchange) onchange();
-        };
-
-        return {
-            listen: function(ssui, cbOnChange) {
-                ssui.oninsert = oninsert;
-                ssui.onremove = onremove;
-                ssui.onreplace = onreplace;
-                ssui.onset = onset;
-                onchange = cbOnChange;
-            },
-            disconnect: function() {
-                ssui.oninsert = null;
-                ssui.onremove = null;
-                ssui.onreplace = null;
-                ssui.onset = null;
-                onchange = null;
-            },
-
-            /**
-             * Applies edit ops to array (talkens, timestamps, etc) where each obj must have .word attribute.
-             * createFunc should be a function which takes the op and returns a new obj to add to ts.
-             */
-            apply: function(ts, createFunc) {
-
-                g.forEach(function(o){
-                    if (o.type === edittype.INS) {
-                        ts.splice(o.idx, 0, createFunc(o));
-                    }
-                    else if (o.type === edittype.DEL) {
-                        ts.splice(o.idx, 1);
-                    }
-                    else if (o.type === edittype.REPL) {
-                        ts[idx].word = o.word;
-                    }
-                });
-
-                return ts;
-            }
-        };
-    };
-
     simplespeech.ui = function(_textbox, _overlay) {
         var pub = {};
 
@@ -111,7 +25,7 @@
             idx_end: 0
         };
         var copied_ctrl_talkens = [];
-        var annot_id = null;
+        var content_changed = false;
 
         // Listener callbacks
         /**
@@ -144,6 +58,7 @@
         pub.onset = null;
 
         pub.on_input = null;
+        pub.play = null;
 
         // Init
         var _init = function() {
@@ -168,6 +83,7 @@
                 $textbox.append($ct);
             });
             renderViewTalkens();
+            content_changed = true;
         };
         pub.setCaptionFinal = function(words){
             removeTempTalkens();
@@ -184,6 +100,7 @@
                 $textbox.append($ct);
             });
             renderViewTalkens();
+            content_changed = true;
         };
         pub.getCtrlTalkens = function(url){
             var rtn = [];
@@ -216,8 +133,19 @@
                 });
             }
         };
-        pub.setAnnotId = function(_annot_id){
-            annot_id = _annot_id;
+        pub.synthesizeNewAnnot = function(_annot_id, annotids){
+            return r2.audioSynthesizer.run(
+                pub.getCtrlTalkens(annotids[0])
+            ).then(
+                function(result){
+                    r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
+                    content_changed = false;
+                    return null;
+                }
+            );
+        };
+        pub.isContentChanged = function(){
+            return content_changed;
         };
 
         var insertPauseTalken = function($last, $ct, is_temp){
@@ -340,7 +268,6 @@
 
         // Events
         var onKeyDown = function(e) {
-            console.log('keyCode', e.keyCode);
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -432,9 +359,10 @@
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
                         if(carret.idx_bgn < ctrl_talkens.length){
-                            r2.rich_audio.play(
-                                annot_id,
-                                ctrl_talkens[carret.idx_bgn].rendered_data.bgn*1000.
+                            pub.synthesizeAndPlay(content_changed, ctrl_talkens[carret.idx_bgn].rendered_data.bgn*1000.).then(
+                                function(){
+                                    content_changed = false;
+                                }
                             );
                         }
                     }
@@ -442,6 +370,7 @@
 
                 renderViewTalkens();
 
+                content_changed = true;
                 if(pub.on_input)
                     pub.on_input();
             }
@@ -459,7 +388,6 @@
 
             carret.idx_bgn = Math.min(carret.idx_anchor, carret.idx_focus);
             carret.idx_end = Math.max(carret.idx_anchor, carret.idx_focus);
-            //console.log(carret.idx_bgn, carret.idx_end, carret.is_collapsed);
         };
 
         var setCarret = function(idx){

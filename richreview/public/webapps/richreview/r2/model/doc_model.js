@@ -1482,20 +1482,34 @@
 
         // SimpleSpeech UI wrapper
         this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay);
-        this.simplespeech.setAnnotId(this._annotid);
 
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
         this.simplespeech.on_input = function() {
-            // R2 update dom
-            this.__contentschanged = true;
             if(func_UpdateSizeWithTextInput()){
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
                 r2App.invalidate_dynamic_scene = true;
                 r2App.invalidate_static_scene = true;
             }
+        }.bind(this);
+
+        this.simplespeech.synthesizeAndPlay = function(content_changed, time){
+            return new Promise(function(resolve, reject){
+                if(content_changed){
+                    this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids).then(
+                        function(){
+                            r2.rich_audio.play(this._annotid, time);
+                            resolve();
+                        }.bind(this)
+                    );
+                }
+                else{
+                    r2.rich_audio.play(this._annotid,time);
+                    resolve();
+                }
+            }.bind(this));
         }.bind(this);
 
         this.dom_textbox.addEventListener('focus', function(event){
@@ -1511,20 +1525,13 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            r2.audioSynthesizer.run(
-                this.simplespeech.getCtrlTalkens(this.annotids[0])
-            ).then(
-                function(result){
-                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(result.url, result.blob);
-                }.bind(this)
-            );
-
             $(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
-            if(this.__contentschanged){
+            if(this.simplespeech.isContentChanged()){
+                this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids);
+
                 //console.log('>>>>__contentschanged:', this.ExportToTextChange());
                 //r2Sync.PushToUploadCmd(this.ExportToTextChange());
-                this.__contentschanged = false;
             }
         }.bind(this));
         /* add event handlers*/
@@ -1603,13 +1610,7 @@
     };
     r2.PieceSimpleSpeech.prototype.doneCommenting = function() {
         if(this.done_captioning && this.done_recording){
-            r2.audioSynthesizer.run(
-                this.simplespeech.getCtrlTalkens(this.annotids[0])
-            ).then(
-                function(result){
-                    r2App.annots[this._annotid].SetRecordingAudioFileUrl(result.url, result.blob);
-                }.bind(this)
-            );
+            this.simplespeech.synthesizeNewAnnot(this._annotid, this.annotids);
         }
     };
     r2.PieceSimpleSpeech.prototype.Focus = function(){

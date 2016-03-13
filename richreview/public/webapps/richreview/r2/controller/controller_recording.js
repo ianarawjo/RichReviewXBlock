@@ -10,9 +10,10 @@
 
         var triggered = false;
         var anchor_piece = null;
-        var ui_type = null; // WAVEFORM, SIMPLE_SPEECH, OR NEW_SPEAK
+        var ui_type = null; // WAVEFORM, SIMPLE_SPEECH, SIMPLE_SPEECH_INSERT, OR NEW_SPEAK
+        var piece_multi_recording = null;
 
-        pub.set = function(_anchor_piece, _ui_type){
+        pub.set = function(_anchor_piece, _ui_type, _piece_multi_recording){
             if(r2App.disable_comment_production){
                 alert('This page is only for the review. Features for creating comments are disabled.');
                 return;
@@ -20,6 +21,7 @@
             triggered = true;
             anchor_piece = _anchor_piece;
             ui_type = _ui_type;
+            piece_multi_recording = _piece_multi_recording;
         };
 
         pub.isReady = function(){
@@ -35,6 +37,9 @@
                 var done = function(){
                     if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
                         r2.recordingBgn.simpleSpeech(anchor_piece);
+                    }
+                    else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH_INSERT){
+                        r2.recordingBgn.simpleSpeechInsert(anchor_piece, piece_multi_recording);
                     }
                     else if(ui_type === r2App.RecordingUI.NEW_SPEAK){
                         r2.recordingBgn.newSpeak(anchor_piece);
@@ -74,6 +79,9 @@
             else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
                 r2.recordingStop.simpleSpeech(anchor_piece);
             }
+            else if(ui_type === r2App.RecordingUI.SIMPLE_SPEECH_INSERT){
+                r2.recordingStop.simpleSpeechInsert(anchor_piece);
+            }
             else if(ui_type === r2App.RecordingUI.NEW_SPEAK){
                 r2.recordingStop.newSpeak(anchor_piece);
             }
@@ -96,14 +104,17 @@
         pub.simpleSpeech = function(anchor_piece){
             run(anchor_piece, createPieceSimpleSpeech);
         };
+        pub.simpleSpeechInsert = function(anchor_piece, piece_multi_recording){
+            run(anchor_piece, simpleSpeechInsert, piece_multi_recording);
+        };
         pub.newSpeak = function(anchor_piece){
             run(anchor_piece, createPieceNewSpeak);
         };
 
-        var run = function(anchor_piece, funcCreatePiece){
+        var run = function(anchor_piece, funcCreatePiece, piece_multi_recording){
             /* create Annot */
-            r2App.cur_recording_annot = new r2.Annot();
             var annotid = new Date(r2App.cur_time).toISOString();
+            r2App.cur_recording_annot = new r2.Annot();
             r2App.cur_recording_annot.SetAnnot(
                 annotid, anchor_piece.GetId(), r2App.cur_time, r2App.cur_time, [], r2.userGroup.cur_user.name, ""
             );
@@ -115,7 +126,7 @@
             r2App.cur_recording_piece = null;
 
             /* create piece */
-            funcCreatePiece(anchor_piece, annotid).then(
+            funcCreatePiece(anchor_piece, annotid, piece_multi_recording).then(
                 function(){
                     /* begin audio recording */
                     r2.audioRecorder.BgnRecording();
@@ -156,22 +167,64 @@
             });
         };
 
-        var createPieceSimpleSpeech = function(anchor_piece, annotid){
+        var createPieceSimpleSpeech = function(anchor_piece, recording_annot_id){
             return new Promise(function(resolve, reject){
+                var time_simple_speech = r2App.cur_time+128;
+                var piece_annot_id = new Date(time_simple_speech).toISOString();
+                r2App.cur_recording_annot = new r2.Annot();
+                r2App.cur_recording_annot.SetAnnot(
+                    piece_annot_id, anchor_piece.GetId(), time_simple_speech, time_simple_speech, [], r2.userGroup.cur_user.name, ""
+                );
+                r2App.annots[piece_annot_id] = r2App.cur_recording_annot;
+
                 var piece_simple_speech = new r2.PieceSimpleSpeech();
                 piece_simple_speech.SetPiece(
-                    r2.pieceHashId.voice(annotid, 0), // this piece is the first waveform line
+                    r2.pieceHashId.voice(piece_annot_id, 0),
                     r2App.cur_recording_annot.GetBgnTime(),
                     anchor_piece.GetNewPieceSize(),
                     anchor_piece.GetTTData()
                 );
                 piece_simple_speech.SetPieceSimpleSpeech(
-                    anchor_piece.GetId(), annotid, r2.userGroup.cur_user.name,
+                    anchor_piece.GetId(), piece_annot_id, r2.userGroup.cur_user.name,
                     true // live_recording
                 );
                 r2App.cur_recording_piece = piece_simple_speech;
                 anchor_piece.AddChildAtFront(piece_simple_speech);
-                piece_simple_speech.bgnCommenting();
+                piece_simple_speech.bgnCommenting(recording_annot_id);
+
+                // set event trigger
+                bluemix_stt.messageParser.setCallbacks(
+                    function(words){
+                        piece_simple_speech.setCaptionTemporary(words);
+                    },
+                    function(words, conf){
+                        piece_simple_speech.setCaptionFinal(words);
+                    }
+                );
+                // begin recording
+                bluemix_stt.handleMicrophone(
+                    r2App.bluemix_tts_auth_context,
+                    r2.audioRecorder,
+                    function(err, socket) { // opened
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve();
+                        }
+                    },
+                    function(msg){ // transcript
+                        bluemix_stt.messageParser.run(msg);
+                    },
+                    function() { // closed
+                        piece_simple_speech.doneCaptioning();
+                    }
+                );
+            });
+        };
+        var simpleSpeechInsert = function(anchor_piece, recording_annot_id, piece_simple_speech){
+            return new Promise(function(resolve, reject){
+                r2App.cur_recording_piece = piece_simple_speech;
+                piece_simple_speech.bgnCommenting(recording_annot_id);
 
                 // set event trigger
                 bluemix_stt.messageParser.setCallbacks(
@@ -263,6 +316,9 @@
         pub.simpleSpeech = function(to_upload){
             run(to_upload, onPieceSimpleSpeech);
         };
+        pub.simpleSpeechInsert = function(to_upload){
+            run(to_upload, onPieceSimpleSpeechInsert);
+        };
         pub.newSpeak = function(to_upload){
             run(to_upload, onPieceNewSpeak);
         };
@@ -308,6 +364,10 @@
         };
 
         var onPieceSimpleSpeech = function(){
+            $.publish('hardsocketstop');
+        };
+
+        var onPieceSimpleSpeechInsert = function(){
             $.publish('hardsocketstop');
         };
 
