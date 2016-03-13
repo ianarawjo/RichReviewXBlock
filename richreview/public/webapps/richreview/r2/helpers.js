@@ -1707,7 +1707,7 @@
         };
 
         return pub;
-    }())
+    }());
 
 }(window.r2 = window.r2 || {}));
 

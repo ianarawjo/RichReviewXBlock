@@ -1377,10 +1377,7 @@
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
 
         if (this._last_words) {
-<<<<<<< HEAD
 
-=======
->>>>>>> 2a5cdb2575b37d07e1d576c71ce7151b6dfc79c3
             this._last_audio_url = audioURL;
 
             console.log('hello 2');
@@ -1391,17 +1388,11 @@
             this._last_words = null;
         }
         else {
-<<<<<<< HEAD
 
             // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
             // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
             this._last_audio_url = audioURL;
 
-=======
-            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
-            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
-            this._last_audio_url = audioURL;
->>>>>>> 2a5cdb2575b37d07e1d576c71ce7151b6dfc79c3
         }
     };
     r2.PieceNewSpeak.prototype.doneCaptioning = function(){
