@@ -318,6 +318,7 @@ a:active {
   padding: 0.3em;
   font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
   line-height: 1.0em;
+  min-height: 1.0em;
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
@@ -371,6 +372,12 @@ a:active {
   background-color: rgb(250, 250, 250);
   border: solid 0.02em rgb(240, 240, 240);
   color: gray;
+}
+.ssui-overlay > .ssui-pause.replay_highlight,
+.ssui-overlay > .ssui-word.replay_highlight {
+  background-color: lightsteelblue;
+  border: solid 0.02em rgb(240, 240, 240);
+  color: black;
 }
 
 

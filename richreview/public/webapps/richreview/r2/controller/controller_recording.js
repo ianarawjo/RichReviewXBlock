@@ -171,7 +171,6 @@
                 );
                 r2App.cur_recording_piece = piece_simple_speech;
                 anchor_piece.AddChildAtFront(piece_simple_speech);
-                piece_simple_speech.setForTesting();
                 piece_simple_speech.bgnCommenting();
 
                 // set event trigger

@@ -111,6 +111,7 @@
             idx_end: 0
         };
         var copied_ctrl_talkens = [];
+        var annot_id = null;
 
         // Listener callbacks
         /**
@@ -155,7 +156,14 @@
         pub.setCaptionTemporary = function(words){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(data, true); // is_temp = true
+                var $ct = createTalken(
+                    {
+                        word: data[0],
+                        bgn: data[1],
+                        end: data[2]
+                    },
+                    true
+                ); // is_temp = true
                 insertPauseTalken($textbox.children().last(), $ct, true);
                 $textbox.append($ct);
             });
@@ -164,30 +172,63 @@
         pub.setCaptionFinal = function(words){
             removeTempTalkens();
             words.forEach(function(data){
-                var $ct = createTalken(data, false); // is_temp = false
+                var $ct = createTalken(
+                    {
+                        word: data[0],
+                        bgn: data[1],
+                        end: data[2]
+                    },
+                    false
+                ); // is_temp = false
                 insertPauseTalken($textbox.children().last(), $ct, false);
                 $textbox.append($ct);
             });
             renderViewTalkens();
         };
         pub.getCtrlTalkens = function(url){
-            var rtn = []
+            var rtn = [];
+            var rendered_time = 0;
             $textbox.children().each(function(idx){
-                rtn.push({
-                    word : this.data[0],
-                    bgn : this.data[1],
-                    end : this.data[2],
-                    audio_url : url
-                })
+                this.base_data.audio_url = url;
+                rtn.push(this.base_data);
+                this.rendered_data = {};
+                this.rendered_data.bgn = rendered_time;
+                rendered_time += this.base_data.end-this.base_data.bgn
+                this.rendered_data.end = rendered_time;
             });
             return rtn;
+        };
+        pub.drawDynamic = function(duration){
+            if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                $textbox.children().each(function(idx){
+                    if(this.rendered_data.bgn < duration/1000. && duration/1000. < this.rendered_data.end){
+                        this.$vt.toggleClass('replay_highlight', true);
+                        setCarret(idx+1);
+                    }
+                    else{
+                        this.$vt.toggleClass('replay_highlight', false);
+                    }
+                });
+            }
+            else{
+                $textbox.children().each(function(idx){
+                    this.$vt.toggleClass('replay_highlight', false);
+                });
+            }
+        };
+        pub.setAnnotId = function(_annot_id){
+            annot_id = _annot_id;
         };
 
         var insertPauseTalken = function($last, $ct, is_temp){
             if($last[0]){
-                if($ct[0].data[1]-$last[0].data[2] > 0.3){
+                if($ct[0].base_data.bgn-$last[0].base_data.end > 0.3){
                     var $ct = createTalken(
-                        ['\xa0', $last[0].data[2], $ct[0].data[1]],
+                        {
+                            word:'\xa0',
+                            bgn: $last[0].base_data.end,
+                            end:$ct[0].base_data.bgn
+                        },
                         is_temp // is_temp
                     );
                     $ct[0].$vt.addClass('ssui-pause');
@@ -196,8 +237,7 @@
             }
         };
 
-        var createTalken = function(data, is_temp){
-            var word = data[0];
+        var createTalken = function(base_data, is_temp){
             function newViewTalken(uid, word) {
                 var $vt = $(document.createElement('div'));
                 $vt.addClass('ssui-viewtalken');
@@ -221,7 +261,7 @@
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
-                $ct[0].data = data;
+                $ct[0].base_data = base_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
@@ -233,10 +273,10 @@
 
             var uid = r2.util.generateGuid();
 
-            var $vt = newViewTalken(uid, word);
+            var $vt = newViewTalken(uid, base_data.word);
             $overlay.append($vt);
 
-            var $ct = newCtrlTalken($vt, uid, word);
+            var $ct = newCtrlTalken($vt, uid, base_data.word);
 
             if(is_temp){
                 $vt.toggleClass('temp', true);
@@ -385,6 +425,20 @@
                         );
                     }
                 }
+                else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
+                    if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                        r2.rich_audio.stop();
+                    }
+                    else if(r2App.mode === r2App.AppModeEnum.IDLE){
+                        var ctrl_talkens = $textbox.children('span');
+                        if(carret.idx_bgn < ctrl_talkens.length){
+                            r2.rich_audio.play(
+                                annot_id,
+                                ctrl_talkens[carret.idx_bgn].rendered_data.bgn*1000.
+                            );
+                        }
+                    }
+                }
 
                 renderViewTalkens();
 
@@ -448,7 +502,7 @@
 
                 copied_ctrl_talkens.each(
                     function(){
-                        jquery_insert($textbox, createTalken(this.data, false), idx);
+                        jquery_insert($textbox, createTalken(this.base_data, false), idx);
                         ++idx;
                     }
                 );
