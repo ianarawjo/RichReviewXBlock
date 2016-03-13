@@ -43,47 +43,36 @@
             // Internal data structures
             var Audio = (function() {
                 var AudioResource = class AudioResource {
-                    constructor(url, blob) {
-                        this.url = url; // TODO: Cloud storage.
-                        this.blob = blob;
+                    constructor(annotId) {
+                        this.annotId = annotId; // TODO: Cloud storage.
                     }
-                    play(start_time) {
-                        if (typeof start_time === "undefined") start_time = 0;
-                        var url = this.url;
-                        return new Promise(function(resolve, reject) {
-                            r2.audioPlayer.play(Math.random() * 10, url,
-                              start_time * 1000.0, undefined, function () {
-                                // .. Called when stopped playing .. //
-                                resolve(true);
-                            });
-                        });
+                    get url() {
+                        return r2App.annots[this.annotId].GetAudioFileUrl();
                     }
                 };
                 var resources = [];
                 return {
-                    for : function(url, blob) {
+                    for : function(url) {
                         if (url in resources) return resources[url];
                         else {
-                            var r = new AudioResource(url, blob);
+                            var r = new AudioResource(url);
                             resources[url] = r;
                             return r;
                         }
                     },
                     stitch : function(talkens) { // Returns stitched audio resource as a Promise.
-                        return r2.audiosynth.stitch(talkens).then(function(rsc) {
-                            var url = rsc.url; var blob = rsc.blob;
+                        return r2.audiosynth.stitch(talkens).then(function(url) {
                             return new Promise(function(resolve, reject) {
                                 if (!url) reject("Audio.stitch: Null url.");
-                                else resolve(Audio.for(url, blob));
+                                else resolve(url);
                             });
                         });
                     },
                     synthesize : function(talkens, options) {
-                        return r2.audiosynth.synthesize(talkens, { mode:'TTS', transfer:options }).then(function(rsc) {
-                            var url = rsc.url; var blob = rsc.blob;
+                        return r2.audiosynth.synthesize(talkens, { mode:'TTS', transfer:options }).then(function(url) {
                             return new Promise(function(resolve, reject) {
                                 if (!url) reject("Audio.synthesize: Null url.");
-                                else resolve(Audio.for(url, blob));
+                                else resolve(url);
                             });
                         });
                     }
@@ -258,10 +247,10 @@
              * not counted as an 'edit' operation.
              * @param  {int} index            The insertion position in the base transcript, as a word index. (e.g. 1 for 'hello Watson' => 'hello IBM Watson')
              * @param  {[timestamp]} ts       The timestamp data with transcript information.
-             * @param  {string} audioURL      The audio that the timestamps refer to.
+             * @param  {string} annotId       The annot id that the timestamps refer to.
              * @return {bool}                 Success or failure.
              */
-            pub.insertVoice = (index, ts, audioURL) => {
+            pub.insertVoice = (index, ts, annotId) => {
 
                 if (ts.length === 0) {
                     console.log("Error @ voiceInsert: Nothing to insert.");
@@ -269,7 +258,7 @@
                 }
 
                 // Generate talkens for timestamps and audioURL
-                var talkens = Talken.generate(ts, audioURL);
+                var talkens = Talken.generate(ts, annotId);
 
                 // Check that idx is valid
                 if (index > base.length || index < 0) {
@@ -527,13 +516,13 @@
                 _stitching = true;
 
                 // Compile the audio
-                var after_stitching = function(stitched_resource) {
+                var after_stitching = function(stitched_url) {
 
                     // No longer stitching!
                     _stitching = false;
                     _needsrender = false;
 
-                    console.log("stitched talkens: ", stitched_resource);
+                    console.log("stitched talkens: ", stitched_url);
 
                     // Repair talken urls to point to stitched resource:
                     // * CANNOT TRUST THIS IN PRACTICE *. Just leave it be.
@@ -550,7 +539,7 @@
                     edited = talkens;*/
 
                     return new Promise(function(resolve, reject) {
-                        resolve(stitched_resource);
+                        resolve(stitched_url);
                     });
                 };
 
@@ -708,7 +697,7 @@
 
             if (asStreamingOgg === true) {
                 return new Promise(function(resolve, reject) {
-                    resolve([tts_audiourl, null]);
+                    resolve(tts_audiourl);
                 });
             } else {
                 tts_audiourl += '&accept=audio/wav';
@@ -721,7 +710,7 @@
                     xhr.onreadystatechange = function(e) {
                       if (this.readyState == 4 && this.status == 200) {
                         var blob = this.response;
-                        resolve([URL.createObjectURL(blob), blob]);
+                        resolve(URL.createObjectURL(blob));
                       }
                       else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
                     };
@@ -746,10 +735,9 @@
             });
 
             return new Promise(function(resolve, reject) {
-                r2.audioStitcher.run(snippets, function(rsc) {
-                    var url = rsc[0]; var blob = rsc[1];
+                r2.audioStitcher.run(snippets, function(url) {
                     if (!url) reject("r2.audiosynth.stitch: URL is null.");
-                    else resolve({'url':url, 'blob':blob});
+                    else resolve(url);
                 });
             });
         };
@@ -780,10 +768,9 @@
             // (1) If no post-processing is needed, just return Watson's response.
             if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) {
                 console.warn('Only returning raw TTS with config', config.transfer);
-                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice', true).then(function(rsc) {
-                    var aud = { 'url':rsc[0], 'blob':null };
+                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice', true).then(function(url) {
                     return new Promise(function(resolve, reject) {
-                        resolve(aud);
+                        resolve(url);
                     });
                 });
             }
@@ -792,11 +779,11 @@
             var src_ts = toTimestamps(talkens);
             var transcript = toTranscript(talkens);
             var srcwav, twav;
-            return stitch(talkens).then(function(rsc) {
-                srcwav = rsc.url;
+            return stitch(talkens).then(function(surl) {
+                srcwav = surl;
                 return getTTSAudioFromWatson(ssml);
-            }).then(function(rsc) {
-                twav = rsc[0]; // url
+            }).then(function(turl) {
+                twav = turl; // url
                 return Praat.calcTimestamps(twav, transcript);
             }).then(function(target_ts) {          // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
@@ -807,7 +794,7 @@
             }).then(function(resynth_blob) { // Transfer blob data to URL
                 var url = (window.URL || window.webkitURL).createObjectURL(resynth_blob);
                 return new Promise(function(resolve, reject) {
-                    resolve({ 'url':url, 'blob':resynth_blob });
+                    resolve(url);
                 });
             }).catch(function(err) {
                 console.log('Error @ synthesize: ', err);

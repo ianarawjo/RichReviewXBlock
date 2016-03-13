@@ -1234,17 +1234,17 @@
         this.speak_ctrl.update($(this.dom_textbox).text());
 
         // Resynthesize annot gestures
-        var annotid = this._annotid;
-        var tks = this.speak_ctrl.getCompiledTalkens().map(function(tk) {
-            return [tk.audio ? annotid : null, tk.bgn, tk.end];
-        }); // NOTE: This assumes all talkens have the same audio.
-        //r2.annotSynthesizer.run(this._annotid, tks);
+        // var annotid = this._annotid;
+        // var tks = this.speak_ctrl.getCompiledTalkens().map(function(tk) {
+        //     return [tk.audio ? annotid : null, tk.bgn, tk.end];
+        // }); // NOTE: This assumes all talkens have the same audio.
+        // r2.annotSynthesizer.run([annotid], tks);
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
-            this.speak_ctrl.renderAudioAnon().then((function(audio) {
-                console.log("Audio rendered to url ", audio.url);
-                this.SetRecordingAudioFileUrl(audio.url, audio.blob);
+            this.speak_ctrl.renderAudioAnon().then((function(audioURL) {
+                console.log("Audio rendered to url ", audioURL);
+                this.SetRecordingAudioFileUrl(audioURL, null);
             }).bind(r2App.annots[this.GetAnnotId()]));
         }
     };
@@ -1377,19 +1377,31 @@
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
 
         if (this._last_words) {
+<<<<<<< HEAD
+
+=======
+>>>>>>> 2a5cdb2575b37d07e1d576c71ce7151b6dfc79c3
             this._last_audio_url = audioURL;
 
             console.log('hello 2');
-            this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
+            this.speak_ctrl.insertVoice(0, this._last_words, this.annotids[0]); // for now
             this.updateSpeakCtrl();
             this.renderAudio();
 
             this._last_words = null;
         }
         else {
+<<<<<<< HEAD
+
             // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
             // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
             this._last_audio_url = audioURL;
+
+=======
+            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
+            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
+            this._last_audio_url = audioURL;
+>>>>>>> 2a5cdb2575b37d07e1d576c71ce7151b6dfc79c3
         }
     };
     r2.PieceNewSpeak.prototype.doneCaptioning = function(){

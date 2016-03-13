@@ -346,7 +346,6 @@
                     if(r2App.cur_recording_piece.onEndRecording)
                         r2App.cur_recording_piece.onEndRecording(result.url);
 
-
                     /* upload */
                     if(to_upload)
                         r2Sync.PushToUploadCmd(r2App.cur_recording_annot.ExportToCmd());
