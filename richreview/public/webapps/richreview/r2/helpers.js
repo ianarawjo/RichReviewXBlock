@@ -1675,7 +1675,7 @@
         return pub;
     }());
 
-    r2.annotSynthesizer = (function(){
+    r2.gestureSynthesizer = (function(){
         var pub = {};
 
         pub.run = function(target_annot_id, talkens){
@@ -1683,14 +1683,16 @@
             // data description
             You can use it like...
 
-            r2.annotSynthesizer.run(
+            r2.gestureSynthesizer.run(
                 this._annotid,
                 [
                      {
-                        annotid: <this.annots[0]>,
-                        bgn: <...>
-                        end: <...>,
-                        word: <...>
+                        base_annotid: <this.annots[0]> or null,
+                        base_bgn: <...>,
+                        base_end: <...>,
+                        new_bgn: <...>,
+                        new_end: <...>
+                        word: <...>,
                      },
                      {
 
@@ -1699,19 +1701,9 @@
                 ]
             )
             */
-            talkens.forEach(
-                function(talken){
-                    talken.audio_url = r2App.annots[talken.annotid].GetAudioFileUrl();
-                }
-            );
-            return r2.audioSynthesizer.run(
-                talkens
-            ).then(
-                function(result){
-                    r2App.annots[target_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
-                    return null;
-                }
-            );
+            return new Promise(function(resolve, reject){
+                resolve();
+            });
         };
 
         return pub;
