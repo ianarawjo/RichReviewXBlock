@@ -1484,10 +1484,8 @@
         this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay);
 
         /* add event handlers*/
-        var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
-
         this.simplespeech.on_input = function() {
-            if(func_UpdateSizeWithTextInput()){
+            if(this.updateSizeWithTextInput()){
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
                 r2App.invalidate_dynamic_scene = true;
@@ -1510,6 +1508,10 @@
                     resolve();
                 }
             }.bind(this));
+        }.bind(this);
+
+        this.simplespeech.insertRecording = function(){
+            r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
         }.bind(this);
 
         this.dom_textbox.addEventListener('focus', function(event){

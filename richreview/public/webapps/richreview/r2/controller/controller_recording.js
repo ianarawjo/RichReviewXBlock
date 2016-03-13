@@ -343,7 +343,8 @@
 
                     /* update dom */
                     r2.dom.disableRecordingIndicators();
-                    r2.dom_model.cbRecordingStop(r2App.cur_recording_annot.GetId());
+
+                    r2.dom_model.cbRecordingStop(r2App.cur_recording_piece.GetAnnotId());
 
                     /* release context */
                     r2App.cur_recording_annot = null;
