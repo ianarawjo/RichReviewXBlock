@@ -1678,31 +1678,40 @@
     r2.annotSynthesizer = (function(){
         var pub = {};
 
-        pub.run = function(annot_ids, talkens){
+        pub.run = function(target_annot_id, talkens){
             /*
             // data description
-             annot_ids = ['<2015.Mar.4:xx>','<2015.Mar.4:xx>','<2015.Mar.4:xx>', ...]
-             talkens = [
-                [
-                    '<2015.Mar.4:xx>', or null
-                    0.6,
-                    0.8
-                ],
-             ]
-             r2.annots['<2015.Mar.4:xx>']
-             // data description
-
             You can use it like...
 
-            r2.annotSynthesizer.run([this._annotid], [...]).then(
-                function(synthesized_annot_id){
-                    this._annotid = synthesized_annot_id;
-                }
+            r2.annotSynthesizer.run(
+                this._annotid,
+                [
+                     {
+                        annotid: <this.annots[0]>,
+                        bgn: <...>
+                        end: <...>,
+                        word: <...>
+                     },
+                     {
+
+                     }
+                     ...
+                ]
             )
             */
-            return new Promise(function(resolve, reject){
-                resolve(annot_ids[0]);
-            });
+            talkens.forEach(
+                function(talken){
+                    talken.audio_url = r2App.annots[talken.annotid].GetAudioFileUrl();
+                }
+            );
+            return r2.audioSynthesizer.run(
+                talkens
+            ).then(
+                function(result){
+                    r2App.annots[target_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
+                    return null;
+                }
+            );
         };
 
         return pub;

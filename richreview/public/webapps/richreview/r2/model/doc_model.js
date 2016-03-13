@@ -1125,6 +1125,7 @@
         this.dom = null;
         this.dom_textbox = null;
         this._temporary_n = 0;
+        this.annotids = [];
     };
     r2.PieceNewSpeak.prototype = Object.create(r2.Piece.prototype);
     r2.PieceNewSpeak.prototype.Destructor = function(){
@@ -1368,6 +1369,9 @@
             r2App.invalidate_size = true;
             r2App.invalidate_page_layout = true;
         }
+    };
+    r2.PieceNewSpeak.prototype.bgnCommenting = function(recording_annot_id){
+        this.annotids.push(recording_annot_id);
     };
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);

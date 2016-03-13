@@ -122,7 +122,6 @@
             var rtn = [];
             setRenderedTiming();
             $textbox.children().each(function(idx){
-                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
                 rtn.push(this.base_data);
             });
             return rtn;
@@ -159,11 +158,9 @@
             }
         };
         pub.synthesizeNewAnnot = function(_annot_id){
-            return r2.audioSynthesizer.run(
-                pub.getCtrlTalkens()
-            ).then(
+
+            return r2.annotSynthesizer.run(_annot_id, pub.getCtrlTalkens()).then(
                 function(result){
-                    r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     content_changed = false;
                     return null;
                 }

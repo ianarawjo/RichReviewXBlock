@@ -256,22 +256,31 @@
             });
         };
 
-        var createPieceNewSpeak = function(anchor_piece, annotid){
+        var createPieceNewSpeak = function(anchor_piece, recording_annot_id){
             return new Promise(function(resolve, reject){
+                var time_simple_speech = r2App.cur_time+128;
+                var piece_annot_id = new Date(time_simple_speech).toISOString();
+                var piece_annot = new r2.Annot();
+                piece_annot.SetAnnot(
+                    piece_annot_id, anchor_piece.GetId(), time_simple_speech, time_simple_speech, [], r2.userGroup.cur_user.name, ""
+                );
+                r2App.annots[piece_annot_id] = piece_annot;
+
                 var piece_new_speak = new r2.PieceNewSpeak();
                 piece_new_speak.SetPiece(
-                    r2.pieceHashId.voice(annotid, 0), // this piece is the first waveform line
+                    r2.pieceHashId.voice(piece_annot_id, 0), // this piece is the first waveform line
                     r2App.cur_recording_annot.GetBgnTime(),
                     anchor_piece.GetNewPieceSize(),
                     anchor_piece.GetTTData()
                 );
                 piece_new_speak.SetPieceNewSpeak(
-                    anchor_piece.GetId(), annotid, r2.userGroup.cur_user.name,
+                    anchor_piece.GetId(), piece_annot_id, r2.userGroup.cur_user.name,
                     '', // inner_html
                     true // live_recording
                 );
                 r2App.cur_recording_piece = piece_new_speak;
                 anchor_piece.AddChildAtFront(piece_new_speak);
+                piece_new_speak.bgnCommenting(recording_annot_id);
 
                 // set event trigger
                 bluemix_stt.messageParser.setCallbacks(
