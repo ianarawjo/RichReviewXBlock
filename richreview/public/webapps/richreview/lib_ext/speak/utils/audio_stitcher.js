@@ -48,7 +48,7 @@
                 function(final_wav){
                     var blob = encodeBlob(final_wav);
                     var url = (window.URL || window.webkitURL).createObjectURL(blob);
-                    if (cb) cb([url, blob]);
+                    if (cb) cb(url);
                 }
             );
 
