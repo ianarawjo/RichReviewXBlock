@@ -119,12 +119,27 @@
                 this.$vt.toggleClass('old', false);
             });
         };
-        pub.getCtrlTalkens = function(){
+        var getCtrlTalkens = function(){
             var rtn = [];
             setRenderedTiming();
             $textbox.children().each(function(idx){
                 this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
                 rtn.push(this.base_data);
+            });
+            return rtn;
+        };
+        var getCtrlTalkens_Gesture = function(){
+            var rtn = [];
+            $textbox.children().each(function(idx){
+                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
+                rtn.push({
+                    base_annotid: this.base_data.annotid,
+                    base_bgn: this.base_data.bgn,
+                    base_end: this.base_data.end,
+                    new_bgn: this.rendered_data.bgn,
+                    new_end: this.rendered_data.end,
+                    word: this.base_data.word
+                });
             });
             return rtn;
         };
@@ -160,13 +175,15 @@
             }
         };
         pub.synthesizeNewAnnot = function(_annot_id){
-            return r2.audioSynthesizer.run(
-                pub.getCtrlTalkens()
-            ).then(
+            return r2.audioSynthesizer.run(getCtrlTalkens()).then(
                 function(result){
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     content_changed = false;
                     return null;
+                }
+            ).then(
+                function(){
+                    return r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
                 }
             );
         };
