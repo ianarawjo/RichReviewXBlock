@@ -1131,6 +1131,13 @@
     r2.PieceNewSpeak.prototype.Destructor = function(){
         r2.Piece.prototype.Destructor.apply(this);
     };
+    r2.PieceNewSpeak.prototype.AbortPendingAudioDownload = function() {
+        if (this._cbAbortTTSDownload) {
+            console.warn('Aborted download of TTS audio.');
+            this._cbAbortTTSDownload();
+            this._cbAbortTTSDownload = null;
+        }
+    };
     r2.PieceNewSpeak.prototype.SetPieceNewSpeak = function(anchor_pid, annotid, username, inner_html, live_recording){
         this._annotid = annotid;
         this._username = username;
@@ -1145,7 +1152,8 @@
             this._creationTime,
             dom,
             this,
-            live_recording
+            live_recording,
+            this.AbortPendingAudioDownload.bind(this)
         );
 
         this.setInnerHtml(inner_html);
@@ -1242,10 +1250,64 @@
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
-            this.speak_ctrl.renderAudioAnon().then((function(audioURL) {
-                console.log("Audio rendered to url ", audioURL);
-                this.SetRecordingAudioFileUrl(audioURL, null);
-            }).bind(r2App.annots[this.GetAnnotId()]));
+
+            // We need to get this immediately b/c they might changed WHILE the call below is processing!
+            // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
+            var edited_talkens = this.speak_ctrl.getCompiledTalkens();
+            var audioRenderObj = this.speak_ctrl.renderAudioAnon((function(finalAudioURL) {
+                return;
+
+                console.log("Audio rendered to url ", finalAudioURL);
+                var annotId = this.GetAnnotId();
+                r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
+
+                // Get timestamps for TTS audio with HTK
+                this.speak_ctrl.generateTalkensFromHTK(finalAudioURL).then((function(tts_talkens) {
+
+                    // Handle common errors
+                    if (!tts_talkens) {
+                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
+                        return;
+                    }
+                    else if (!edited_talkens) {
+                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
+                        return;
+                    }
+                    else if (edited_talkens.length !== tts_talkens.length) {
+                        console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
+                        if (tts_talkens.length > edited_talkens.length) {
+                            console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
+                            return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
+                        }
+                    }
+
+                    // Convert to format of talkens expected by r2.gestureSynthesizer
+                    var gesynth_tks = [];
+                    for (var i = 0; i < tts_talkens.length; i++) {
+                        var tts_tk = tts_talkens[i];
+                        var src_tk = edited_talkens[i];
+                        gesynth_tks.push({
+                           base_annotid: src_tk.audio,
+                           base_bgn: src_tk.bgn,
+                           base_end: src_tk.end,
+                           new_bgn: tts_tk.bgn,
+                           new_end: tts_tk.end,
+                           word: src_tk.word,
+                        });
+                    }
+
+                    // Resynthesize gestures for this annotation for new TTS audio...
+                    r2.gestureSynthesizer.run(annotId, gesynth_tks);
+
+                }).bind(this));
+
+            }).bind(this));
+
+            var streamingTTSAudioURL = audioRenderObj.streamURL;
+            this._cbAbortTTSDownload = audioRenderObj.abort;
+
+            console.log("TTS streaming audio URL: ", streamingTTSAudioURL);
+            r2App.annots[this.GetAnnotId()].SetRecordingAudioFileUrl(streamingTTSAudioURL, null); // While TTS audio is downloading, use streaming audio if user presses play.
         }
     };
 
@@ -1353,16 +1415,13 @@
             });
         }
 
-        // if (this._last_audio_url) {
-        //
-        //     console.log('hello1');
-        //     this.speak_ctrl.insertVoice(0, this._last_words, this._last_audio_url); // for now
-        //     this.updateSpeakCtrl();
-        //     this.renderAudio();
-        //
-        //     this._last_words = null;
-        //     this._last_audio_url = null;
-        // }
+        if (this._last_audio_url) { // Microphone audio finished processing before Watson did, so we insert voice now --
+
+            this.appendVoice(words, this.annotids[0]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+
+            this._last_words = null;
+            this._last_audio_url = null;
+        }
 
         this._temporary_n = 0;
         if(this.updateSizeWithTextInput()){
@@ -1380,10 +1439,7 @@
 
             this._last_audio_url = audioURL;
 
-            console.log('hello 2');
-            this.speak_ctrl.insertVoice(0, this._last_words, this.annotids[0]); // for now
-            this.updateSpeakCtrl();
-            this.renderAudio();
+            this.insertVoice(this._last_words, this.annotids[0]);
 
             this._last_words = null;
         }
@@ -1394,6 +1450,16 @@
             this._last_audio_url = audioURL;
 
         }
+    };
+    r2.PieceNewSpeak.prototype.insertVoice = function(words, annotId) {
+        this.speak_ctrl.insertVoice(0, words, annotId); // for now
+        this.updateSpeakCtrl();
+        this.renderAudio();
+    };
+    r2.PieceNewSpeak.prototype.appendVoice = function(words, annotId) {
+        this.speak_ctrl.appendVoice(words, annotId); // for now
+        this.updateSpeakCtrl();
+        this.renderAudio();
     };
     r2.PieceNewSpeak.prototype.doneCaptioning = function(){
         this.Focus();
