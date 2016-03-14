@@ -1221,7 +1221,7 @@
             this.updateSpeakCtrl();
             this.renderAudio();
 
-            $(this.dom).css("pointer-events", 'none');
+            //$(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
             if(this.__contentschanged){
                 //console.log('>>>>__contentschanged:', this.ExportToTextChange());
@@ -1254,10 +1254,8 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            var audioRenderObj = this.speak_ctrl.renderAudioAnon((function(finalAudioURL) {
-                return;
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'intensity').then((function(finalAudioURL) {
 
-                console.log("Audio rendered to url ", finalAudioURL);
                 var annotId = this.GetAnnotId();
                 r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
 
@@ -1303,11 +1301,11 @@
 
             }).bind(this));
 
-            var streamingTTSAudioURL = audioRenderObj.streamURL;
-            this._cbAbortTTSDownload = audioRenderObj.abort;
+            //var streamingTTSAudioURL = audioRenderObj.streamURL;
+            //this._cbAbortTTSDownload = audioRenderObj.abort;
 
-            console.log("TTS streaming audio URL: ", streamingTTSAudioURL);
-            r2App.annots[this.GetAnnotId()].SetRecordingAudioFileUrl(streamingTTSAudioURL, null); // While TTS audio is downloading, use streaming audio if user presses play.
+            //console.log("TTS streaming audio URL: ", streamingTTSAudioURL);
+            //r2App.annots[this.GetAnnotId()].SetRecordingAudioFileUrl(streamingTTSAudioURL, null); // While TTS audio is downloading, use streaming audio if user presses play.
         }
     };
 
@@ -1377,7 +1375,7 @@
         console.log(alternatives);
 
         var i;
-        var SENTENCE_PAUSE_THRESHOLD_MS = 700;
+        var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
