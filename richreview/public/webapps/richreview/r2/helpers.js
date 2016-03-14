@@ -1709,5 +1709,88 @@
         return pub;
     }());
 
+    r2.tooltip = function($parent, init_text, pos, cb_done, cb_cancel){
+        var $tooltip = $(document.createElement('div'));
+        $tooltip.addClass('simplespeech_tooltip');
+        $tooltip.addClass('text_selectable');
+        $tooltip.css('left', pos.x);
+        $tooltip.css('top', pos.y);
+        $parent.append($tooltip);
+
+        var $arrow_up = $(document.createElement('div'));
+        $arrow_up.addClass('arrow_up');
+        $tooltip.append($arrow_up);
+
+        var $tooltip_input = $(document.createElement('div'));
+        $tooltip_input.addClass('tooltip_input');
+        $tooltip_input.attr('contenteditable', true);
+        r2.keyboard.pieceEventListener.setToolTip($tooltip_input[0]);
+        $tooltip.append($tooltip_input);
+
+        var done_by_enter = false;
+
+        $tooltip.find('.tooltip_input')[0].addEventListener('keyup', function(event){
+            if(event.which === r2.keyboard.CONST.KEY_ENTER){
+                done_by_enter = true;
+                $tooltip_input.blur();
+                event.preventDefault();
+            }
+            else if(event.which === r2.keyboard.CONST.KEY_ESC){
+                $tooltip_input.blur();
+                event.preventDefault();
+            }
+            else{
+                //centerDiv();
+            }
+        });
+        $tooltip.find('.tooltip_input')[0].addEventListener('keydown', function(event){
+            if(event.which === r2.keyboard.CONST.KEY_ENTER){
+                event.preventDefault();
+            }
+            else if(event.which === r2.keyboard.CONST.KEY_ESC){
+                event.preventDefault();
+            }
+        });
+        $tooltip.find('.tooltip_input')[0].addEventListener('input', function(event){
+            centerDiv();
+        });
+
+        $tooltip.find('.tooltip_input')[0].addEventListener('blur', function(event){
+            done();
+        });
+
+        var centerDiv = function(){
+            $tooltip.css('margin-left', -$tooltip[0].getBoundingClientRect().width/2+'px');
+        };
+
+        var done = function(){
+            if(done_by_enter){
+                cb_done($tooltip_input.text());
+            }
+            else{
+                cb_cancel();
+            }
+            $tooltip.remove();
+        };
+
+        this.focus = function(){
+            $tooltip_input.focus();
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.setStart($tooltip_input[0], 1);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+        };
+
+        this.setText = function(text){
+            $tooltip_input.text(text);
+            centerDiv();
+        };
+
+        this.setText(init_text);
+    };
+
 }(window.r2 = window.r2 || {}));
 
