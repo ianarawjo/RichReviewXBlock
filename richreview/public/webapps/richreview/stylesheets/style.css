@@ -1116,3 +1116,39 @@ body::-webkit-scrollbar-corner {
 .rm_btn_center > i {
   font-size: 0.30em;
 }
+
+
+div.simplespeech_tooltip{
+  position: absolute;
+  z-index: 20;
+}
+
+div.simplespeech_tooltip > div.tooltip_input {
+  padding: 5px;
+  border: solid cornflowerblue 1px;
+  border-radius: 4px;
+  width: auto;
+  background:white;
+  color: black;
+  line-height: 1em;
+  font-size: 0.8em;
+}
+
+
+div.simplespeech_tooltip > div.arrow_up {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid cornflowerblue;
+  margin: auto;
+}
+
+div.boxb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+  height: 100px;
+  background: gray;
+}

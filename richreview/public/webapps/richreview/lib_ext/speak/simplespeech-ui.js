@@ -66,6 +66,7 @@
 
             // Setup event handlers
             $textbox[0].addEventListener('keydown', onKeyDown);
+            $textbox[0].addEventListener('keypress', onKeyPress);
         };
 
         pub.setCaptionTemporary = function(words, annotid){
@@ -118,12 +119,27 @@
                 this.$vt.toggleClass('old', false);
             });
         };
-        pub.getCtrlTalkens = function(){
+        var getCtrlTalkens = function(){
             var rtn = [];
             setRenderedTiming();
             $textbox.children().each(function(idx){
                 this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
                 rtn.push(this.base_data);
+            });
+            return rtn;
+        };
+        var getCtrlTalkens_Gesture = function(){
+            var rtn = [];
+            $textbox.children().each(function(idx){
+                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
+                rtn.push({
+                    base_annotid: this.base_data.annotid,
+                    base_bgn: this.base_data.bgn,
+                    base_end: this.base_data.end,
+                    new_bgn: this.rendered_data.bgn,
+                    new_end: this.rendered_data.end,
+                    word: this.base_data.word
+                });
             });
             return rtn;
         };
@@ -159,13 +175,15 @@
             }
         };
         pub.synthesizeNewAnnot = function(_annot_id){
-            return r2.audioSynthesizer.run(
-                pub.getCtrlTalkens()
-            ).then(
+            return r2.audioSynthesizer.run(getCtrlTalkens()).then(
                 function(result){
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     content_changed = false;
                     return null;
+                }
+            ).then(
+                function(){
+                    return r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
                 }
             );
         };
@@ -300,8 +318,8 @@
             return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
         }
 
-        // Events
         var onKeyDown = function(e) {
+            console.log('onKeyDown');
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -313,8 +331,7 @@
 
             }
             else {
-                e.preventDefault();
-                var carret = getCarret();
+                carret = getCarret();
 
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     if(carret.is_collapsed){
@@ -329,6 +346,7 @@
                             carret.idx_end
                         );
                     }
+                    e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
                     if(carret.is_collapsed){
@@ -343,6 +361,7 @@
                             carret.idx_end
                         );
                     }
+                    e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
                     if(carret.is_collapsed){
@@ -354,6 +373,7 @@
                             carret.idx_end
                         );
                     }
+                    e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
                     if(carret.is_collapsed){
@@ -369,6 +389,7 @@
                             carret.idx_end
                         );
                     }
+                    e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
                     if(carret.is_collapsed){
@@ -385,6 +406,7 @@
                             carret.idx_bgn
                         );
                     }
+                    e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
@@ -400,20 +422,24 @@
                             );
                         }
                     }
+                    e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
-                    if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-
+                    if(r2.keyboard.shift_key_dn){
+                        transcriptionPopUp();
                     }
                     else{
-                        if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
-                            r2.rich_audio.stop();
-                        }
-                        pub.insertRecording();
-                    }
-                }
-                else{ //alphanumeric
+                        if (r2App.mode === r2App.AppModeEnum.RECORDING) {
 
+                        }
+                        else{
+                            if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                                r2.rich_audio.stop();
+                            }
+                            pub.insertRecording();
+                        }
+                    }
+                    e.preventDefault();
                 }
 
                 renderViewTalkens();
@@ -421,6 +447,52 @@
                 content_changed = true;
                 if(pub.on_input)
                     pub.on_input();
+            }
+        };
+
+        // Events
+        var onKeyPress = function(e) {
+            console.log('onkeypress');
+            //e.preventDefault();
+            if(
+                String.fromCharCode(event.which) === '.' ||
+                String.fromCharCode(event.which) === ',' ||
+                String.fromCharCode(event.which) === '?' ||
+                String.fromCharCode(event.which).match(/\w/)
+            ){ //alphanumeric
+                transcriptionPopUp();
+            }
+            else{
+                e.preventDefault();
+            }
+        };
+
+        var transcriptionPopUp = function(){
+            if(carret.is_collapsed){
+                if(carret.idx_bgn !== 0){
+                    var $ct = $($textbox.children('span')[carret.idx_bgn-1]);
+                    var tb_bbox = $textbox[0].getBoundingClientRect();
+                    var ct_bbox = $ct[0].getBoundingClientRect();
+
+                    var tooltip = new r2.tooltip(
+                        $textbox.parent(),
+                        $ct[0].base_data.word,
+                        {
+                            x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                            y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                        },
+                        function(text){
+                            console.log('Done '+text);
+                            $textbox.focus();
+                        },
+                        function(){
+                            console.log('Done none');
+                            $textbox.focus();
+                        }
+                    );
+                    $textbox.blur();
+                    tooltip.focus();
+                }
             }
         };
 

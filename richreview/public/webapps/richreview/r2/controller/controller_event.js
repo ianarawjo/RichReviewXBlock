@@ -531,7 +531,8 @@ var r2Ctrl = {};
     r2.KeyboardModeEnum = {
         TEXTBOX : 0,
         NORMAL : 1,
-        ON_BTN : 2
+        ON_BTN : 2,
+        TOOLTIP: 3
     };
 
     r2.keyboard = (function(){
@@ -598,6 +599,14 @@ var r2Ctrl = {};
                     mode = r2.KeyboardModeEnum.NORMAL;
                 });
             };
+            pub_ph.setToolTip = function(dom_btn){
+                dom_btn.addEventListener('focus', function(){
+                    mode = r2.KeyboardModeEnum.TOOLTIP;
+                });
+                dom_btn.addEventListener('blur', function(){
+                    mode = r2.KeyboardModeEnum.NORMAL;
+                });
+            };
             return pub_ph;
         }());
 
@@ -618,7 +627,7 @@ var r2Ctrl = {};
                     }
                 }
             }
-            if(mode !== r2.KeyboardModeEnum.TEXTBOX){
+            if(mode === r2.KeyboardModeEnum.NORMAL || mode === r2.KeyboardModeEnum.ON_BTN){
                 switch(event.which){
                     case CONST.KEY_CTRL: // left ctrl
                         pub.ctrlkey_dn = true;

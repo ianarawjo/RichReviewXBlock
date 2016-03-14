@@ -259,7 +259,7 @@
         this._spotlight_cache = [];
         var i, spotlight, cache;
         for (var annotid in r2App.annots) {
-            if (r2App.annots.hasOwnProperty(annotid)){
+            if (r2App.annots.hasOwnProperty(annotid) && !r2App.annots[annotid].getIsBaseAnnot()){
                 var annot = r2App.annots[annotid];
                 var spotlights_of_page = annot.GetSpotlightsByNumPage(this._num);
 
@@ -1428,6 +1428,7 @@
         }
     };
     r2.PieceNewSpeak.prototype.bgnCommenting = function(recording_annot_id){
+        r2App.annots[recording_annot_id].setIsBaseAnnot();
         this.annotids.push(recording_annot_id);
     };
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
@@ -1660,6 +1661,7 @@
         }
     };
     r2.PieceSimpleSpeech.prototype.bgnCommenting = function(recording_annot_id){
+        r2App.annots[recording_annot_id].setIsBaseAnnot();
         this.annotids.push(recording_annot_id);
         this.done_recording = false;
         this.done_captioning = false;
@@ -2035,6 +2037,7 @@
         this._spotlights = [];
         this._inks = [];
         this._audiofileurl = "";
+        this._is_base_annot = false;
     };
 
     r2.Annot.prototype.ExportToCmd = function(){
@@ -2066,6 +2069,12 @@
         });
         cmd.data.audiofileurl = this._audiofileurl;
         return cmd;
+    };
+    r2.Annot.prototype.setIsBaseAnnot = function(){
+        this._is_base_annot = true;
+    };
+    r2.Annot.prototype.getIsBaseAnnot = function(){
+        return this._is_base_annot;
     };
     r2.Annot.prototype.ExportToCmdDeleteComment = function(){
         // time: 2014-12-21T13...
@@ -2619,6 +2628,13 @@
         canvas_ctx.lineCap = 'round';
         canvas_ctx.lineJoin = 'round';
         canvas_ctx.stroke();
+    };
+    r2.Spotlight.prototype.Retarget = function(annotid, t_bgn, t_end){
+        var rtn = jQuery.extend({}, this);
+        rtn.annotid = annotid;
+        rtn.t_bgn = t_bgn;
+        rtn.t_end = t_end;
+        return rtn;
     };
 
     /*
