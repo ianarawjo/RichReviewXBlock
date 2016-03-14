@@ -417,7 +417,7 @@
             return false;
         };
 
-        pub.appendPieceEditableAudio = function(username, annot_id, pid, anchor_id, creation_time, dom, piece, live_recording){
+        pub.appendPieceEditableAudio = function(username, annot_id, pid, anchor_id, creation_time, dom, piece, live_recording, cbAbortDownload){
             var user = r2.userGroup.GetUser(username);
             var annot_id_esc = r2.util.escapeDomId(annot_id);
             if($('#'+annot_id_esc).length !== 0){
@@ -468,6 +468,7 @@
                             }
                             else{
                                 if (r2App.mode === r2App.AppModeEnum.IDLE) {
+                                    if (cbAbortDownload) cbAbortDownload();
                                     r2.rich_audio.play(annot_id, -1);
                                     r2.log.Log_AudioPlay('play_btn', annot_id, r2.audioPlayer.getPlaybackTime());
                                 }

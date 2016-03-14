@@ -75,6 +75,9 @@
                                 else resolve(url);
                             });
                         });
+                    },
+                    getTTSAudioURL : function(talkens, voice) {
+                        return r2.audiosynth.getTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
                     }
                 };
             }());
@@ -233,6 +236,17 @@
                 }
             }
 
+            // Utility function. Generates talkens for current transcript given an audioURL.
+            pub.generateTalkensFromHTK = function(audioURL) {
+                if (!edited || edited.length === 0) {
+                    return Promise(function(resolve, reject) {
+                        reject("Warning @ r2.speak.generateTalkensFromHTK: No edited talkens found (edited is ", edited, ")");
+                    });
+                }
+                var transcript = r2.audiosynth.toTranscript(edited).replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
+                return Talken.generateFromHTK(audioURL, transcript);
+            };
+
             /**
              * Compiles the transcript for the given talkens.
              * @return {string} The compiled transcript.
@@ -274,6 +288,9 @@
 
                 _needsupdate = true;
                 return true;
+            };
+            pub.appendVoice = (ts, annotId) => {
+                return pub.insertVoice(base.length, ts, annotId);
             };
 
             /* Command stack operations */
@@ -482,19 +499,33 @@
             /** Audio Operations */
             /**
              * Render the audio.
-             * @param  {int} idx           - The index of the talken to begin playing at. Defaults to 0.
              * @return {Promise | null}    - On success, returns Promise containing URL to audio resource.
              */
             pub.renderAudio = () => {
                 return _render('natural');
             };
-            pub.renderAudioAnon = (options='') => {
-                return _render('anon', options);
+
+            /**
+             * Render the TTS audio.
+             * @param  {string} options    - Properties of the source audio to synthesize into TTS before returning. = prosody | intensity | duration
+             * @param  {string} cbOnDownload - A callback for when the audio is finally downloaded and rendered.
+             * @return {{streamURL:'...', abort:func }}         - On success, returns URL to stream from Watson TTS as ogg file for quick playback before full audio is rendered.
+             */
+            pub.renderAudioAnon = (cbOnDownload, options='') => {
+                _render('anon', options).then(cbOnDownload).catch((err) => {}); // Render the audio in the background, and call cbOnDownload when finished, passing the audioURL.
+                return {
+                    'streamURL': Audio.getTTSAudioURL(Talken.clone(edited)) + '&audio%2Fogg&codecs=opus',
+                    'abort':function() {
+                        r2.audiosynth.abortDownloadOfTTSAudio();
+                    }
+                }; // Return the streaming audio URL.
             };
             var _render = (mode, options) => {
                 if (_stitching) {
                     console.warn("Error @ r2.speak.render: Audio is currently being stitched from a previous play() call. Please wait.");
-                    return null;
+                    return new Promise(function(resolve, reject) {
+                        reject("Wait your turn!");
+                    });
                 }
                 else if (_needsupdate) {
                     console.error("Error @ r2.speak.render: Unsure whether internal model of talkens matches visual. Please call update method before rendering.");
@@ -514,13 +545,13 @@
                 // Since this is async call, we need to be
                 // careful about calling 'play' again.
                 _stitching = true;
+                _needsrender = false;
 
                 // Compile the audio
                 var after_stitching = function(stitched_url) {
 
                     // No longer stitching!
                     _stitching = false;
-                    _needsrender = false;
 
                     console.log("stitched talkens: ", stitched_url);
 
@@ -674,13 +705,22 @@
 
             return ssml;
         };
+        pub.toSSML = toSSML;
+
+        var getTTSAudioURL = (ssml, voice="en-US_MichaelVoice") => {
+            var $dummy_ta = $('<textarea>');
+            $dummy_ta.val(ssml);
+
+            return 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice;
+        };
+        pub.getTTSAudioURL = getTTSAudioURL;
 
         /**
          * Get synthesized audio from IBM Watson.
          * @param  {string} ssml - Transcript as SSML
          * @return {Promise}     - Returns url to the TTS audio blob.
          */
-        var getTTSAudioFromWatson = (ssml, voice, asStreamingOgg=false) => {
+        var getTTSAudioFromWatson = (ssml, voice) => {
             if (typeof voice === "undefined") voice = "en-US_MichaelVoice";
 
             var $dummy_ta = $('<textarea>');
@@ -692,30 +732,31 @@
             // 2. Change from GET to POST request.
             // 3. Make voice (e.g. Michael) customizable!
             // 4. MAYBE: Split ssml into multiple chunks if it's long...
-            var tts_audiourl = 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice;
-            console.log("Getting TTS from url ", tts_audiourl);
+            var tts_audiourl = getTTSAudioURL(ssml, voice);
+            tts_audiourl += '&accept=audio/wav';
+            console.log("Downloading TTS from url ", tts_audiourl);
 
-            if (asStreamingOgg === true) {
-                return new Promise(function(resolve, reject) {
-                    resolve(tts_audiourl);
-                });
-            } else {
-                tts_audiourl += '&accept=audio/wav';
-
-                // Request Watson TTS server
-                return new Promise(function(resolve, reject) {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', tts_audiourl, true);
-                    xhr.responseType = 'blob';
-                    xhr.onreadystatechange = function(e) {
-                      if (this.readyState == 4 && this.status == 200) {
-                        var blob = this.response;
-                        resolve(URL.createObjectURL(blob));
-                      }
-                      else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
-                    };
-                    xhr.send();
-                });
+            // Request Watson TTS server
+            return new Promise(function(resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', tts_audiourl, true);
+                xhr.responseType = 'blob';
+                xhr.onreadystatechange = function(e) {
+                  if (this.readyState == 4 && this.status == 200) {
+                    var blob = this.response;
+                    resolve(URL.createObjectURL(blob));
+                  }
+                  else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
+                };
+                xhr.send();
+                pub.lastTTSAudioXHR = xhr;
+            });
+        };
+        pub.lastTTSAudioXHR = null;
+        pub.abortDownloadOfTTSAudio = () => {
+            if (pub.lastTTSAudioXHR) {
+                pub.lastTTSAudioXHR.abort();
+                pub.lastTTSAudioXHR = null;
             }
         };
 
@@ -768,7 +809,7 @@
             // (1) If no post-processing is needed, just return Watson's response.
             if (!config.transfer || typeof config.transfer === "undefined" || config.transfer.length === 0) {
                 console.warn('Only returning raw TTS with config', config.transfer);
-                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice', true).then(function(url) {
+                return getTTSAudioFromWatson(ssml, 'en-US_MichaelVoice').then(function(url) {
                     return new Promise(function(resolve, reject) {
                         resolve(url);
                     });

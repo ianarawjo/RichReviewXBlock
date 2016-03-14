@@ -70,9 +70,11 @@
             m_audio.loop = false;
 
             // This doesn't add streaming functionality. Wonder why...
-            //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
+            m_audio.setAttribute('autoplay', ''); // NEWSPEAK
             m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
             //console.log(m_audio);
+            
+            console.log(">>> ATEMPTING PLAY WITH URL ", cmd.param_url);
 
             m_audio.addEventListener('ended', function() {
                 if(r2.log)
