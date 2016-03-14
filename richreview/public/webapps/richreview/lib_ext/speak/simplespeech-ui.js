@@ -314,7 +314,7 @@
 
             }
             else {
-                var carret = getCarret();
+                carret = getCarret();
 
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     if(carret.is_collapsed){
@@ -408,14 +408,19 @@
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
-                    if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-
+                    if(r2.keyboard.shift_key_dn){
+                        transcriptionPopUp();
                     }
                     else{
-                        if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
-                            r2.rich_audio.stop();
+                        if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+
                         }
-                        pub.insertRecording();
+                        else{
+                            if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                                r2.rich_audio.stop();
+                            }
+                            pub.insertRecording();
+                        }
                     }
                     e.preventDefault();
                 }
@@ -438,35 +443,39 @@
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
-                if(carret.is_collapsed){
-                    if(carret.idx_bgn !== 0){
-                        var $ct = $($textbox.children('span')[carret.idx_bgn-1]);
-                        var tb_bbox = $textbox[0].getBoundingClientRect();
-                        var ct_bbox = $ct[0].getBoundingClientRect();
-
-                        var tooltip = new r2.tooltip(
-                            $textbox.parent(),
-                            $ct[0].base_data.word,
-                            {
-                                x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
-                                y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
-                            },
-                            function(text){
-                                console.log('Done '+text);
-                                $textbox.focus();
-                            },
-                            function(){
-                                console.log('Done none');
-                                $textbox.focus();
-                            }
-                        );
-                        $textbox.blur();
-                        tooltip.focus();
-                    }
-                }
+                transcriptionPopUp();
             }
             else{
                 e.preventDefault();
+            }
+        };
+
+        var transcriptionPopUp = function(){
+            if(carret.is_collapsed){
+                if(carret.idx_bgn !== 0){
+                    var $ct = $($textbox.children('span')[carret.idx_bgn-1]);
+                    var tb_bbox = $textbox[0].getBoundingClientRect();
+                    var ct_bbox = $ct[0].getBoundingClientRect();
+
+                    var tooltip = new r2.tooltip(
+                        $textbox.parent(),
+                        $ct[0].base_data.word,
+                        {
+                            x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                            y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                        },
+                        function(text){
+                            console.log('Done '+text);
+                            $textbox.focus();
+                        },
+                        function(){
+                            console.log('Done none');
+                            $textbox.focus();
+                        }
+                    );
+                    $textbox.blur();
+                    tooltip.focus();
+                }
             }
         };
 

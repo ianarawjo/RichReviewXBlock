@@ -1731,8 +1731,6 @@
 
         $tooltip.find('.tooltip_input')[0].addEventListener('keyup', function(event){
             if(event.which === r2.keyboard.CONST.KEY_ENTER){
-                done_by_enter = true;
-                $tooltip_input.blur();
                 event.preventDefault();
             }
             else if(event.which === r2.keyboard.CONST.KEY_ESC){
@@ -1745,6 +1743,8 @@
         });
         $tooltip.find('.tooltip_input')[0].addEventListener('keydown', function(event){
             if(event.which === r2.keyboard.CONST.KEY_ENTER){
+                done_by_enter = true;
+                $tooltip_input.blur();
                 event.preventDefault();
             }
             else if(event.which === r2.keyboard.CONST.KEY_ESC){
@@ -1781,7 +1781,6 @@
             range.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range);
-
         };
 
         this.setText = function(text){
