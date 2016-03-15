@@ -510,6 +510,9 @@ var r2Ctrl = {};
         else if(obj_front instanceof r2.PieceSimpleSpeech){
             obj_front.Focus();
         }
+        else if(obj_front instanceof r2.PieceNewSpeak){
+            obj_front.Focus();
+        }
         else{
             if(obj_front instanceof r2.PieceText){
                 r2.dom_model.focusCtrl.focusPiece(obj_front.GetId());

@@ -1605,7 +1605,7 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            $(this.dom).css("pointer-events", 'none');
+            //$(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
             if(this.simplespeech.isContentChanged()){
                 if(r2App.mode !== r2App.AppModeEnum.RECORDING)

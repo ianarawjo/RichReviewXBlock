@@ -299,7 +299,6 @@ a:active {
   position: relative;
   left: 0; /* will be tt_x */
   width: 1em; /* will be tt_w */
-  z-index: 18;
 }
 .r2_piece_newspeak {
   border: 0;
@@ -311,7 +310,6 @@ a:active {
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
-  z-index: 2;
 }
 .r2_piece_simplespeech {
   border: 0;
@@ -323,7 +321,6 @@ a:active {
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
-  z-index: 2;
 }
 .r2_piece_simplespeech.editing {
   background: rgba(255, 255, 255, 0.74902);
