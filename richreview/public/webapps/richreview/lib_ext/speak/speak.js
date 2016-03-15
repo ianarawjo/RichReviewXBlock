@@ -23,6 +23,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
      */
 
     r2.speak = function () {
+        var _this = this;
+
         var pub_speak = {};
 
         var _current_annot_id = null;
@@ -405,11 +407,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
-                bt = bt.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+                bt = bt.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~'()]/g, "");
                 bt = bt.toLowerCase();
 
                 // remove punctuation
-                var stripped_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+                var stripped_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~'()]/g, "");
 
                 // lowercase
                 stripped_transcript = stripped_transcript.toLowerCase();
@@ -554,7 +556,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                 r2.speak.SetCurrentAnnotId(annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null);
-                return _render('anon', options); // Render the audio in the background, and call cbOnDownload when finished, passing the audioURL.
+                return _render('anon', options).catch(function (err) {
+                    //r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null); // Revert audio URL to streamed version.
+                }.bind(_this));
             };
 
             var _render = function _render(mode, options) {
@@ -666,6 +670,51 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         pub.toTranscript = toTranscript;
 
         /**
+         * Attempts to repair missing timestamps by stealing time from the nearest talken w/ timestamps.
+         */
+        pub.smoothMissingTimestamps = function (talkens) {
+            var ratio, len;
+            var nextTalken = function nextTalken(idx, tks) {
+                for (var i = idx; i < tks.length; i++) {
+                    if (tks[i].bgn !== tks[i].end) {
+                        return tks[i];
+                    }
+                }
+                return null;
+            };
+            var smooth = function smooth(brokenTk, targetTk) {
+                if (!targetTk) return;
+                var ratio = (targetTk.word.length + 1) / (brokenTk.word.length + targetTk.word.length + 1);
+                if (brokenTk.bgn <= targetTk.end) {
+                    // target talken is after the broken one
+                    brokenTk.bgn = targetTk.bgn;
+                    brokenTk.end = ratio * targetTk.bgn + (1.0 - ratio) * targetTk.end; // if next_tk's word is longer, bgn has more weight, and tk's len will be shorter.
+                    targetTk.bgn = brokenTk.end;
+                    console.log('Smoothed next --> ', brokenTk, targetTk);
+                } else {
+                    // target talken is before the broken one
+                    brokenTk.end = targetTk.end;
+                    brokenTk.bgn = (1.0 - ratio) * targetTk.bgn + ratio * targetTk.end; // if prev_tk's word is longer, end has more weight, and tk's len will be shorter.
+                    targetTk.end = brokenTk.bgn;
+                    console.log('Smoothed prev --> ', brokenTk, targetTk);
+                }
+            };
+            for (var j = 0; j < talkens.length - 1; j++) {
+                var tk = talkens[j];
+                if (tk.bgn === tk.end) {
+                    var prev_tk = j > 0 ? talkens[j - 1] : null;
+                    var next_tk = nextTalken(j + 1, talkens);
+                    if (!prev_tk) {
+                        // smooth by stealing some of the next talken's playtime
+                        smooth(tk, next_tk);
+                    } else if (next_tk) {
+                        if (prev_tk.end - prev_tk.bgn > next_tk.end - next_tk.bgn) smooth(tk, prev_tk);else smooth(tk, next_tk);
+                    }
+                }
+            }
+        };
+
+        /**
          * Generate transcript with SSML given transcript from text box (as edited array of talkens).
          * @param  {[Talken]} talkens - An array of (edited) talkens
          * @return {string}           - SSML transcript, to be sent to a speech synthesizer like IBM Watsom.
@@ -752,23 +801,62 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             if (STREAM_TTS) {
                 tts_audiourl += '&audio%2Fogg&codecs=opus';
+
+                // Let's try this. If the user tries to play, I assume the browser will recognize that
+                // it's already downloading this file. This way we separate r2.audioPlayer from this method entirely.
+                // Ogg is still required, but WAV was recognized as a DIFFERENT IP endpoint, so it blocked the DL.
                 return new Promise(function (resolve, reject) {
-                    r2.audioPlayer.setLoadCallback(tts_audiourl, function (m_audio) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', tts_audiourl, true);
+                    xhr.responseType = 'blob';
+                    xhr.onload = function (e) {
+                        if (this.status == 200) {
+
+                            r2App.annots[r2.speak.GetCurrentAnnotId()].SetRecordingAudioFileUrl(URL.createObjectURL(this.response), null);
+
+                            // Read blob into array buffer
+                            var myReader = new FileReader();
+                            myReader.addEventListener("loadend", function (e) {
+                                var uInt8Array = new Uint8Array(myReader.result);
+
+                                r2.oggOpusDecoder.convertArrayBufferToWAV(uInt8Array).then(function (wavURL) {
+
+                                    console.log('||| GOT WAV FROM OPUS ||| --> ', wavURL);
+                                    r2App.annots[r2.speak.GetCurrentAnnotId()].SetRecordingAudioFileUrl(wavURL, null);
+
+                                    ////// --> send to praat
+                                    resolve(wavURL);
+                                }).catch(function (err) {
+                                    reject(err);
+                                });
+                            });
+                            myReader.readAsArrayBuffer(this.response);
+                        }
+                    };
+                    xhr.send();
+                    pub.lastTTSAudioXHR = xhr;
+                });
+
+                /*return new Promise(function(resolve, reject) {
+                    r2.audioPlayer.setLoadCallback(tts_audiourl, function(m_audio) {
                         console.log('||| GOT AUDIO ELEM FROM AUDIOPLAYER |||');
-
-                        r2.oggOpusDecoder.convertToWAV(m_audio).then(function (wavURL) {
-
-                            console.log('||| GOT WAV FROM OPUS |||');
-
-                            ////// --> send to praat
+                         r2.oggOpusDecoder.convertToWAV(m_audio).then(function(wavURL) {
+                             console.log('||| GOT WAV FROM OPUS |||');
+                             ////// --> send to praat
                             resolve(wavURL);
                             ///r2App.annots[annotId].SetRecordingAudioFileUrl(wavURL, null);
-                        });
+                         });
                     });
-                    r2.audioPlayer.load(r2.speak.GetCurrentAnnotId(), tts_audiourl, null, null); // load the audio
-                    r2.audioPlayer.play(r2.speak.GetCurrentAnnotId(), tts_audiourl, 0, null, null); // force it to download
-                    r2.audioPlayer.stop(); // stop it immediately
-                });
+                    r2.audioPlayer.load(r2.speak.GetCurrentAnnotId(), tts_audiourl, function(m_audio) {
+                        //m_audio.defaultMuted = true;
+                        //m_audio.play();
+                        //m_audio.stop();
+                    }, null); // load the audio*/
+                /*r2.audioPlayer.play(r2.speak.GetCurrentAnnotId(), tts_audiourl, 0,
+                    function(m_audio) {
+                        m_audio.defaultMuted = true;
+                    }, r2.audioPlayer.stop()); // Force it to download without playing it.*/
+                //});
             } else {
                     tts_audiourl += '&accept=audio/wav';
                     console.log("Downloading TTS from url ", tts_audiourl);
@@ -807,7 +895,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         pub.stitch = function (talkens) {
             var snippets = [];
             talkens.forEach(function (t) {
-                snippets.push({ 'url': t.audio.url, 't_bgn': t.bgn, 't_end': t.end });
+                if (!t.audio || typeof t.audio === "undefined" || !t.audio.url) return;
+                snippets.push({
+                    'url': t.audio.url,
+                    't_bgn': t.bgn,
+                    't_end': t.end
+                });
                 if (t.pauseAfter > 0) snippets.push({ 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.max(t.pauseAfter / 1000.0, 1.0) });
             });
 

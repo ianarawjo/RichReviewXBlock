@@ -1254,7 +1254,12 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'intensity').then((function(finalAudioURL) {
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+
+                if (!finalAudioURL) {
+                    console.warn('Error processing audio. Check console for details.');
+                    return;
+                }
 
                 var annotId = this.GetAnnotId();
                 r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
@@ -1279,13 +1284,16 @@
                         }
                     }
 
+                    // 'Smooth' any missing timestamps so that they don't skip on playback:
+                    r2.audiosynth.smoothMissingTimestamps(tts_talkens);
+
                     // Convert to format of talkens expected by r2.gestureSynthesizer
                     var gesynth_tks = [];
                     for (var i = 0; i < tts_talkens.length; i++) {
                         var tts_tk = tts_talkens[i];
                         var src_tk = edited_talkens[i];
                         gesynth_tks.push({
-                           base_annotid: src_tk.audio,
+                           base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
                            base_bgn: src_tk.bgn,
                            base_end: src_tk.end,
                            new_bgn: tts_tk.bgn,
@@ -1293,13 +1301,17 @@
                            word: src_tk.word,
                         });
                     }
+                    this._last_tts_talkens = gesynth_tks;
 
                     // Resynthesize gestures for this annotation for new TTS audio...
                     r2.gestureSynthesizer.run(annotId, gesynth_tks);
 
                 }).bind(this));
 
-            }).bind(this));
+            }).bind(this)).catch(function(err) {
+                // error
+
+            });
 
             //var streamingTTSAudioURL = audioRenderObj.streamURL;
             //this._cbAbortTTSDownload = audioRenderObj.abort;
@@ -1465,6 +1477,73 @@
     };
     r2.PieceNewSpeak.prototype.Focus = function(){
         this.dom_textbox.focus();
+    };
+    r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
+        if (this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
+            if (this._dynamic_setup) this.EndDrawDynamic();
+            return;
+        }
+
+        var wrds = $(this.dom_textbox).text().trim().split(/\s+/g);
+        var tks = this._last_tts_talkens;
+        if (wrds.length !== tks.length) {
+            console.log('Cannot render dynamically: text in box != stored text. Waiting...');
+            if (this._dynamic_setup) this.EndDrawDynamic();
+            return;
+        } else {
+            var j = 0; // Repair stored transcript.
+            wrds.forEach(function(wrd) {
+                tk = tks[j];
+                tk.word = wrd;
+                j++;
+            });
+        }
+
+        var $txtbox = $(this.dom_textbox);
+        var curtime = r2App.cur_audio_time;
+        var tk, srctk;
+
+        if (!this._dynamic_setup) {
+            $txtbox.text('');
+            tks.forEach(function(tk) {
+                var $span = $(document.createElement('span'));
+                $span.text(tk.word + ' ');
+                $span[0].onclick = function(e) {
+                    console.log('set playback time to ', tk.new_bgn+0.1);
+                    r2.audioPlayer.setPlaybackTime(tk.new_bgn);
+                };
+                $txtbox.append($span);
+            });
+            $txtbox[0].addEventListener('input', this.EndDrawDynamic.bind(this));
+            //$txtbox[0].addEventListener('focus', this.EndDrawDynamic.bind(this));
+            this._dynamic_setup = true;
+        }
+
+        var i = 0;
+        tks.forEach(function(tk) {
+            var $span = $txtbox.children().eq(i);
+            if (curtime >= tk.new_bgn && curtime < tk.new_end) {
+                $span.css('color','goldenrod');
+            } else if (curtime > tk.new_end) {
+                $span.css('color','gray'); // previous talkens
+            } else {
+                $span.css('color','black'); // upcoming talkens
+            }
+            i++;
+        });
+
+    };
+    r2.PieceNewSpeak.prototype.EndDrawDynamic = function() {
+        var $txtbox = $(this.dom_textbox);
+        console.log('END DRAW DYNAMIC');
+        r2.audioPlayer.stop();
+        r2.audioPlayer.setPlaybackTime(0);
+        $txtbox.css('color', 'black');
+        $txtbox.children().each(function() {
+            $(this).css('color', 'black');
+            $(this).css('font-weight','normal');
+        });
+        this._dynamic_setup = false;
     };
 
 
