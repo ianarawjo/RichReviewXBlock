@@ -243,7 +243,10 @@
                             }
                             else{
                                 if (r2App.mode === r2App.AppModeEnum.IDLE) {
-                                    r2.rich_audio.play(annot_id, -1);
+                                    r2.radialMenu.bgnLoading('rm_'+r2.util.escapeDomId(annot_id));
+                                    r2.rich_audio.play(annot_id, -1, function(){
+                                        r2.radialMenu.endLoading('rm_'+r2.util.escapeDomId(annot_id));
+                                    });
                                     r2.log.Log_AudioPlay('play_btn', annot_id, r2.audioPlayer.getPlaybackTime());
                                     console.log(r2.audioPlayer.getPlaybackTime());
                                 }

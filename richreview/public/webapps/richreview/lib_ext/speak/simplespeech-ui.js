@@ -62,6 +62,8 @@
         pub.on_input = null;
         pub.play = null;
         pub.movePlayHeader = null;
+        pub.bgn_streaming = null;
+        pub.end_streaming = null;
 
         // Init
         var _init = function() {
@@ -183,16 +185,18 @@
             }
         };
         pub.synthesizeNewAnnot = function(_annot_id){
+            pub.bgn_streaming();
             return r2.audioSynthesizer.run(getCtrlTalkens()).then(
                 function(result){
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
-                    content_changed = false;
                     return null;
                 }
             ).then(
                 function(){
                     r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
                     is_recording_and_synthesizing = false;
+                    content_changed = false;
+                    pub.end_streaming();
                     return null;
                 }
             );
@@ -280,7 +284,6 @@
             $overlay.find('.temp').remove();
             insert_pos-=$textbox.find('.temp').length;
             $textbox.find('.temp').remove();
-
         };
 
         var renderViewTalkens = function(){
@@ -453,8 +456,6 @@
                 }
 
                 renderViewTalkens();
-
-                content_changed = true;
                 if(pub.on_input)
                     pub.on_input();
             }
@@ -578,10 +579,12 @@
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
                 $textbox.children().slice(idx_bgn, idx_end).remove();
+                content_changed = true;
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
+                content_changed = true;
             };
 
             pub_op.paste = function(idx){
@@ -592,6 +595,7 @@
                     }
                 );
                 setCarret(idx);
+                content_changed = true;
             };
 
             return pub_op;
