@@ -315,7 +315,7 @@ a:active {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
+  font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
   line-height: 1.0em;
   min-height: 1.0em;
   text-align: left;
@@ -345,6 +345,7 @@ a:active {
   position: absolute;
   margin: 0;
   z-index: 7;
+  white-space: nowrap;
 
   height: 0.8em;
 }
@@ -369,13 +370,13 @@ a:active {
 .ssui-overlay > .ssui-word.temp,
 .ssui-overlay > .ssui-word.old{
   background-color: rgb(250, 250, 250);
-  border: solid 0.02em rgb(240, 240, 240);
+  border: solid 0.1em rgb(240, 240, 240);
   color: gray;
 }
 .ssui-overlay > .ssui-pause.replay_highlight,
 .ssui-overlay > .ssui-word.replay_highlight {
   background-color: lightsteelblue;
-  border: solid 0.02em rgb(240, 240, 240);
+  border: solid 0.1em lightsteelblue;
   color: black;
 }
 
