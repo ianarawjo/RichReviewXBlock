@@ -71,6 +71,10 @@ app.use(
     express.static(path.join(__dirname, 'static_audio'))
 );
 app.use(
+    '/ogg_opus',
+    express.static(path.join(__dirname, 'ogg_opus'))
+);
+app.use(
     expressSession(
         {
             store: new RedisStore(

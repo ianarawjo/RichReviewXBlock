@@ -23,9 +23,15 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
      */
 
     r2.speak = function () {
-        var _this2 = this;
-
         var pub_speak = {};
+
+        var _current_annot_id = null;
+        pub_speak.GetCurrentAnnotId = function () {
+            return _current_annot_id;
+        };
+        pub_speak.SetCurrentAnnotId = function (aid) {
+            _current_annot_id = aid;
+        };
 
         /**
          * An instance of Newspeak's text-to-audio controller.
@@ -93,6 +99,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     },
                     getTTSAudioURL: function getTTSAudioURL(talkens, voice) {
                         return r2.audiosynth.getTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
+                    },
+                    getStreamingTTSAudioURL: function getStreamingTTSAudioURL(talkens, voice) {
+                        return r2.audiosynth.getStreamingTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
                     }
                 };
             }();
@@ -386,80 +395,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 return pub.insertVoice(base.length, ts, annotId);
             };
 
-            /* Command stack operations */
-            var clipboard = null;
-            var Stack = function Stack() {
-                var _this = this;
-
-                var stack = [];
-                return {
-                    record: function record() {
-                        return _this.push(base);
-                    },
-                    push: function push(ts) {
-                        return stack.push(ts);
-                    },
-                    pop: function pop() {
-                        return stack.pop();
-                    },
-                    clear: function clear() {
-                        return stack = [];
-                    }
-                };
-            };
-            var undostack = new Stack();
-            var redostack = new Stack();
-            pub.undo = function () {
-                if (undostack.length === 0) return;
-                redostack.record();
-                var prev_ts = undostack.pop();
-                base = prev_ts;
-                _needsupdate = true;
-            };
-            pub.redo = function () {
-                if (redostack.length === 0) return;
-                undostack.record();
-                var next_ts = redostack.pop();
-                base = next_ts;
-                _needsupdate = true;
-            };
-            pub.remove = function (start_idx, len) {
-                undostack.record();
-                redostack.clear();
-                if (start_idx < 0 || start_idx + len > base.length) {
-                    console.warn("r2.speak.remove: Incorrect range.");
-                    return false;
-                }
-                base.splice(start_idx, len);
-                _needsupdate = true;
-                return true;
-            };
-            pub.cut = function (start_idx, len) {
-                undostack.record();
-                redostack.clear();
-                if (start_idx < 0 || start_idx + len > base.length) {
-                    console.warn("r2.speak.cut: Incorrect range.");
-                    return false;
-                }
-                clipboard = Talken.clone(base.slice(start_idx, start_idx + len)); // deep copy of subarray
-                return _this2.remove(start_idx, len);
-            };
-            pub.paste = function (start_idx) {
-                undostack.record();
-                redostack.clear();
-                if (start_idx > base.length) {
-                    console.log("r2.speak.paste: caution: start index past length of array.", start_idx);
-                    start_idx = base.length;
-                }
-                if (!clipboard) {
-                    console.warn("r2.speak.paste: Nothing in clipboard.");
-                    return false;
-                }
-                base.splice(start_idx, 0, Talken.clone(clipboard));
-                _needsupdate = true;
-                return true;
-            };
-
             /**
              * Update transcript model with edits made by user.
              * TODO: Move edit graph update elsewhere.
@@ -612,22 +547,16 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             };
 
             /**
-             * Render the TTS audio.
-             * @param  {string} options    - Properties of the source audio to synthesize into TTS before returning. = prosody | intensity | duration
-             * @param  {string} cbOnDownload - A callback for when the audio is finally downloaded and rendered.
-             * @return {{streamURL:'...', abort:func }}         - On success, returns URL to stream from Watson TTS as ogg file for quick playback before full audio is rendered.
+             * Renders TTS audio.
              */
-            pub.renderAudioAnon = function (cbOnDownload) {
+            pub.renderAudioAnon = function (annotId) {
                 var options = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
 
-                _render('anon', options).then(cbOnDownload).catch(function (err) {}); // Render the audio in the background, and call cbOnDownload when finished, passing the audioURL.
-                return {
-                    'streamURL': Audio.getTTSAudioURL(Talken.clone(edited)) + '&audio%2Fogg&codecs=opus',
-                    'abort': function abort() {
-                        r2.audiosynth.abortDownloadOfTTSAudio();
-                    }
-                }; // Return the streaming audio URL.
+                r2.speak.SetCurrentAnnotId(annotId);
+                r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null);
+                return _render('anon', options); // Render the audio in the background, and call cbOnDownload when finished, passing the audioURL.
             };
+
             var _render = function _render(mode, options) {
                 if (_stitching) {
                     console.warn("Error @ r2.speak.render: Audio is currently being stitched from a previous play() call. Please wait.");
@@ -658,21 +587,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                     // No longer stitching!
                     _stitching = false;
-
-                    console.log("stitched talkens: ", stitched_url);
-
-                    // Repair talken urls to point to stitched resource:
-                    // * CANNOT TRUST THIS IN PRACTICE *. Just leave it be.
-                    /*var _bgn = 0; // running time
-                    talkens.forEach(function(t) {
-                        var len = t.end - t.bgn;
-                        t.bgn = _bgn;
-                        t.end = _bgn + len;
-                        t.audio = stitched_resource;
-                        _bgn += len;
-                    });
-                     // Set edited talkens
-                    edited = talkens;*/
 
                     return new Promise(function (resolve, reject) {
                         resolve(stitched_url);
@@ -727,6 +641,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     r2.audiosynth = function () {
 
         var pub = {};
+        var STREAM_TTS = true;
 
         /** Helper function to convert talkens to timestamps in format [word, bgn, end].
          *  This will *not* skip over audioless talkens. Instead, it will save them with bgn, end as 0. */
@@ -767,7 +682,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             // Calculate breaks
             //var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
-            var PAUSE_MAX_MS = 1000; // cap pauses at a full second
+            var PAUSE_MAX_MS = 700; // cap pauses at a full second
             for (var i = 1; i < words.length; i++) {
                 var word = words[i].replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g, ""); // strip any punctuation (just in case)
                 var ts = talkens[i];
@@ -811,6 +726,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             return 'https://newspeak-tts.mybluemix.net/synthesize?text' + $.param($dummy_ta) + '&voice=' + voice;
         };
+        pub.getStreamingTTSAudioURL = function (ssml, voice) {
+            return getTTSAudioURL(ssml, voice) + '&audio%2Fogg&codecs=opus';
+        };
         pub.getTTSAudioURL = getTTSAudioURL;
 
         /**
@@ -831,23 +749,45 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             // 3. Make voice (e.g. Michael) customizable!
             // 4. MAYBE: Split ssml into multiple chunks if it's long...
             var tts_audiourl = getTTSAudioURL(ssml, voice);
-            tts_audiourl += '&accept=audio/wav';
-            console.log("Downloading TTS from url ", tts_audiourl);
 
-            // Request Watson TTS server
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', tts_audiourl, true);
-                xhr.responseType = 'blob';
-                xhr.onreadystatechange = function (e) {
-                    if (this.readyState == 4 && this.status == 200) {
-                        var blob = this.response;
-                        resolve(URL.createObjectURL(blob));
-                    } else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
-                };
-                xhr.send();
-                pub.lastTTSAudioXHR = xhr;
-            });
+            if (STREAM_TTS) {
+                tts_audiourl += '&audio%2Fogg&codecs=opus';
+                return new Promise(function (resolve, reject) {
+                    r2.audioPlayer.setLoadCallback(tts_audiourl, function (m_audio) {
+                        console.log('||| GOT AUDIO ELEM FROM AUDIOPLAYER |||');
+
+                        r2.oggOpusDecoder.convertToWAV(m_audio).then(function (wavURL) {
+
+                            console.log('||| GOT WAV FROM OPUS |||');
+
+                            ////// --> send to praat
+                            resolve(wavURL);
+                            ///r2App.annots[annotId].SetRecordingAudioFileUrl(wavURL, null);
+                        });
+                    });
+                    r2.audioPlayer.load(r2.speak.GetCurrentAnnotId(), tts_audiourl, null, null); // load the audio
+                    r2.audioPlayer.play(r2.speak.GetCurrentAnnotId(), tts_audiourl, 0, null, null); // force it to download
+                    r2.audioPlayer.stop(); // stop it immediately
+                });
+            } else {
+                    tts_audiourl += '&accept=audio/wav';
+                    console.log("Downloading TTS from url ", tts_audiourl);
+
+                    // Request Watson TTS server
+                    return new Promise(function (resolve, reject) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', tts_audiourl, true);
+                        xhr.responseType = 'blob';
+                        xhr.onreadystatechange = function (e) {
+                            if (this.readyState == 4 && this.status == 200) {
+                                var blob = this.response;
+                                resolve(URL.createObjectURL(blob));
+                            } else if (this.status !== 200) reject("Error getting TTS response from Watson. Status: " + this.status);
+                        };
+                        xhr.send();
+                        pub.lastTTSAudioXHR = xhr;
+                    });
+                }
         };
         pub.lastTTSAudioXHR = null;
         pub.abortDownloadOfTTSAudio = function () {

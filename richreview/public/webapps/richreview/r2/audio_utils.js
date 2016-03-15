@@ -78,7 +78,7 @@
             //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
             m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
             //console.log(m_audio);
-            
+
             console.log(">>> ATEMPTING PLAY WITH URL ", cmd.param_url);
 
             m_audio.addEventListener('ended', function() {
@@ -89,14 +89,20 @@
                 }
                 status = pub.Status.STOPPED;
             }, false);
-            m_audio.addEventListener('canplaythrough', function() {
-                console.log(" >>>>>> canplaythrough");
-                if(cur_cmd.cb_loading_end)
-                    cur_cmd.cb_loading_end();
+            m_audio.addEventListener('canplaythrough', function(e) {
+                console.log(" >>>>>> canplaythrough", load_cb_map, m_audio.currentSrc);
+                if(cmd.cb_loading_end) {
+                    console.log('calling cb_loading_end', cmd.cb_loading_end);
+                    cmd.cb_loading_end(m_audio);
+                }
+                if (load_cb_map.hasOwnProperty(m_audio.currentSrc)) {
+                    console.log("LOADDDDDDD");
+                    load_cb_map[m_audio.currentSrc](m_audio);
+                }
                 processCmd();
             }, false);
             m_audio.addEventListener('loadedmetadata', function(event){
-                console.log(" >>>>>> loadedmetadata");
+                console.log(" >>>>>> loadedmetadata", event);
             }, false);
             m_audio.addEventListener('play', function() {
                 console.log(" >>>>>> played");
@@ -120,7 +126,7 @@
                 processCmd();
             });
             m_audio.addEventListener('progress', function(event) {
-                console.log(" >>>>>> progress");
+                console.log(" >>>>>> progress", event);
                 // progress rate: m_audio.buffered.end(m_audio.buffered.length-1)/m_audio.duration
             });
             status = pub.Status.LOADING;
@@ -161,6 +167,17 @@
             cmd_q.push(createCmd(Cmd.JUMP, id, url, time));
 
             processCmd();
+        };
+
+        pub.load = function(id, url, cb_loading_bgn, cb_loading_end) {
+            //cmd_q.push(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
+            processCmd(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
+            //loadAudioFile(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
+        };
+
+        var load_cb_map = {};
+        pub.setLoadCallback = function(url, cb) {
+            load_cb_map[url] = cb;
         };
 
         pub.isIdle = function(){
@@ -450,7 +467,7 @@
             /* block align (channel count * bytes per sample) */
             view.setUint16(32, 2, true);                            ////****
             /* bits per sample */
-            view.setUint16(34, 16, true);                           ////****
+            view.setUint16(34, bit_per_sample, true);                           ////****
             /* data chunk identifier */
             writeString(view, 36, 'data');
             /* data chunk length */
@@ -466,10 +483,10 @@
             });
 
             var blob = new Blob([view], { type: 'audio/wav' });
-            var url = (window.URL || window.webkitURL).createObjectURL(blob)
+            var url = (window.URL || window.webkitURL).createObjectURL(blob);
             return {url: url, blob: blob};
         };
-
+        pub.encodeWAV = encodeWAV;
 
         var chopTalkenSample = function(talken){
             var sample = url2sample[talken.audio_url].samples;
@@ -539,6 +556,7 @@
                 }
             });
         };
+        pub.wavUrlToSample = wavUrlToSample;
 
         var parseWavBufToSample = function(wav) {
             function readInt(i, bytes) {
@@ -561,6 +579,148 @@
             };
         };
 
+
+        return pub;
+    }());
+
+    r2.oggOpusDecoder = (function() {
+        var pub = {};
+        var _oggDecoderWorkerPath = 'ogg_opus/oggopusDecoder.js';
+
+        /**
+         * Converts ogg-opus encoded audio file to WAV file.
+         * @param  {string} opusURL A url to the ogg-opus file to convert.
+         * @return {Promise}        A Promise that returns URL to the wav audio.
+         */
+        pub.convertToWAV = function(oggOpusAudioElementOrURL) {
+
+            // URL
+            if (typeof oggOpusAudioElementOrURL === "string") {
+
+                return new Promise(function(resolve, reject) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', oggOpusAudioElementOrURL, true);
+                    xhr.responseType = 'blob';
+                    xhr.onload = function(e) {
+                        if (this.status == 200) {
+
+                            // Read blob into array buffer
+                            var myReader = new FileReader();
+                            myReader.addEventListener("loadend", function(e){
+                                var buff = new Uint8Array(myReader.result);
+                                resolve(buff);
+                            });
+                            myReader.readAsArrayBuffer(this.response);
+                        }
+                    };
+                    xhr.send();
+                }).then(function(renderedBuffer) {
+                    return _oggArrayBufferToWAV(renderedBuffer);
+                });
+
+            // Audio element
+            } else {
+                return _oggAudioElemToBuffer(oggOpusAudioElementOrURL).then(function(renderedBuffer) {
+                    //var dataView = new DataView(renderedBuffer);
+                    //var blob = new Blob([dataView], { type: 'audio/ogg; codecs=opus' });
+                    //var oggOpusBlobURL = URL.createObjectURL(blob);
+                    return _oggArrayBufferToWAV(renderedBuffer);
+                });
+            }
+        };
+        var _oggArrayBufferToWAV = function(oggArrayBuffer) {
+            return decode(oggArrayBuffer).then(function(rawArrayBuffer) {
+                var wavobj = r2.audioSynthesizer.encodeWAV([rawArrayBuffer]);
+                var url = wavobj.url;
+                return new Promise(function(resolve, reject) {
+                    resolve(url);
+                });
+            });
+        };
+
+        var _oggAudioElemToBuffer = function(audioElement) {
+
+            return new Promise(function(resolve, reject){
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', audioElement.currentSrc, true);
+                xhr.responseType = 'arraybuffer';
+                xhr.onload = function(e) {
+                    if (this.status == 200) {
+                        var uInt8Array = new Uint8Array(this.response);
+                        resolve(uInt8Array);
+                    }
+                };
+                xhr.send();
+            });
+
+            /*var samples = Math.floor(audioElement.duration * 24000.0);
+            var audioCtx = new AudioContext();
+            var offlineCtx = new OfflineAudioContext(1, samples, 24000);
+            var source = audioCtx.createMediaElementSource(audioElement);
+            source.connect(offlineCtx.destination);
+            source.start();
+            return offlineCtx.startRendering();*/
+        };
+
+        var float32sToUInt8 = function(float32s) {
+
+            var total_len = 0;
+            float32s.forEach(function(arr) { total_len += arr.length; });
+
+            var output = new Uint8Array(total_len*2);
+            var offset = 0;
+
+            float32s.forEach(function(arr) {
+                var k = 0;
+                var j = 0;
+                var perc = 0;
+                for(var i = offset; i < offset + arr.length; i++) {
+
+                    // Dither the signal
+                    k = Math.round(arr[i - offset] * 32767.0);
+                    j = (k >> 8) & 0xff;
+                    k = k & 0xff;
+                    output[i*2] = k;
+                    output[i*2+1] = j;
+
+                    /*
+                    perc = k - Math.trunc(k);
+                    if(Math.random() > perc)
+                        output[i] = Math.trunc(k);
+                    else
+                        output[i] = Math.trunc(k)+1;*/
+
+                }
+                offset += arr.length;
+            });
+
+            return output;
+        };
+
+        var decode = function(oggArrayBuffer) {
+            return new Promise(function(resolve, reject) {
+
+                var worker = new Worker(_oggDecoderWorkerPath);
+                var float32s = [];
+                worker.onmessage = function(e, g) {
+                    if (e.data !== null) float32s.push(e.data[0]);
+                    else resolve(float32sToUInt8(float32s));
+                };
+                worker.postMessage({ // Initalize decoder.
+                    'command': 'init',
+                    'decoderSampleRate': 24000,
+                    'outputBufferSampleRate': 22050
+                });
+                worker.postMessage({ // Begin decoding.
+                    'command': 'decode',
+                    'pages': oggArrayBuffer
+                });
+                worker.postMessage({ // Stop decoding.
+                    'command': 'done'
+                });
+
+            });
+        };
 
         return pub;
     }());
