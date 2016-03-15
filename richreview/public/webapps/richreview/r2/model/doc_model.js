@@ -1254,7 +1254,7 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'prosody').then((function(finalAudioURL) {
 
                 if (!finalAudioURL) {
                     console.warn('Error processing audio. Check console for details.');
@@ -1487,7 +1487,6 @@
         var wrds = $(this.dom_textbox).text().trim().split(/\s+/g);
         var tks = this._last_tts_talkens;
         if (wrds.length !== tks.length) {
-            console.log('Cannot render dynamically: text in box != stored text. Waiting...');
             if (this._dynamic_setup) this.EndDrawDynamic();
             return;
         } else {
@@ -1536,8 +1535,10 @@
     r2.PieceNewSpeak.prototype.EndDrawDynamic = function() {
         var $txtbox = $(this.dom_textbox);
         console.log('END DRAW DYNAMIC');
-        r2.audioPlayer.stop();
-        r2.audioPlayer.setPlaybackTime(0);
+        if (r2.audioPlayer.isPlaying()) {
+            r2.audioPlayer.stop();
+            r2.audioPlayer.setPlaybackTime(0);
+        }
         $txtbox.css('color', 'black');
         $txtbox.children().each(function() {
             $(this).css('color', 'black');

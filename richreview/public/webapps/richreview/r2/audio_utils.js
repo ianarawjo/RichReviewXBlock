@@ -90,7 +90,6 @@
                 status = pub.Status.STOPPED;
             }, false);
             m_audio.addEventListener('canplaythrough', function(e) {
-                console.log(" >>>>>> canplaythrough", m_audio.currentSrc);
                 if(cmd.cb_loading_end) {
                     cmd.cb_loading_end(m_audio);
                 }
