@@ -682,10 +682,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }
                 return null;
             };
-            var smooth = function smooth(brokenTk, targetTk) {
+            var smooth = function smooth(brokenTk, targetTk, isNext) {
                 if (!targetTk) return;
                 var ratio = (targetTk.word.length + 1) / (brokenTk.word.length + targetTk.word.length + 1);
-                if (brokenTk.bgn <= targetTk.end) {
+                if (isNext) {
                     // target talken is after the broken one
                     brokenTk.bgn = targetTk.bgn;
                     brokenTk.end = ratio * targetTk.bgn + (1.0 - ratio) * targetTk.end; // if next_tk's word is longer, bgn has more weight, and tk's len will be shorter.
@@ -699,16 +699,16 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     console.log('Smoothed prev --> ', brokenTk, targetTk);
                 }
             };
-            for (var j = 0; j < talkens.length - 1; j++) {
+            for (var j = 0; j < talkens.length; j++) {
                 var tk = talkens[j];
                 if (tk.bgn === tk.end) {
                     var prev_tk = j > 0 ? talkens[j - 1] : null;
                     var next_tk = nextTalken(j + 1, talkens);
                     if (!prev_tk) {
                         // smooth by stealing some of the next talken's playtime
-                        smooth(tk, next_tk);
-                    } else if (next_tk) {
-                        if (prev_tk.end - prev_tk.bgn > next_tk.end - next_tk.bgn) smooth(tk, prev_tk);else smooth(tk, next_tk);
+                        smooth(tk, next_tk, true);
+                    } else {
+                        if (next_tk === null || prev_tk.end - prev_tk.bgn > next_tk.end - next_tk.bgn) smooth(tk, prev_tk, false);else smooth(tk, next_tk, true);
                     }
                 }
             }
