@@ -1509,7 +1509,7 @@
                 var $span = $(document.createElement('span'));
                 $span.text(tk.word + ' ');
                 $span[0].onclick = function(e) {
-                    console.log('set playback time to ', tk.new_bgn+0.1);
+                    console.log('set playback time to ', tk.new_bgn+4);
                     r2.audioPlayer.setPlaybackTime(tk.new_bgn);
                 };
                 $txtbox.append($span);
