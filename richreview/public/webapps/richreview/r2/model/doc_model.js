@@ -1254,7 +1254,7 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'prosody').then((function(finalAudioURL) {
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
 
                 if (!finalAudioURL) {
                     console.warn('Error processing audio. Check console for details.');

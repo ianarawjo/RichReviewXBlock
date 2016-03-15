@@ -250,7 +250,7 @@
                         reject("Warning @ r2.speak.generateTalkensFromHTK: No edited talkens found (edited is ", edited, ")");
                     });
                 }
-                var transcript = r2.audiosynth.toTranscript(edited).replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
+                var transcript = r2.audiosynth.toTranscript(edited).replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
                 return Talken.generateFromHTK(audioURL, transcript);
             };
 
@@ -310,11 +310,11 @@
                 if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
-                bt = bt.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~'()]/g,"");
+                bt = bt.replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g,"");
                 bt = bt.toLowerCase();
 
                 // remove punctuation
-                var stripped_transcript = new_transcript.replace(/[.,-\/#!$%\^&\*;:{}=\-_`~'()]/g,"");
+                var stripped_transcript = new_transcript.replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g,"");
 
                 // lowercase
                 stripped_transcript = stripped_transcript.toLowerCase();
@@ -515,7 +515,7 @@
                 else if (mode === 'anon+htk') {
                     return Audio.stitch(base).then(function(stitched_base) {
                         console.log('..stitched base talkens. Generating new talkens from HTK...');
-                        var transcript = r2.audiosynth.toTranscript(talkens).replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
+                        var transcript = r2.audiosynth.toTranscript(talkens).replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
                         return Talken.generateFromHTK(stitched_base.url, transcript);
                     }).then(function(perfect_talkens) {
                         console.log('..HTK returned: ', perfect_talkens);
@@ -641,7 +641,7 @@
             //var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
             var PAUSE_MAX_MS = 700; // cap pauses at a full second
             for (var i = 1; i < words.length; i++) {
-                var word = words[i].replace(/[.,-\/#!$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
+                var word = words[i].replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~()]/g,""); // strip any punctuation (just in case)
                 var ts = talkens[i];
                 var prev_ts = talkens[i-1];
 
