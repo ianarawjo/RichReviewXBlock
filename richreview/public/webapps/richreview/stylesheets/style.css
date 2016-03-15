@@ -266,7 +266,7 @@ a:active {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
+  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
   line-height: 1.2em;
   text-align: left;
@@ -304,7 +304,7 @@ a:active {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: "Tahoma","Helvetica", "sans-serif";
+  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   line-height: 1.0em;
   font-size: 0.8em;
   text-align: left;
@@ -315,7 +315,7 @@ a:active {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
+  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   line-height: 1.0em;
   min-height: 1.0em;
   text-align: left;
