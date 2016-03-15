@@ -9,7 +9,7 @@
         var pub = {};
         pub.play = function(annot_id, time, onPlayed) {
             r2.audioPlayer.play(
-                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time, onPlayed
+                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time, null, onPlayed
             );
         };
         pub.stop = function(){
