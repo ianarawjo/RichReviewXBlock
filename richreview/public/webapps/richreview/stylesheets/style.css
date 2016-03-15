@@ -266,7 +266,7 @@ a:active {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: wf_SegoeUI,"Segoe UI","Segoe","Tahoma","Helvetica","sans-serif";
+  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
   line-height: 1.2em;
   text-align: left;
@@ -299,19 +299,17 @@ a:active {
   position: relative;
   left: 0; /* will be tt_x */
   width: 1em; /* will be tt_w */
-  z-index: 18;
 }
 .r2_piece_newspeak {
   border: 0;
   overflow: auto;
   padding: 0.3em;
-  font-family: "Tahoma","Helvetica", "sans-serif";
+  font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   line-height: 1.0em;
   font-size: 0.8em;
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
-  z-index: 2;
 }
 .r2_piece_simplespeech {
   border: 0;
@@ -323,7 +321,6 @@ a:active {
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
-  z-index: 2;
 }
 .r2_piece_simplespeech.editing {
   background: rgba(255, 255, 255, 0.74902);
@@ -348,6 +345,7 @@ a:active {
   position: absolute;
   margin: 0;
   z-index: 7;
+  white-space: nowrap;
 
   height: 0.8em;
 }
@@ -372,13 +370,13 @@ a:active {
 .ssui-overlay > .ssui-word.temp,
 .ssui-overlay > .ssui-word.old{
   background-color: rgb(250, 250, 250);
-  border: solid 0.02em rgb(240, 240, 240);
+  border: solid 0.1em rgb(240, 240, 240);
   color: gray;
 }
 .ssui-overlay > .ssui-pause.replay_highlight,
 .ssui-overlay > .ssui-word.replay_highlight {
   background-color: lightsteelblue;
-  border: solid 0.02em rgb(240, 240, 240);
+  border: solid 0.1em lightsteelblue;
   color: black;
 }
 

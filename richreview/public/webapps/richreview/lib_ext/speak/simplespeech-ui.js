@@ -27,6 +27,7 @@
         var copied_ctrl_talkens = [];
         var content_changed = false;
         var insert_pos = 0;
+        var is_recording_and_synthesizing = false;
 
         // Listener callbacks
         /**
@@ -60,11 +61,15 @@
 
         pub.on_input = null;
         pub.play = null;
+        pub.movePlayHeader = null;
 
         // Init
         var _init = function() {
 
             // Setup event handlers
+            $textbox[0].addEventListener('keyup', checkCarretPositionUpdate);
+            $textbox[0].addEventListener('click', checkCarretPositionUpdate);
+            $textbox[0].addEventListener('focus', checkCarretPositionUpdate);
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
         };
@@ -78,7 +83,7 @@
                     end: data[2],
                     annotid: annotid
                 };
-                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().filter(':not(.old)').last(), next_base_data);
                 if(pause_talken_data){
                     insertTalken(pause_talken_data, insert_pos++, true);
                 }
@@ -97,7 +102,7 @@
                     end: data[2],
                     annotid: annotid
                 };
-                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().last(), next_base_data);
+                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().filter(':not(.old)').last(), next_base_data);
                 if(pause_talken_data){
                     insertTalken(pause_talken_data, insert_pos++, false);
                 }
@@ -108,15 +113,18 @@
             content_changed = true;
         };
         pub.bgnCommenting = function(){
+            is_recording_and_synthesizing = true;
             $textbox.focus();
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('old', true);
+                $(this).toggleClass('old', true);
             });
             insert_pos = getCarret().idx_anchor;
         };
         pub.endCommenting = function(){
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('old', false);
+                $(this).toggleClass('old', false);
             });
         };
         var getCtrlTalkens = function(){
@@ -145,7 +153,7 @@
         };
         var getCarretRenderedTime = function(carret){
             setRenderedTiming();
-            return $textbox.children('span')[carret.idx_bgn].rendered_data.bgn*1000.;
+            return $textbox.children('span')[carret.idx_focus].rendered_data.bgn*1000.+10.;
         };
         var setRenderedTiming = function(){
             var rendered_time = 0;
@@ -183,7 +191,9 @@
                 }
             ).then(
                 function(){
-                    return r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
+                    r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
+                    is_recording_and_synthesizing = false;
+                    return null;
                 }
             );
         };
@@ -226,11 +236,13 @@
                 $vt_span.text(word);
                 $vt.append($vt_span);
 
-                if (word.indexOf('\xa0') === -1){
-                    $vt.addClass('ssui-word'); // blue if not a space
+                if (word === ('\xa0')){
+                    $vt.addClass('ssui-pause');
+                    $vt_span.text('');
+                    $vt.css('padding-right', (base_data.end-base_data.bgn-0.3)*0.25+'em');
                 }
                 else{
-                    $vt.addClass('ssui-pause');
+                    $vt.addClass('ssui-word');
                 }
                 return $vt;
             }
@@ -319,7 +331,7 @@
         }
 
         var onKeyDown = function(e) {
-            console.log('onKeyDown');
+            //console.log('onKeyDown');
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -327,12 +339,10 @@
                 r2.keyboard.CONST.KEY_DN
             ];
 
+            //carret = getCarret();
             if(key_enable_default.indexOf(e.keyCode) > -1){
-
             }
             else {
-                carret = getCarret();
-
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     if(carret.is_collapsed){
                         op.remove(
@@ -414,7 +424,7 @@
                     }
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
-                        if(carret.idx_bgn < ctrl_talkens.length){
+                        if(carret.idx_focus < ctrl_talkens.length){
                             pub.synthesizeAndPlay(content_changed, getCarretRenderedTime(carret)).then(
                                 function(){
                                     content_changed = false;
@@ -452,15 +462,15 @@
 
         // Events
         var onKeyPress = function(e) {
-            console.log('onkeypress');
-            //e.preventDefault();
             if(
                 String.fromCharCode(event.which) === '.' ||
                 String.fromCharCode(event.which) === ',' ||
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
-                transcriptionPopUp();
+                if(!transcriptionPopUp()){
+                    e.preventDefault();
+                }
             }
             else{
                 e.preventDefault();
@@ -468,32 +478,59 @@
         };
 
         var transcriptionPopUp = function(){
-            if(carret.is_collapsed){
-                if(carret.idx_bgn !== 0){
-                    var $ct = $($textbox.children('span')[carret.idx_bgn-1]);
-                    var tb_bbox = $textbox[0].getBoundingClientRect();
-                    var ct_bbox = $ct[0].getBoundingClientRect();
+            var word_idx = carret.idx_end-1;
+            if(word_idx >= 0 && carret.idx_end-carret.idx_bgn <= 1){
+                var $ct = $($textbox.children('span')[word_idx]);
+                var tb_bbox = $textbox[0].getBoundingClientRect();
+                var ct_bbox = $ct[0].getBoundingClientRect();
 
-                    var tooltip = new r2.tooltip(
-                        $textbox.parent(),
-                        $ct[0].base_data.word,
-                        {
-                            x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
-                            y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
-                        },
-                        function(text){
-                            console.log('Done '+text);
-                            $textbox.focus();
-                        },
-                        function(){
-                            console.log('Done none');
-                            $textbox.focus();
-                        }
-                    );
-                    $textbox.blur();
-                    tooltip.focus();
+                var tooltip = new r2.tooltip(
+                    $textbox.parent(),
+                    carret.is_collapsed ? $ct[0].base_data.word : '',
+                    {
+                        x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                        y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                    },
+                    function(text){
+                        console.log('Done '+text);
+                        var new_base_data = $ct[0].base_data;
+                        new_base_data.word = text.replace(/\s+/g, '\xa0').trim(); // reduce multiple spaces to one
+                        op.remove(
+                            word_idx,
+                            word_idx+1
+                        );
+                        insertTalken(new_base_data, word_idx, false);
+                        renderViewTalkens();
+                        $textbox.focus();
+                        setCarret(word_idx+1);
+                    },
+                    function(){
+                        $textbox.focus();
+                        setCarret(word_idx+1);
+                    }
+                );
+                $textbox.blur();
+                tooltip.focus();
+                return true;
+            }
+            return false;
+        };
+
+        var checkCarretPositionUpdate = function(){
+            if(is_recording_and_synthesizing){
+                return;
+            }
+            var old_anchor = carret.idx_anchor;
+            var old_focus = carret.idx_focus;
+            getCarret();
+            var is_changed = !(old_anchor === carret.idx_anchor && old_focus === carret.idx_focus);
+            if(is_changed){
+                var ctrl_talkens = $textbox.children('span');
+                if(carret.idx_focus < ctrl_talkens.length){
+                    pub.movePlayHeader(getCarretRenderedTime(carret));
                 }
             }
+            return is_changed;
         };
 
         var getCarret = function(){

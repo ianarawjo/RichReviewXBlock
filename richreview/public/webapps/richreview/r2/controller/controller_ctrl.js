@@ -9,15 +9,14 @@
         var pub = {};
         pub.play = function(annot_id, time) {
             r2.audioPlayer.play(
-                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time,
-                function(){
-                },
-                function(){
-                }
+                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time
             );
         };
         pub.stop = function(){
             r2.audioPlayer.stop();
+        };
+        pub.jump = function(annot_id, time){
+            r2.audioPlayer.jump(annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time);
         };
         return pub;
     }());
