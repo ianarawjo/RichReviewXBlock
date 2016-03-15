@@ -90,14 +90,9 @@
                 status = pub.Status.STOPPED;
             }, false);
             m_audio.addEventListener('canplaythrough', function(e) {
-                console.log(" >>>>>> canplaythrough", load_cb_map, m_audio.currentSrc);
+                console.log(" >>>>>> canplaythrough", m_audio.currentSrc);
                 if(cmd.cb_loading_end) {
-                    console.log('calling cb_loading_end', cmd.cb_loading_end);
                     cmd.cb_loading_end(m_audio);
-                }
-                if (load_cb_map.hasOwnProperty(m_audio.currentSrc)) {
-                    console.log("LOADDDDDDD");
-                    load_cb_map[m_audio.currentSrc](m_audio);
                 }
                 processCmd();
             }, false);
@@ -131,7 +126,7 @@
             });
             status = pub.Status.LOADING;
             if(cur_cmd.cb_loading_bgn)
-                cur_cmd.cb_loading_bgn();
+                cur_cmd.cb_loading_bgn(m_audio);
             m_audio.load();
         };
 
@@ -175,11 +170,6 @@
             //loadAudioFile(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
         };
 
-        var load_cb_map = {};
-        pub.setLoadCallback = function(url, cb) {
-            load_cb_map[url] = cb;
-        };
-
         pub.isIdle = function(){
             return cmd_q.length == 0;
         };
@@ -204,6 +194,13 @@
             }
             else{
                 return 0.0;
+            }
+        };
+
+        pub.setPlaybackTime = function(ms) {
+            if(m_audio) {
+                m_audio.currentTime = ms / 1000.0;
+                //if(pub.isPlaying()) m_audio.resume();
             }
         };
 
@@ -637,6 +634,7 @@
                 });
             });
         };
+        pub.convertArrayBufferToWAV = _oggArrayBufferToWAV;
 
         var _oggAudioElemToBuffer = function(audioElement) {
 
