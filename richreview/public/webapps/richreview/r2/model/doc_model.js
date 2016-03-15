@@ -1583,6 +1583,13 @@
             }.bind(this));
         }.bind(this);
 
+        this.simplespeech.movePlayHeader = function(time){
+            if(r2App.mode === r2App.AppModeEnum.IDLE){
+                r2.rich_audio.jump(this._annotid, time);
+                r2App.invalidate_dynamic_scene = true;
+            }
+        }.bind(this);
+
         this.simplespeech.insertRecording = function(){
             r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
         }.bind(this);

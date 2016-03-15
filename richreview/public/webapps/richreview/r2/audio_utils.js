@@ -20,7 +20,8 @@
         var Cmd = {
             LOAD : 0,
             PAUSE : 1,
-            PLAY : 2
+            PLAY : 2,
+            JUMP : 3
         };
 
         var m_audio = null;
@@ -56,6 +57,10 @@
                                 m_audio.currentTime = cmd.param_time/1000.0;
                         }
                         break;
+                    case Cmd.JUMP:
+                        if(cmd.param_time >= 0) // move the playhead
+                            m_audio.currentTime = cmd.param_time/1000.0;
+                        break;
                     default:
                         throw new Error('Unknown Audio Command: ', cmd);
                 }
@@ -70,7 +75,7 @@
             m_audio.loop = false;
 
             // This doesn't add streaming functionality. Wonder why...
-            m_audio.setAttribute('autoplay', ''); // NEWSPEAK
+            //m_audio.setAttribute('autoplay', ''); // NEWSPEAK
             m_audio.setAttribute('autobuffer', ''); // NEWSPEAK
             //console.log(m_audio);
             
@@ -143,6 +148,18 @@
                 cmd_q.push(createCmd(Cmd.LOAD, id, url, 0, cb_loading_bgn, cb_loading_end));
             }
             cmd_q.push(createCmd(Cmd.PLAY, id, url, time));
+
+            processCmd();
+        };
+        pub.jump = function(id, url, time){
+            if(cur_cmd === null || cur_cmd.param_id !== id || cur_cmd.param_url !== url){
+                if(status == pub.Status.PLAYING){
+                    cmd_q.push(createCmd(Cmd.PAUSE));
+                }
+                cmd_q.push(createCmd(Cmd.LOAD, id, url, 0));
+            }
+            cmd_q.push(createCmd(Cmd.JUMP, id, url, time));
+
             processCmd();
         };
 
@@ -192,10 +209,8 @@
         };
 
         pub.stop = function(){
-            if(status == pub.Status.PLAYING){
-                cmd_q.push(createCmd(Cmd.PAUSE));
-                processCmd();
-            }
+            cmd_q.push(createCmd(Cmd.PAUSE));
+            processCmd();
         };
 
         pub.cbPlay = function(cb){

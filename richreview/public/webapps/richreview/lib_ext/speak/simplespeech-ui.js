@@ -60,11 +60,15 @@
 
         pub.on_input = null;
         pub.play = null;
+        pub.movePlayHeader = null;
 
         // Init
         var _init = function() {
 
             // Setup event handlers
+            $textbox[0].addEventListener('keyup', checkCarretPositionUpdate);
+            $textbox[0].addEventListener('click', checkCarretPositionUpdate);
+            $textbox[0].addEventListener('focus', checkCarretPositionUpdate);
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
         };
@@ -145,7 +149,7 @@
         };
         var getCarretRenderedTime = function(carret){
             setRenderedTiming();
-            return $textbox.children('span')[carret.idx_bgn].rendered_data.bgn*1000.;
+            return $textbox.children('span')[carret.idx_focus].rendered_data.bgn*1000.+10.;
         };
         var setRenderedTiming = function(){
             var rendered_time = 0;
@@ -319,7 +323,7 @@
         }
 
         var onKeyDown = function(e) {
-            console.log('onKeyDown');
+            //console.log('onKeyDown');
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -327,12 +331,10 @@
                 r2.keyboard.CONST.KEY_DN
             ];
 
+            //carret = getCarret();
             if(key_enable_default.indexOf(e.keyCode) > -1){
-
             }
             else {
-                carret = getCarret();
-
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     if(carret.is_collapsed){
                         op.remove(
@@ -414,7 +416,7 @@
                     }
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
-                        if(carret.idx_bgn < ctrl_talkens.length){
+                        if(carret.idx_focus < ctrl_talkens.length){
                             pub.synthesizeAndPlay(content_changed, getCarretRenderedTime(carret)).then(
                                 function(){
                                     content_changed = false;
@@ -460,7 +462,9 @@
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
-                transcriptionPopUp();
+                if(!transcriptionPopUp()){
+                    e.preventDefault();
+                }
             }
             else{
                 e.preventDefault();
@@ -469,8 +473,9 @@
 
         var transcriptionPopUp = function(){
             if(carret.is_collapsed){
-                if(carret.idx_bgn !== 0){
-                    var $ct = $($textbox.children('span')[carret.idx_bgn-1]);
+                var word_idx = carret.idx_bgn-1;
+                if(word_idx >= 0){
+                    var $ct = $($textbox.children('span')[word_idx]);
                     var tb_bbox = $textbox[0].getBoundingClientRect();
                     var ct_bbox = $ct[0].getBoundingClientRect();
 
@@ -483,17 +488,42 @@
                         },
                         function(text){
                             console.log('Done '+text);
+                            var new_base_data = $ct[0].base_data;
+                            new_base_data.word = text;
+                            op.remove(
+                                word_idx,
+                                word_idx+1
+                            );
+                            insertTalken(new_base_data, word_idx, false);
+                            renderViewTalkens();
                             $textbox.focus();
+                            setCarret(word_idx+1);
                         },
                         function(){
-                            console.log('Done none');
                             $textbox.focus();
+                            setCarret(word_idx+1);
                         }
                     );
                     $textbox.blur();
                     tooltip.focus();
+                    return true;
                 }
             }
+            return false;
+        };
+
+        var checkCarretPositionUpdate = function(){
+            var old_anchor = carret.idx_anchor;
+            var old_focus = carret.idx_focus;
+            getCarret();
+            var is_changed = !(old_anchor === carret.idx_anchor && old_focus === carret.idx_focus);
+            if(is_changed){
+                var ctrl_talkens = $textbox.children('span');
+                if(carret.idx_focus < ctrl_talkens.length){
+                    pub.movePlayHeader(getCarretRenderedTime(carret));
+                }
+            }
+            return is_changed;
         };
 
         var getCarret = function(){
