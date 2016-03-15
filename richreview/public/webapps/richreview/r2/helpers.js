@@ -1273,6 +1273,21 @@
             return getRmBtnOffset($rm_btn, +1);
         };
 
+        pub.bgnLoading = function(rm_id){
+            var $icon = $('#'+rm_id).find('.rm_btn_center').find('i');
+
+            $icon.toggleClass($icon[0].fa_font, false);
+            $icon.toggleClass('fa-refresh', true);
+            $icon.toggleClass('fa-spin', true);
+        };
+
+        pub.endLoading = function(rm_id){
+            var $icon = $('#'+rm_id).find('.rm_btn_center').find('i');
+            $icon.toggleClass($icon[0].fa_font, true);
+            $icon.toggleClass('fa-refresh', false);
+            $icon.toggleClass('fa-spin', false);
+        };
+
         var getRmBtnOffset = function($rm_btn, offset){
             var $l = $rm_btn.parents('.rm_menu').find('.rm_btn');
             for(var i = 0, l = $l.length; i < l; ++i){

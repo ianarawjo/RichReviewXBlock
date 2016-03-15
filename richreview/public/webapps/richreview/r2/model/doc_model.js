@@ -1671,6 +1671,15 @@
             r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
         }.bind(this);
 
+        this.simplespeech.bgn_streaming = function(){
+            r2.radialMenu.bgnLoading('rm_'+r2.util.escapeDomId(this._annotid));
+        }.bind(this);
+        this.simplespeech.end_streaming = function(){
+            r2.radialMenu.endLoading('rm_'+r2.util.escapeDomId(this._annotid));
+        }.bind(this);
+
+
+
         this.dom_textbox.addEventListener('focus', function(event){
             r2App.cur_focused_piece_keyboard = this;
             var color = r2.userGroup.GetUser(this._username).color_piecekeyboard_box_shadow;

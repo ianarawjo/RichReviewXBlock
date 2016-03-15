@@ -7,9 +7,9 @@
 
     r2.rich_audio = (function(){
         var pub = {};
-        pub.play = function(annot_id, time) {
+        pub.play = function(annot_id, time, onPlayed) {
             r2.audioPlayer.play(
-                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time
+                annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time, null, onPlayed
             );
         };
         pub.stop = function(){
