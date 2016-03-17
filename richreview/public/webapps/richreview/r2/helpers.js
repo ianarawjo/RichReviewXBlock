@@ -1261,9 +1261,9 @@
             var $icon = $('#'+rm_id).find('.rm_btn_center').find('i');
             $icon.toggleClass($icon[0].fa_font, false);
             $icon.toggleClass(fa_font, true);
+            $icon.toggleClass('fa-spin', false);
             $icon[0].fa_font = fa_font;
         };
-
 
         pub.getPrevRmBtn = function($rm_btn){
             return getRmBtnOffset($rm_btn, -1);
@@ -1275,7 +1275,6 @@
 
         pub.bgnLoading = function(rm_id){
             var $icon = $('#'+rm_id).find('.rm_btn_center').find('i');
-
             $icon.toggleClass($icon[0].fa_font, false);
             $icon.toggleClass('fa-refresh', true);
             $icon.toggleClass('fa-spin', true);

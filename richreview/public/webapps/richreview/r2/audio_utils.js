@@ -90,6 +90,7 @@
                 status = pub.Status.STOPPED;
             }, false);
             m_audio.addEventListener('canplaythrough', function(e) {
+                console.log(" >>>>>> canplaythrough");
                 if(cmd.cb_loading_end) {
                     cmd.cb_loading_end(m_audio);
                 }
@@ -112,11 +113,9 @@
                     cur_cmd.cb_loading_end();
                 cur_cmd = null;
                 m_audio = null;
-                if(cbStop){
-                    cbStop(pub.getCurAudioFileId());
-                }
-                status = pub.Status.STOPPED;
+                //status = pub.Status.STOPPED;
                 cmd_q.shift(); // remove the play at the head
+                cmd_q.push(createCmd(Cmd.PAUSE));
                 processCmd();
             });
             m_audio.addEventListener('progress', function(event) {
