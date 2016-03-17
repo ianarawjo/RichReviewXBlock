@@ -65,10 +65,10 @@
                         }
                     },
                     stitch : function(talkens) { // Returns stitched audio resource as a Promise.
-                        return r2.audiosynth.stitch(talkens).then(function(url) {
+                        return r2.audiosynth.stitch(talkens).then(function(sobj) {
                             return new Promise(function(resolve, reject) {
-                                if (!url) reject("Audio.stitch: Null url.");
-                                else resolve(url);
+                                if (!sobj.url) reject("Audio.stitch: Null url.");
+                                else resolve(sobj.url);
                             });
                         });
                     },
@@ -558,9 +558,9 @@
             var ts = [];
             talkens.forEach((t) => {
                 if (typeof t.audio === "undefined" || !t.audio || !t.audio.url)
-                    ts.push([ t.word, 0, 0 ]);
+                    ts.push([ t.word.replace(',',''), 0, 0 ]);
                 else
-                    ts.push([ t.word, t.bgn, t.end ]);
+                    ts.push([ t.word.replace(',',''), t.bgn, t.end ]);
             });
             return ts;
         };
@@ -813,6 +813,8 @@
          */
         pub.stitch = (talkens) => {
             var snippets = [];
+            var stitched_tks = [];
+            var c = 0;
             talkens.forEach(function(t) {
                 if (!t.audio || typeof t.audio === "undefined" || !t.audio.url) return;
                 snippets.push({
@@ -820,14 +822,25 @@
                      't_bgn':t.bgn,
                      't_end':t.end
                  });
-                if (t.pauseAfter > 0)
-                    snippets.push({'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':Math.max(t.pauseAfter / 1000.0, 1.0)});
+                stitched_tks.push({
+                    'word':t.word,
+                    'bgn':c,
+                    'end':c+(t.end-t.bgn),
+                    'audio':t.audio
+                });
+                c += t.end-t.bgn;
+                if (t.pauseAfter > 0) {
+                    var pausesnip = {'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':Math.max(t.pauseAfter / 1000.0, 1.0)};
+                    c += pausesnip.t_end;
+                    snippets.push(pausesnip);
+                }
             });
 
             return new Promise(function(resolve, reject) {
                 r2.audioStitcher.run(snippets, function(url) {
                     if (!url) reject("r2.audiosynth.stitch: URL is null.");
-                    else resolve(url);
+
+                    resolve({'url':url, 'stitched_talkens':stitched_tks});
                 });
             });
         };
@@ -866,11 +879,13 @@
             }
 
             // (2) Perform post-processing.
-            var src_ts = toTimestamps(talkens);
+            var orig_src_ts = toTimestamps(talkens);
+            var src_ts;
             var transcript = toTranscript(talkens);
             var srcwav, twav;
-            return stitch(talkens).then(function(surl) {
-                srcwav = surl;
+            return stitch(talkens).then(function(sobj) {
+                srcwav = sobj.url;
+                src_ts = toTimestamps(sobj.stitched_talkens);
                 return getTTSAudioFromWatson(ssml);
             }).then(function(turl) {
                 twav = turl; // url
@@ -878,7 +893,7 @@
             }).then(function(target_ts) {          // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
                 if (!target_ts) throw 'No timestamps returned.';
-                else if (target_ts.length !== src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
+                else if (target_ts.length !== orig_src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
                 console.log('synthesize: Data checked. Transferring prosody...');
                 return Praat.transfer(srcwav, twav, src_ts, target_ts, config.transfer);   // Transfer properties from speech to TTS waveform.
             }).then(function(resynth_blob) { // Transfer blob data to URL
