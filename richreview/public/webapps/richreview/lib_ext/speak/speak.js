@@ -35,9 +35,297 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             _current_annot_id = aid;
         };
 
+        var Talken = function () {
+            function Talken(wrd, bgn, end, audioRsc) {
+                _classCallCheck(this, Talken);
+
+                this.word = wrd;
+                this.bgn = bgn;
+                this.end = end;
+                this.audio = audioRsc;
+            }
+
+            _createClass(Talken, [{
+                key: "replaceWord",
+                value: function replaceWord(txt) {
+                    this.word = txt;
+                }
+            }, {
+                key: "setPauseAfter",
+                value: function setPauseAfter(ms) {
+                    this._pauseAfter = ms;
+                }
+            }, {
+                key: "setPauseBefore",
+                value: function setPauseBefore(ms) {
+                    this._pauseBefore = ms;
+                }
+            }, {
+                key: "clone",
+                value: function clone() {
+                    var t = new Talken(this.word, this.bgn, this.end, this.audio);
+                    if (this.pauseBefore > 0) t.setPauseBefore(this.pauseBefore);
+                    if (this.pauseAfter > 0) t.setPauseAfter(this.pauseAfter);
+                    return t;
+                }
+            }, {
+                key: "pauseBefore",
+                get: function get() {
+                    return this._pauseBefore || 0;
+                }
+            }, {
+                key: "pauseAfter",
+                get: function get() {
+                    return this._pauseAfter || 0;
+                }
+            }], [{
+                key: "generate",
+                value: function generate(timestamps, audioURL) {
+                    var talkens = [];
+                    var audio = Audio.for(audioURL);
+                    var prev_t = null;
+                    var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
+                    var _iteratorNormalCompletion = true;
+                    var _didIteratorError = false;
+                    var _iteratorError = undefined;
+
+                    try {
+                        for (var _iterator = timestamps[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                            var t = _step.value;
+
+
+                            // Create new talken for timestamp
+                            talkens.push(new Talken(t[0], t[1], t[2], audio));
+
+                            // Detect + store pauses in original timestamp data.
+                            if (prev_t) {
+                                if (t[1] === 0 && t[2] === 0 || prev_t[1] === 0 && prev_t[2] === 0) {} else {
+                                    var pause_len_ms = Math.round((t[1] - prev_t[2]) * 1000.0); // current bgn - previous end
+                                    if (pause_len_ms > PAUSE_THRESHOLD_MS) {
+                                        // if pause length is significant...
+                                        talkens[talkens.length - 1].setPauseBefore(pause_len_ms); // set pause before current talken
+                                        talkens[talkens.length - 2].setPauseAfter(pause_len_ms); // set pause after prev talken
+                                    }
+                                }
+                            }
+                            prev_t = t;
+                        }
+                    } catch (err) {
+                        _didIteratorError = true;
+                        _iteratorError = err;
+                    } finally {
+                        try {
+                            if (!_iteratorNormalCompletion && _iterator.return) {
+                                _iterator.return();
+                            }
+                        } finally {
+                            if (_didIteratorError) {
+                                throw _iteratorError;
+                            }
+                        }
+                    }
+
+                    return talkens;
+                }
+            }, {
+                key: "generateFromHTK",
+                value: function generateFromHTK(audioURL, perfect_transcript) {
+                    return Praat.calcTimestamps(audioURL, perfect_transcript).then(function (ts) {
+                        return new Promise(function (resolve, reject) {
+                            resolve(Talken.generate(ts, audioURL));
+                        });
+                    });
+                }
+            }, {
+                key: "clone",
+                value: function clone(t) {
+                    if (t instanceof Talken) return t.clone();else if (t instanceof Array) return t.map(function (tn) {
+                        return tn.clone();
+                    });else {
+                        console.log("Error @ Talken.clone: Object is not instance of Talken or Array!", t);
+                        return null;
+                    }
+                }
+            }]);
+
+            return Talken;
+        }();
+
+        pub_speak.Talken = Talken;
+
+        // Internal data structures
+        var Audio = function () {
+            var AudioResource = function () {
+                function AudioResource(annotId) {
+                    _classCallCheck(this, AudioResource);
+
+                    this.annotId = annotId; // TODO: Cloud storage.
+                }
+
+                _createClass(AudioResource, [{
+                    key: "url",
+                    get: function get() {
+                        return r2App.annots[this.annotId].GetAudioFileUrl();
+                    }
+                }]);
+
+                return AudioResource;
+            }();
+            var resources = [];
+            return {
+                for: function _for(url) {
+                    if (url in resources) return resources[url];else {
+                        var r = new AudioResource(url);
+                        resources[url] = r;
+                        return r;
+                    }
+                },
+                stitch: function stitch(talkens) {
+                    // Returns stitched audio resource as a Promise.
+                    return r2.audiosynth.stitch(talkens).then(function (sobj) {
+                        return new Promise(function (resolve, reject) {
+                            if (!sobj.url) reject("Audio.stitch: Null url.");else resolve(sobj.url);
+                        });
+                    });
+                },
+                synthesize: function synthesize(talkens, options) {
+                    return r2.audiosynth.synthesize(talkens, { mode: 'TTS', transfer: options }).then(function (url) {
+                        return new Promise(function (resolve, reject) {
+                            if (!url) reject("Audio.synthesize: Null url.");else resolve(url);
+                        });
+                    });
+                },
+                patch: function patch(talkens) {
+                    return r2.audiosynth.patch(talkens).then(function (sobj) {
+                        return new Promise(function (resolve, reject) {
+                            if (!sobj.url) reject("Audio.patch: Null url.");else resolve(sobj.url);
+                        });
+                    });
+                },
+                getTTSAudioURL: function getTTSAudioURL(talkens, voice) {
+                    return r2.audiosynth.getTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
+                },
+                getStreamingTTSAudioURL: function getStreamingTTSAudioURL(talkens, voice) {
+                    return r2.audiosynth.getStreamingTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
+                }
+            };
+        }();
+        var EditType = {
+            UNCHANGED: 0,
+            INS: 1, // insertion
+            DEL: 2, // deletion
+            REPL: 3, // replace
+            UNKNOWN: 4
+        };
+
+        var EditOp = function () {
+            function EditOp(txt, edit_type) {
+                _classCallCheck(this, EditOp);
+
+                this.text = txt;
+                this.type = edit_type;
+            }
+
+            // Parse HTML array into array of EditOp segments:
+            /**
+             * Given HTML output from jsdiff, generates array of EditOps
+             * corresponding to the differential edits detected.
+             * @param  {string} diff - output of jsdiff diffString(o, n)
+             * @return {[EditOp]}    - an Array of EditOp's
+             */
+
+
+            _createClass(EditOp, null, [{
+                key: "generate",
+                value: function generate(diff) {
+
+                    // Split html by tags
+                    // * Thanks Dalorzo @ SO http://stackoverflow.com/a/25462610. *
+                    var htmlTagRegex = /\s*(<[^>]*>)/g;
+                    var html = diff.split(htmlTagRegex);
+
+                    // Create EditOp's
+                    var es = [];
+                    var et = EditType.UNKNOWN;
+                    var end_tag = false;
+                    var _iteratorNormalCompletion2 = true;
+                    var _didIteratorError2 = false;
+                    var _iteratorError2 = undefined;
+
+                    try {
+                        for (var _iterator2 = html[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                            var s = _step2.value;
+
+                            if (s.length === 0) continue;else if (end_tag) {
+                                end_tag = false;
+                                continue;
+                            } else if (et !== EditType.UNKNOWN) {
+                                es.push(new EditOp(s, et));
+                                et = EditType.UNKNOWN;
+                                end_tag = true;
+                            } else if (s === '<del>') et = EditType.DEL;else if (s === '<ins>') et = EditType.INS;else {
+                                var words = s.trim().split(/\s+/);
+                                words.forEach(function (wrd) {
+                                    es.push(new EditOp(wrd, EditType.UNCHANGED));
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        _didIteratorError2 = true;
+                        _iteratorError2 = err;
+                    } finally {
+                        try {
+                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                _iterator2.return();
+                            }
+                        } finally {
+                            if (_didIteratorError2) {
+                                throw _iteratorError2;
+                            }
+                        }
+                    }
+
+                    console.log('raw editops: ', es);
+
+                    // Second-pass: Collapse multiple back-to-back DEL-INS (e.g. DEL DEL DEL INS INS INS)
+                    // to a series of REPL:
+                    var i;
+                    var dels = [];
+                    for (i = 0; i < es.length; i++) {
+                        if (es[i].type === EditType.DEL) {
+                            dels.push(i);
+                        } else if (dels.length > 0 && es[i].type === EditType.INS) {
+                            es.splice(dels[0], 1, new EditOp(es[i].text, EditType.REPL)); // replace DEL op w/ REPL op
+                            es.splice(i, 1); // remove INS op
+                            dels.splice(0, 1); // delete recorded DEL index (as this op is now REPL)
+                            i--;
+                        } else dels = [];
+                    }
+
+                    console.log('mod editops: ', es);
+
+                    // Second-pass: Replacing DEL-INS back-to-backs with REPLACE.
+                    // * Makes our jobs a bit easier later. *
+                    /*var e;
+                    for (i = 0; i < es.length-1; i++) {
+                        if (es[i].type === EditType.DEL && es[i+1].type === EditType.INS) {
+                            es.splice(i, 2, new EditOp(es[i+1].text, EditType.REPL));
+                            i--;
+                        }
+                    }*/
+
+                    return es;
+                }
+            }]);
+
+            return EditOp;
+        }();
+
         /**
          * An instance of Newspeak's text-to-audio controller.
          */
+
+
         pub_speak.controller = function () {
             var pub = {};
 
@@ -57,286 +345,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }
             };
 
-            // Internal data structures
-            var Audio = function () {
-                var AudioResource = function () {
-                    function AudioResource(annotId) {
-                        _classCallCheck(this, AudioResource);
-
-                        this.annotId = annotId; // TODO: Cloud storage.
-                    }
-
-                    _createClass(AudioResource, [{
-                        key: "url",
-                        get: function get() {
-                            return r2App.annots[this.annotId].GetAudioFileUrl();
-                        }
-                    }]);
-
-                    return AudioResource;
-                }();
-                var resources = [];
-                return {
-                    for: function _for(url) {
-                        if (url in resources) return resources[url];else {
-                            var r = new AudioResource(url);
-                            resources[url] = r;
-                            return r;
-                        }
-                    },
-                    stitch: function stitch(talkens) {
-                        // Returns stitched audio resource as a Promise.
-                        return r2.audiosynth.stitch(talkens).then(function (url) {
-                            return new Promise(function (resolve, reject) {
-                                if (!url) reject("Audio.stitch: Null url.");else resolve(url);
-                            });
-                        });
-                    },
-                    synthesize: function synthesize(talkens, options) {
-                        return r2.audiosynth.synthesize(talkens, { mode: 'TTS', transfer: options }).then(function (url) {
-                            return new Promise(function (resolve, reject) {
-                                if (!url) reject("Audio.synthesize: Null url.");else resolve(url);
-                            });
-                        });
-                    },
-                    getTTSAudioURL: function getTTSAudioURL(talkens, voice) {
-                        return r2.audiosynth.getTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
-                    },
-                    getStreamingTTSAudioURL: function getStreamingTTSAudioURL(talkens, voice) {
-                        return r2.audiosynth.getStreamingTTSAudioURL(r2.audiosynth.toSSML(talkens), voice);
-                    }
-                };
-            }();
-            var EditType = {
-                UNCHANGED: 0,
-                INS: 1, // insertion
-                DEL: 2, // deletion
-                REPL: 3, // replace
-                UNKNOWN: 4
-            };
-
-            var EditOp = function () {
-                function EditOp(txt, edit_type) {
-                    _classCallCheck(this, EditOp);
-
-                    this.text = txt;
-                    this.type = edit_type;
-                }
-
-                // Parse HTML array into array of EditOp segments:
-                /**
-                 * Given HTML output from jsdiff, generates array of EditOps
-                 * corresponding to the differential edits detected.
-                 * @param  {string} diff - output of jsdiff diffString(o, n)
-                 * @return {[EditOp]}    - an Array of EditOp's
-                 */
-
-
-                _createClass(EditOp, null, [{
-                    key: "generate",
-                    value: function generate(diff) {
-
-                        // Split html by tags
-                        // * Thanks Dalorzo @ SO http://stackoverflow.com/a/25462610. *
-                        var htmlTagRegex = /\s*(<[^>]*>)/g;
-                        var html = diff.split(htmlTagRegex);
-
-                        // Create EditOp's
-                        var es = [];
-                        var et = EditType.UNKNOWN;
-                        var end_tag = false;
-                        var _iteratorNormalCompletion = true;
-                        var _didIteratorError = false;
-                        var _iteratorError = undefined;
-
-                        try {
-                            for (var _iterator = html[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                                var s = _step.value;
-
-                                if (s.length === 0) continue;else if (end_tag) {
-                                    end_tag = false;
-                                    continue;
-                                } else if (et !== EditType.UNKNOWN) {
-                                    es.push(new EditOp(s, et));
-                                    et = EditType.UNKNOWN;
-                                    end_tag = true;
-                                } else if (s === '<del>') et = EditType.DEL;else if (s === '<ins>') et = EditType.INS;else {
-                                    var words = s.trim().split(/\s+/);
-                                    words.forEach(function (wrd) {
-                                        es.push(new EditOp(wrd, EditType.UNCHANGED));
-                                    });
-                                }
-                            }
-                        } catch (err) {
-                            _didIteratorError = true;
-                            _iteratorError = err;
-                        } finally {
-                            try {
-                                if (!_iteratorNormalCompletion && _iterator.return) {
-                                    _iterator.return();
-                                }
-                            } finally {
-                                if (_didIteratorError) {
-                                    throw _iteratorError;
-                                }
-                            }
-                        }
-
-                        console.log('raw editops: ', es);
-
-                        // Second-pass: Collapse multiple back-to-back DEL-INS (e.g. DEL DEL DEL INS INS INS)
-                        // to a series of REPL:
-                        var i;
-                        var dels = [];
-                        for (i = 0; i < es.length; i++) {
-                            if (es[i].type === EditType.DEL) {
-                                dels.push(i);
-                            } else if (dels.length > 0 && es[i].type === EditType.INS) {
-                                es.splice(dels[0], 1, new EditOp(es[i].text, EditType.REPL)); // replace DEL op w/ REPL op
-                                es.splice(i, 1); // remove INS op
-                                dels.splice(0, 1); // delete recorded DEL index (as this op is now REPL)
-                                i--;
-                            } else dels = [];
-                        }
-
-                        console.log('mod editops: ', es);
-
-                        // Second-pass: Replacing DEL-INS back-to-backs with REPLACE.
-                        // * Makes our jobs a bit easier later. *
-                        /*var e;
-                        for (i = 0; i < es.length-1; i++) {
-                            if (es[i].type === EditType.DEL && es[i+1].type === EditType.INS) {
-                                es.splice(i, 2, new EditOp(es[i+1].text, EditType.REPL));
-                                i--;
-                            }
-                        }*/
-
-                        return es;
-                    }
-                }]);
-
-                return EditOp;
-            }();
-
-            var Talken = function () {
-                function Talken(wrd, bgn, end, audioRsc) {
-                    _classCallCheck(this, Talken);
-
-                    this.word = wrd;
-                    this.bgn = bgn;
-                    this.end = end;
-                    this.audio = audioRsc;
-                }
-
-                _createClass(Talken, [{
-                    key: "replaceWord",
-                    value: function replaceWord(txt) {
-                        this.word = txt;
-                    }
-                }, {
-                    key: "setPauseAfter",
-                    value: function setPauseAfter(ms) {
-                        this._pauseAfter = ms;
-                    }
-                }, {
-                    key: "setPauseBefore",
-                    value: function setPauseBefore(ms) {
-                        this._pauseBefore = ms;
-                    }
-                }, {
-                    key: "clone",
-                    value: function clone() {
-                        var t = new Talken(this.word, this.bgn, this.end, this.audio);
-                        if (this.pauseBefore > 0) t.setPauseBefore(this.pauseBefore);
-                        if (this.pauseAfter > 0) t.setPauseAfter(this.pauseAfter);
-                        return t;
-                    }
-                }, {
-                    key: "pauseBefore",
-                    get: function get() {
-                        return this._pauseBefore || 0;
-                    }
-                }, {
-                    key: "pauseAfter",
-                    get: function get() {
-                        return this._pauseAfter || 0;
-                    }
-                }], [{
-                    key: "generate",
-                    value: function generate(timestamps, audioURL) {
-                        var talkens = [];
-                        var audio = Audio.for(audioURL);
-                        var prev_t = null;
-                        var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
-                        var _iteratorNormalCompletion2 = true;
-                        var _didIteratorError2 = false;
-                        var _iteratorError2 = undefined;
-
-                        try {
-                            for (var _iterator2 = timestamps[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                var t = _step2.value;
-
-
-                                // Create new talken for timestamp
-                                talkens.push(new Talken(t[0], t[1], t[2], audio));
-
-                                // Detect + store pauses in original timestamp data.
-                                if (prev_t) {
-                                    if (t[1] === 0 && t[2] === 0 || prev_t[1] === 0 && prev_t[2] === 0) {} else {
-                                        var pause_len_ms = Math.round((t[1] - prev_t[2]) * 1000.0); // current bgn - previous end
-                                        if (pause_len_ms > PAUSE_THRESHOLD_MS) {
-                                            // if pause length is significant...
-                                            talkens[talkens.length - 1].setPauseBefore(pause_len_ms); // set pause before current talken
-                                            talkens[talkens.length - 2].setPauseAfter(pause_len_ms); // set pause after prev talken
-                                        }
-                                    }
-                                }
-                                prev_t = t;
-                            }
-                        } catch (err) {
-                            _didIteratorError2 = true;
-                            _iteratorError2 = err;
-                        } finally {
-                            try {
-                                if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                                    _iterator2.return();
-                                }
-                            } finally {
-                                if (_didIteratorError2) {
-                                    throw _iteratorError2;
-                                }
-                            }
-                        }
-
-                        return talkens;
-                    }
-                }, {
-                    key: "generateFromHTK",
-                    value: function generateFromHTK(audioURL, perfect_transcript) {
-                        return Praat.calcTimestamps(audioURL, perfect_transcript).then(function (ts) {
-                            return new Promise(function (resolve, reject) {
-                                resolve(Talken.generate(ts, audioURL));
-                            });
-                        });
-                    }
-                }, {
-                    key: "clone",
-                    value: function clone(t) {
-                        if (t instanceof Talken) return t.clone();else if (t instanceof Array) return t.map(function (tn) {
-                            return tn.clone();
-                        });else {
-                            console.log("Error @ Talken.clone: Object is not instance of Talken or Array!", t);
-                            return null;
-                        }
-                    }
-                }]);
-
-                return Talken;
-            }();
-
             // Utility function. Generates talkens for current transcript given an audioURL.
-
-
             pub.generateTalkensFromHTK = function (audioURL) {
                 if (!edited || edited.length === 0) {
                     return Promise(function (resolve, reject) {
@@ -607,6 +616,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         console.warn("Error @ r2.speak.render: Audio synthesize failed.", err);
                         _stitching = false;
                     });
+                } else if (mode === 'patch') {
+                    return Audio.patch(talkens).then(after_stitching).catch(function (err) {
+                        console.warn("Error @ r2.speak.render: Audio patch failed.", err);
+                        _stitching = false;
+                    });
                 } else if (mode === 'anon+htk') {
                     return Audio.stitch(base).then(function (stitched_base) {
                         console.log('..stitched base talkens. Generating new talkens from HTK...');
@@ -652,7 +666,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         var toTimestamps = function toTimestamps(talkens) {
             var ts = [];
             talkens.forEach(function (t) {
-                if (typeof t.audio === "undefined" || !t.audio || !t.audio.url) ts.push([t.word, 0, 0]);else ts.push([t.word, t.bgn, t.end]);
+                if (typeof t.audio === "undefined" || !t.audio || !t.audio.url) ts.push([t.word.replace(',', ''), 0, 0]);else ts.push([t.word.replace(',', ''), t.bgn, t.end]);
             });
             return ts;
         };
@@ -713,6 +727,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }
             }
         };
+        var smoothMissingTimestamps = pub.smoothMissingTimestamps;
 
         /**
          * Generate transcript with SSML given transcript from text box (as edited array of talkens).
@@ -894,6 +909,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
          */
         pub.stitch = function (talkens) {
             var snippets = [];
+            var stitched_tks = [];
+            var c = 0;
             talkens.forEach(function (t) {
                 if (!t.audio || typeof t.audio === "undefined" || !t.audio.url) return;
                 snippets.push({
@@ -901,12 +918,25 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     't_bgn': t.bgn,
                     't_end': t.end
                 });
-                if (t.pauseAfter > 0) snippets.push({ 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.max(t.pauseAfter / 1000.0, 1.0) });
+                stitched_tks.push({
+                    'word': t.word,
+                    'bgn': c,
+                    'end': c + (t.end - t.bgn),
+                    'audio': t.audio
+                });
+                c += t.end - t.bgn;
+                if (t.pauseAfter > 0) {
+                    var pausesnip = { 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.max(t.pauseAfter / 1000.0, 1.0) };
+                    c += pausesnip.t_end;
+                    snippets.push(pausesnip);
+                }
             });
 
             return new Promise(function (resolve, reject) {
                 r2.audioStitcher.run(snippets, function (url) {
-                    if (!url) reject("r2.audiosynth.stitch: URL is null.");else resolve(url);
+                    if (!url) reject("r2.audiosynth.stitch: URL is null.");
+
+                    resolve({ 'url': url, 'stitched_talkens': stitched_tks });
                 });
             });
         };
@@ -968,11 +998,13 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             }
 
             // (2) Perform post-processing.
-            var src_ts = toTimestamps(talkens);
+            var orig_src_ts = toTimestamps(talkens);
+            var src_ts;
             var transcript = toTranscript(talkens);
             var srcwav, twav;
-            return stitch(talkens).then(function (surl) {
-                srcwav = surl;
+            return stitch(talkens).then(function (sobj) {
+                srcwav = sobj.url;
+                src_ts = toTimestamps(sobj.stitched_talkens);
                 return getTTSAudioFromWatson(ssml);
             }).then(function (turl) {
                 twav = turl; // url
@@ -980,7 +1012,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             }).then(function (target_ts) {
                 // Calculate timestamps for TTS using forced alignment.
                 console.log('synthesize: Performed forced alignment. Checking data...');
-                if (!target_ts) throw 'No timestamps returned.';else if (target_ts.length !== src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
+                if (!target_ts) throw 'No timestamps returned.';else if (target_ts.length !== orig_src_ts.length) throw 'Timestamp data mismatch: ' + src_ts.length + ' != ' + target_ts.length;
                 console.log('synthesize: Data checked. Transferring prosody...');
                 return Praat.transfer(srcwav, twav, src_ts, target_ts, config.transfer); // Transfer properties from speech to TTS waveform.
             }).then(function (resynth_blob) {
@@ -995,8 +1027,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         };
 
         /**
-         * :: TO BE IMPLEMENTED ::
-         * TODO:
+         * r2.audiosynth.patch
          * Downloads or patches audio for talkens missing audio.
          * Called in preparation for stitching _natural audio_.
          * @param  {[Talken]} talkens - An array of talkens
@@ -1004,18 +1035,47 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
          */
         pub.patch = function (talkens) {
 
-            var mode = 'TTS'; // TODO: Make this mode a module-wide global
+            //mode = 'TTS'; // in the future, patch could use previous words the user said...
+            talkens = r2.speak.Talken.clone(talkens); // to be safe
 
-            talkens.forEach(function (t) {
-                if (typeof t.audio === "undefined") {
+            // Check for gaps. If there are none, we can perform a simple stitch.
+            var isGap = function isGap(tk) {
+                return !tk.audio || !tk.audio.url || tk.bgn === tk.end;
+            };
+            var hasGaps = function hasGaps(tks) {
+                return tks.reduce(function (prevtk, curtk) {
+                    return prevtk || hasGap(curtk);
+                });
+            };
+            if (!hasGaps(talkens)) return stitch(talkens);
 
-                    // .. TODO: Patch audio by looking for previous utterances in a database.
+            // If gaps exist:
+            // (A) Todo: Get stored words from DB.
+            // (B) Download TTS audio, run it through HTK,
+            // smooth the response, and patch missing segments with TTS audio.
+            var ssml = toSSML(talkens);
+            var transcript = toTranscript(talkens).replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~()]/g, "");
+            return getTTSAudioFromWatson(toSSML(talkens)).then(function (turl) {
+                return r2.speak.Talken.generateFromHTK(turl, transcript);
+            }).then(function (tts_talkens) {
+                smoothMissingTimestamps(tts_talkens);
 
+                console.log('TTS talkens: ', tts_talkens);
+
+                // Repair missing talkens in natural audio w/ TTS audio.
+                var len = talkens.length;
+                for (var i = 0; i < len; i++) {
+                    if (isGap(talkens[i])) {
+                        talkens[i].audio = { 'url': tts_talkens[i].audio.annotId }; // we don't want to use an annotId when stitching
+                        talkens[i].bgn = tts_talkens[i].bgn;
+                        talkens[i].end = tts_talkens[i].end;
+                    }
                 }
-            });
 
-            return new Promise(function (resolve, reject) {
-                resolve(); // .. TODO: Change to wait for conmpletion of patch.
+                console.log('Repaired talkens: ', talkens);
+
+                // Stitch patched audio.
+                return stitch(talkens);
             });
         };
 
