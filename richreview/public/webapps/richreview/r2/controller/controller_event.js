@@ -1158,6 +1158,12 @@ var r2Ctrl = {};
                     canv_ctx
                 );
             }
+            if(cur_recording_spotlight){
+                cur_recording_spotlight.Draw(canv_ctx);
+            }
+            if(cur_recording_spotlight_segment){
+                //cur_recording_spotlight_segment.Draw(canv_ctx, true);
+            }
         };
 
         pub.recordingSpotlightDn = function(pt, target_annot){
