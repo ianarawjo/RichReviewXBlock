@@ -1044,7 +1044,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             };
             var hasGaps = function hasGaps(tks) {
                 return tks.reduce(function (prevtk, curtk) {
-                    return prevtk || hasGap(curtk);
+                    return prevtk || isGap(curtk);
                 });
             };
             if (!hasGaps(talkens)) return stitch(talkens);

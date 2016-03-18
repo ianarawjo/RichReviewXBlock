@@ -16,6 +16,7 @@
      * @module r2.speak
      */
     r2.speak = (function() {
+
         var pub_speak = {};
 
         var _current_annot_id = null;
@@ -937,7 +938,7 @@
 
             // Check for gaps. If there are none, we can perform a simple stitch.
             var isGap = (tk) => (!tk.audio || !tk.audio.url || tk.bgn === tk.end);
-            var hasGaps = (tks) => tks.reduce((prevtk, curtk) => prevtk || hasGap(curtk));
+            var hasGaps = (tks) => tks.reduce((prevtk, curtk) => prevtk || isGap(curtk));
             if (!hasGaps(talkens))
                 return stitch(talkens);
 
