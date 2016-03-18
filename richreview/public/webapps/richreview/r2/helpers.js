@@ -488,6 +488,49 @@
         return pub;
     })();
 
+    /** Local logger */
+    r2.localLog = (function(){
+        var pub = {};
+
+        var q = [];
+
+        pub.logText = function(text, annotid){
+            var data = {};
+            q.push(getTemplate('text'), annotid, data);
+        };
+
+        pub.logJson = function(json, annotid){
+            var data = {};
+            q.push(getTemplate('json'), annotid, data);
+        };
+
+        pub.logBlobUrl = function(blob_url, annotid){
+            var data = {};
+            q.push(getTemplate('blob'), annotid, data);
+        };
+
+        /*
+        * It generates a ZIP file that has
+        * - one big 'data.json' file that has all the meta data.
+        * - multiple wav files with file name <annotid>.wav
+        * - So, the data.json will include metadata of the wav files that store <annotid>s for tracking each of the files.
+        */
+        pub.download = function(){
+            // create blob of q
+            // download
+        };
+
+        function getTemplate(type, annotid, data){
+            var t = {};
+            t.time = new Date().getTime();
+            t.type = type;
+            t.data = data;
+            t.annotid = annotid;
+            return t;
+        }
+
+        return pub;
+    })();
 
     /** user group */
     r2.userGroup = (function(){
@@ -532,7 +575,7 @@
             this.color_dark_html = this.GetHtmlColor(this.color_dark, 1.0);
             this.color_transparent_normal_html = this.GetHtmlColor(this.color_normal, 0.5);
             this.color_transparent_dark_html = this.GetHtmlColor(this.color_dark, 0.5);
-            this.color_splight_static = this.GetHtmlColor(this.color_light, 0.15);
+            this.color_splight_static = this.GetHtmlColor(this.color_light, 0.35);
             this.color_splight_dynamic = this.GetHtmlColor(this.color_normal, 0.6);
             this.color_splight_private = this.GetHtmlColor(this.color_normal, 0.2);
             this.color_stroke_dynamic_future = this.GetHtmlColor(this.color_dark, 0.5);

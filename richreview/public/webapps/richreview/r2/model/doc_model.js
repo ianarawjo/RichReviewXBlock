@@ -2276,8 +2276,6 @@
     /* abstract annot that contains private spotlights */
     r2.AnnotPrivateSpotlight = function() {
         r2.Annot.call(this);
-        this.isPrivateSpotlight = true;
-
         this.timeLastChanged = 0;
         this.changed = false;
         this._spotlightsDictionary = {};
@@ -2711,14 +2709,8 @@
 
         var color;
         var width;
-        if(!r2App.annots[this.annotid].isPrivateSpotlight){
-            color = r2.userGroup.GetUser(this.username).color_splight_static;
-            width = Math.floor(r2Const.SPLGHT_WIDTH);
-        }
-        else{
-            color = r2.userGroup.GetUser(this.username).color_splight_private;
-            width = Math.floor(r2Const.SPLGHT_PRIVATE_WIDTH);
-        }
+        color = r2.userGroup.GetUser(this.username).color_splight_static;
+        width = r2Const.SPLGHT_WIDTH;
         canvas_ctx.strokeStyle = color;
         canvas_ctx.lineWidth = width;
         canvas_ctx.lineCap = 'round';
@@ -2827,14 +2819,9 @@
 
         var color;
         var width;
-        if(!this._annot.isPrivateSpotlight){
-            color = this._user.color_splight_static;
-            width = Math.floor(r2Const.SPLGHT_WIDTH*ratio);
-        }
-        else{
-            color = this._user.color_splight_private;
-            width = Math.floor(r2Const.SPLGHT_PRIVATE_WIDTH*ratio);
-        }
+        color = this._user.color_splight_static;
+        width = Math.floor(r2Const.SPLGHT_WIDTH*ratio);
+
         ctx.strokeStyle = color;
         ctx.lineWidth = width;
         ctx.lineCap = 'round';
@@ -2896,8 +2883,7 @@
     };
     r2.Spotlight.Cache.prototype.HitTest = function(pt){
         if( pt.x > this._bb[0].x && pt.y > this._bb[0].y &&
-            pt.x < this._bb[1].x && pt.y < this._bb[1].y &&
-            !this._annot.isPrivateSpotlight){
+            pt.x < this._bb[1].x && pt.y < this._bb[1].y){
             return this;
         }
         else{
