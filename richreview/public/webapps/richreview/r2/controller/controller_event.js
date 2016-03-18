@@ -1236,6 +1236,7 @@ var r2Ctrl = {};
 
                 cur_recording_spotlight = null;
                 r2App.invalidate_dynamic_scene = true;
+                r2App.invalidate_static_scene = true;
                 return true;
             }
             else{
