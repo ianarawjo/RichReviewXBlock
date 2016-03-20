@@ -122,7 +122,10 @@
                 loadScriptByUrlAndType(path, script[1]).then(
                     resolve
                 ).catch(
-                    reject
+                    function(err){
+                        console.error('error while loading ', script[0]);
+                        reject(err);
+                    }
                 );
             });
         }

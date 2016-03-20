@@ -462,7 +462,7 @@
         };
 
         // Events
-        var onKeyPress = function(e) {
+        var onKeyPress = function(event) {
             if(
                 String.fromCharCode(event.which) === '.' ||
                 String.fromCharCode(event.which) === ',' ||
@@ -470,11 +470,11 @@
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
                 if(!transcriptionPopUp()){
-                    e.preventDefault();
+                    event.preventDefault();
                 }
             }
             else{
-                e.preventDefault();
+                event.preventDefault();
             }
         };
 
