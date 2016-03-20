@@ -517,7 +517,7 @@
             return false;
         };
 
-        var checkCarretPositionUpdate = function(){
+        var checkCarretPositionUpdate = function(event){
             if(is_recording_and_synthesizing){
                 return;
             }
