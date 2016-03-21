@@ -338,6 +338,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
             // Debug
             pub.anonAudioRenderType = 'anon';
+            pub.SetAnonAudioRenderType = function (new_rt) {
+                pub.anonAudioRenderType = new_rt;
+                _needsrender = true;
+            };
 
             // Internal utils
             var utils = {
@@ -585,7 +589,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 } else if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
-                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk') {
+                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk' && mode !== 'patch') {
                     console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }

@@ -1200,7 +1200,7 @@
         // Debug
         this.dom_textbox.addEventListener('keydown', function(e) {
             if (e.keyCode === 13) {
-                this.anonAudioRenderType = this.anonAudioRenderType === 'anon' ? 'patch' : 'anon';
+                this.SetAnonAudioRenderType(( this.anonAudioRenderType === 'anon' ? 'patch' : 'anon' ));
                 e.preventDefault();
             }
         }.bind(this.speak_ctrl));
