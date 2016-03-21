@@ -494,19 +494,24 @@
 
         var q = [];
 
-        pub.logText = function(text, annotid){
-            var data = {};
-            q.push(getTemplate('text'), annotid, data);
+        pub.text = function(text, annotid){
+            var data = text;
+            q.push(getTemplate('text', annotid, data));
         };
 
-        pub.logJson = function(json, annotid){
-            var data = {};
-            q.push(getTemplate('json'), annotid, data);
+        pub.pieceCreated = function(piece_type, annotid, anchor_pid){
+            var data =  { 'type': piece_type, 'anchor':anchor_pid };
+            q.push(getTemplate('piece_created', annotid, data));
         };
 
-        pub.logBlobUrl = function(blob_url, annotid){
-            var data = {};
-            q.push(getTemplate('blob'), annotid, data);
+        pub.json = function(json, annotid){
+            var data = json;
+            q.push(getTemplate('json', annotid, data));
+        };
+
+        pub.blobURL = function(blob_url, annotid){
+            var data = blog_url;
+            q.push(getTemplate('blobURL', annotid, data));
         };
 
         /*
@@ -1947,4 +1952,3 @@
     };
 
 }(window.r2 = window.r2 || {}));
-

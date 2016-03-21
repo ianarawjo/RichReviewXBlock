@@ -245,6 +245,9 @@
             var _needsrender = true;
             var _stitching = false;
 
+            // Debug
+            pub.anonAudioRenderType = 'anon';
+
             // Internal utils
             var utils = {
                 /** Inserts a2 into a1 at index.
@@ -468,7 +471,7 @@
             pub.renderAudioAnon = (annotId, options='') => {
                 r2.speak.SetCurrentAnnotId(annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null);
-                return _render('anon', options).catch(function(err) {
+                return _render(pub.anonAudioRenderType, options).catch(function(err) {
                     //r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null); // Revert audio URL to streamed version.
                 }.bind(this));
             };

@@ -1197,6 +1197,14 @@
         /* add event handlers*/
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
+        // Debug
+        this.dom_textbox.addEventListener('keydown', function(e) {
+            if (e.keyCode === 13) {
+                this.anonAudioRenderType = this.anonAudioRenderType === 'anon' ? 'patch' : 'anon';
+                e.preventDefault();
+            }
+        }.bind(this.speak_ctrl));
+
         this.dom_textbox.addEventListener('input', function() {
             this.__contentschanged = true;
             if(func_UpdateSizeWithTextInput()){
