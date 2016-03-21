@@ -59,6 +59,12 @@
             </div>
         </div>
 
+        <div style="float:right;margin: 0 12px;">
+            <div>
+                <button onclick="r2.localLog.download()" class="btn btn-sm btn-primary btn-dashboard" aria-label="play">
+                    <i class="fa fa-download"></i></button>
+            </div>
+        </div>
 
         <div style="float:right;margin:0 6px;" >
             <div style="float:left;margin: 0" >

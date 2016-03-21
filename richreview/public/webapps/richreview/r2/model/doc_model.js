@@ -1223,6 +1223,10 @@
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
+            // remove cursor complete from the textbox,
+            // otherwise it will interfere with mouse interaction for other visaul entities
+            window.getSelection().removeAllRanges();
+
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
@@ -1699,6 +1703,10 @@
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
+            // remove cursor complete from the textbox,
+            // otherwise it will interfere with mouse interaction for other visaul entities
+            window.getSelection().removeAllRanges();
+
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
@@ -2001,6 +2009,10 @@
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
+            // remove cursor complete from the textbox,
+            // otherwise it will interfere with mouse interaction for other visaul entities
+            window.getSelection().removeAllRanges();
+
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
             $(this.dom).css("pointer-events", 'none');

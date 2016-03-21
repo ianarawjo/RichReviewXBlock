@@ -269,6 +269,7 @@ a:active {
   font-family: 'Lucida Grande', Helvetica, Arial, sans-serif;
   font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
   line-height: 1.2em;
+  min-height: 1.8em; /* line-height + 2*padding */
   text-align: left;
   white-space: pre;
   white-space: pre-wrap;
