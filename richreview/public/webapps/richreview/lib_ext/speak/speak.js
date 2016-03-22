@@ -423,11 +423,11 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 if (new_transcript === _last_transcript) return;
 
                 var bt = base_transcript();
-                bt = bt.replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g, "");
+                bt = bt.replace(/[.,-\/#!♦?$%\^&\*;:{}=\-_`~'()]/g, "");
                 bt = bt.toLowerCase();
 
                 // remove punctuation
-                var stripped_transcript = new_transcript.replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g, "");
+                var stripped_transcript = new_transcript.replace(/[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]/g, "");
 
                 // lowercase
                 stripped_transcript = stripped_transcript.toLowerCase();
@@ -446,7 +446,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 });
 
                 //var diff = diffString(bt, stripped_transcript);
-                if (diff === bt) return; // Nothing changed.
+                //if (diff === bt) return; // Nothing changed.
                 console.log("Compiled diff: ", diff);
 
                 // Generate array of EditOp's
@@ -459,13 +459,47 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
 
-                // Repair punctuation + capitalization
+                // Repair punctuation, pause markers, + capitalization
                 var wrds = new_transcript.trim().split(/\s+/);
-                if (wrds.length !== edited.length) console.warn('Warning @ r2.speak.update: # of talkens doesn\'t match # of words.', wrds);
+                for (var w = 0; w < wrds.length; w++) {
+                    // isolate pause markers from attachments to any words
+                    if (wrds[w] === '♦') continue;
+                    var space_char_i = wrds[w].indexOf('♦');
+                    if (space_char_i > -1) {
+                        wrds[w] = wrds[w].replace('♦', '');
+                        if (space_char_i < wrds[w].length / 2) wrds.splice(w, 0, '♦');else wrds.splice(w + 1, 0, '♦');
+                        w++;
+                    }
+                }
+                console.log('wrds: ', wrds);
                 for (var i = 0; i < wrds.length; i++) {
                     if (wrds[i].length === 0) continue;
-                    edited[i].replaceWord(wrds[i]);
+
+                    if (wrds[i] === '♦') {
+                        if (i > 0 && edited[i - 1].pauseAfter > 0) {} else if (i < edited.length) {
+                            if (edited[i].pauseBefore > 0) {} else {
+                                // this token has been artifically inserted.
+                                edited[i].setPauseBefore(300); // generic ms pause
+                            }
+                        }
+                        wrds.splice(i, 1); // remove the pause marker
+                        i--; // restart the replaceWord repair for edited[i]
+                        console.log('wrds: ', wrds);
+                        continue;
+                    } else {
+                        console.log('replacing ' + edited[i] + ' with ' + wrds[i]);
+                        edited[i].replaceWord(wrds[i]);
+                    }
+
+                    if (i < wrds.length - 1) {
+                        if (wrds[i + 1] !== '♦') {
+                            // remove pauses in talkens from deleted pause markers
+                            edited[i].setPauseAfter(0);
+                            if (i + 1 < edited.length) edited[i + 1].setPauseBefore(0);
+                        }
+                    }
                 }
+                if (wrds.length !== edited.length) console.warn('Warning @ r2.speak.update: # of talkens doesn\'t match # of words.', wrds);
 
                 _last_transcript = new_transcript;
                 _needsupdate = false;

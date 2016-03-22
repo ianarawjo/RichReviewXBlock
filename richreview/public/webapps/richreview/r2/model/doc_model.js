@@ -1266,7 +1266,7 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'prosody,duration').then((function(finalAudioURL) {
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'prosody').then((function(finalAudioURL) {
 
                 if (!finalAudioURL) {
                     console.warn('Error processing audio. Check console for details.');
@@ -1382,10 +1382,27 @@
         for(i = 0; i < this._temporary_n; ++i){
             $(this.dom_textbox).find(':last-child').remove();
         }
+
+        var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
+        var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
         for(i = 0; i < words.length; ++i){
             var w = words[i];
             if (i === 0) w[0] = capitalize(w[0]); // capitalize first word of transcription
             var $span = $(document.createElement('span'));
+
+            if (i < words.length-1) {
+                console.log(w, words[i+1], words[i+1][1] - w[2]);
+                var pause_len = 1000.0 * (words[i+1][1] - w[2]);
+                if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
+                    w[0] += '.'; // add period and capitalize next word...
+                    words[i+1][0] = capitalize(words[i+1][0]);
+                } else if (pause_len > PAUSE_THRESHOLD_MS) {
+                    w[0] += ' ♦';
+                }
+            } else {
+                w[0] += '.';
+            }
+
             $span.text(w[0]+' ');
             $(this.dom_textbox).append($span);
         }
@@ -1400,6 +1417,7 @@
 
         var i;
         var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
+        var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
@@ -1415,9 +1433,12 @@
 
             if (i < words.length-1) {
                 console.log(w, words[i+1], words[i+1][1] - w[2]);
-                if (1000.0 * (words[i+1][1] - w[2]) > SENTENCE_PAUSE_THRESHOLD_MS) {
+                var pause_len = 1000.0 * (words[i+1][1] - w[2]);
+                if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
                     w[0] += '.'; // add period and capitalize next word...
                     words[i+1][0] = capitalize(words[i+1][0]);
+                } else if (pause_len > PAUSE_THRESHOLD_MS) {
+                    w[0] += ' ♦';
                 }
             } else {
                 w[0] += '.';
