@@ -1266,7 +1266,7 @@
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), 'prosody').then((function(finalAudioURL) {
+            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
 
                 if (!finalAudioURL) {
                     console.warn('Error processing audio. Check console for details.');
@@ -1311,6 +1311,8 @@
                            new_bgn: tts_tk.bgn,
                            new_end: tts_tk.end,
                            word: src_tk.word,
+                           pause_after: tts_tk.pauseAfter,
+                           pause_before: tts_tk.pauseBefore
                         });
                     }
                     this._last_tts_talkens = gesynth_tks;
@@ -1391,7 +1393,6 @@
             var $span = $(document.createElement('span'));
 
             if (i < words.length-1) {
-                console.log(w, words[i+1], words[i+1][1] - w[2]);
                 var pause_len = 1000.0 * (words[i+1][1] - w[2]);
                 if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
                     w[0] += '.'; // add period and capitalize next word...
@@ -1432,7 +1433,6 @@
             var $span = $(document.createElement('span'));
 
             if (i < words.length-1) {
-                console.log(w, words[i+1], words[i+1][1] - w[2]);
                 var pause_len = 1000.0 * (words[i+1][1] - w[2]);
                 if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
                     w[0] += '.'; // add period and capitalize next word...
@@ -1512,23 +1512,46 @@
         this.dom_textbox.focus();
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
-        if (this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
+        // diable for now
+        if (true || this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
             return;
         }
 
-        var wrds = $(this.dom_textbox).text().trim().split(/\s+/g);
-        var tks = this._last_tts_talkens;
+        var wrds = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
+        var tks = $.extend(true, [], this._last_tts_talkens);
         if (wrds.length !== tks.length) {
-            if (this._dynamic_setup) this.EndDrawDynamic();
+            if (this._dynamic_setup) {
+                this.EndDrawDynamic();
+            }
+            console.log('# words != # talkens.', wrds, tks);
             return;
         } else {
-            var j = 0; // Repair stored transcript.
-            wrds.forEach(function(wrd) {
+            var j = 0; // Repair stored transcript + add pause breaks.
+            var k = 0;
+            for(; j < tks.length; j++) {
                 tk = tks[j];
-                tk.word = wrd;
-                j++;
-            });
+                tk.word = wrds[k];
+                if (tk.pause_after > 0) {
+                    tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
+                                      new_end:tk.new_end + tk.pause_after,
+                                      word:'♦',
+                                      pause_after:0,
+                                      pause_before:0 });
+                    j++;
+                }
+                else if (tk.pause_before > 0) {
+                    if (j === 0 || tks[j-1].word != '♦') {
+                        tks.splice(j, 0, { new_bgn:tk.new_bgn-tk.pause_before,
+                                          new_end:tk.new_bgn-0.00001,
+                                          word:'♦',
+                                          pause_after:0,
+                                          pause_before:0 });
+                        j++;
+                    }
+                }
+                k++;
+            }
         }
 
         var $txtbox = $(this.dom_textbox);
