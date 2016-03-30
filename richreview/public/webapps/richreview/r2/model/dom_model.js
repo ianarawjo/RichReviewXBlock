@@ -48,15 +48,13 @@
             r2.radialMenu.changeCenterIcon('rm_'+r2.util.escapeDomId(annot_id), 'fa-play');
         };
 
+        pub.cbRecordingBgn = function(annot_id){
+            r2.radialMenu.changeCenterIcon('rm_'+r2.util.escapeDomId(annot_id), 'fa-stop');
+        };
+
         pub.remove = function(annot_id){
             var annot_id_esc = r2.util.escapeDomId(annot_id);
             $('#'+annot_id_esc).remove();
-        };
-
-        pub.getPieceLayout = function(piece){
-            var $piece = $tc_cur_page.find('#'+piece.GetId());
-            var $content = $piece.find('.tc_content');
-
         };
 
         /* submodule for data loading bgn */

@@ -30,35 +30,6 @@
         var is_recording_and_synthesizing = false;
 
         // Listener callbacks
-        /**
-         * Callback when a change occurs to the EditHistory.
-         */
-        pub.onchange = null;
-
-        /**
-         * Fired when element is removed.
-         * Function in form (index, uid, word).
-         */
-        pub.onremove = null;
-
-        /**
-         * Fired when element is inserted into the DOM.
-         * Function in form (index, uid, word).
-         */
-        pub.oninsert = null;
-
-        /**
-         * Fired when element text is modified.
-         * Function in form (index, uid, word).
-         */
-        pub.onreplace = null;
-
-        /**
-         * Fired when elements are first added (immediately after transcription).
-         * Function in form ([uid, word]).
-         */
-        pub.onset = null;
-
         pub.on_input = null;
         pub.play = null;
         pub.movePlayHeader = null;
@@ -67,11 +38,9 @@
 
         // Init
         var _init = function() {
-
             // Setup event handlers
             $textbox[0].addEventListener('keyup', checkCarretPositionUpdate);
             $textbox[0].addEventListener('click', checkCarretPositionUpdate);
-            $textbox[0].addEventListener('focus', checkCarretPositionUpdate);
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
         };
@@ -85,15 +54,16 @@
                     end: data[2],
                     annotid: annotid
                 };
-                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().filter(':not(.old)').last(), next_base_data);
-                if(pause_talken_data){
-                    insertTalken(pause_talken_data, insert_pos++, true);
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data);
+                if(pause_talken_datum){
+                    insertTalken([pause_talken_datum], insert_pos++, true);
                 }
 
-                insertTalken(next_base_data, insert_pos++, true);
+                insertTalken([next_base_data], insert_pos++, true);
             });
             renderViewTalkens();
             content_changed = true;
+            talkenRenderer.invalidate();
         };
         pub.setCaptionFinal = function(words, annotid){
             removeTempTalkens();
@@ -104,15 +74,16 @@
                     end: data[2],
                     annotid: annotid
                 };
-                var pause_talken_data = getPauseTalkenDataToInsert($textbox.children().filter(':not(.old)').last(), next_base_data);
-                if(pause_talken_data){
-                    insertTalken(pause_talken_data, insert_pos++, false);
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data);
+                if(pause_talken_datum){
+                    insertTalken([pause_talken_datum], insert_pos++, false);
                 }
-                insertTalken(next_base_data, insert_pos++, false);
+                insertTalken([next_base_data], insert_pos++, false);
                 setCarret(insert_pos);
             });
             renderViewTalkens();
             content_changed = true;
+            talkenRenderer.invalidate();
         };
         pub.bgnCommenting = function(){
             is_recording_and_synthesizing = true;
@@ -129,43 +100,7 @@
                 $(this).toggleClass('old', false);
             });
         };
-        var getCtrlTalkens = function(){
-            var rtn = [];
-            setRenderedTiming();
-            $textbox.children().each(function(idx){
-                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
-                rtn.push(this.base_data);
-            });
-            return rtn;
-        };
-        var getCtrlTalkens_Gesture = function(){
-            var rtn = [];
-            $textbox.children().each(function(idx){
-                this.base_data.audio_url = r2App.annots[this.base_data.annotid].GetAudioFileUrl();
-                rtn.push({
-                    base_annotid: this.base_data.annotid,
-                    base_bgn: this.base_data.bgn,
-                    base_end: this.base_data.end,
-                    new_bgn: this.rendered_data.bgn,
-                    new_end: this.rendered_data.end,
-                    word: this.base_data.word
-                });
-            });
-            return rtn;
-        };
-        var getCarretRenderedTime = function(carret){
-            setRenderedTiming();
-            return $textbox.children('span')[carret.idx_focus].rendered_data.bgn*1000.+10.;
-        };
-        var setRenderedTiming = function(){
-            var rendered_time = 0;
-            $textbox.children().each(function(idx){
-                this.rendered_data = {};
-                this.rendered_data.bgn = rendered_time;
-                rendered_time += this.base_data.end-this.base_data.bgn;
-                this.rendered_data.end = rendered_time;
-            });
-        };
+
         pub.drawDynamic = function(duration){
             if(r2App.mode === r2App.AppModeEnum.REPLAYING){
                 $textbox.children().each(function(idx){
@@ -186,14 +121,14 @@
         };
         pub.synthesizeNewAnnot = function(_annot_id){
             pub.bgn_streaming();
-            return r2.audioSynthesizer.run(getCtrlTalkens()).then(
+            return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     return null;
                 }
             ).then(
                 function(){
-                    r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
+                    r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture());
                     is_recording_and_synthesizing = false;
                     content_changed = false;
                     pub.end_streaming();
@@ -201,9 +136,69 @@
                 }
             );
         };
-        pub.isContentChanged = function(){
-            return content_changed;
-        };
+
+        var talkenRenderer = (function(){
+            var pub_tr = {};
+
+            var invalidated = true;
+
+            pub_tr.invalidate = function(){
+                invalidated = true;
+            };
+
+            pub_tr.getCtrlTalkens = function(){
+                if(invalidated){render();}
+
+                var rtn = [];
+                $textbox.children().each(function(){
+                    this.l_base_data.forEach(function(datum){
+                        rtn.push(datum);
+                    });
+                });
+                return rtn;
+            };
+
+            pub_tr.getCtrlTalkens_Gesture = function(){
+                if(invalidated){render();}
+
+                var rtn = [];
+                $textbox.children().each(function(){
+                    this.l_base_data.forEach(function(datum){
+                        rtn.push({
+                            base_annotid: datum.annotid,
+                            base_bgn: datum.bgn,
+                            base_end: datum.end,
+                            new_bgn: datum.bgn,
+                            new_end: datum.end,
+                            word: datum.word
+                        });
+                    });
+                });
+                return rtn;
+            };
+
+            pub_tr.getRenderedTime = function(idx){
+                if(invalidated){render();}
+
+                return $textbox.children('span')[idx].rendered_data.bgn*1000.+10.;
+            };
+
+            var render = function(){
+                var t = 0;
+                $textbox.children().each(function(){
+                    this.rendered_data = {};
+                    this.rendered_data.bgn = t;
+                    this.l_base_data.forEach(function(datum){
+                        datum.audio_url = r2App.annots[datum.annotid].GetAudioFileUrl();
+                        t += datum.end - datum.bgn;
+                    });
+                    this.rendered_data.end = t;
+                });
+                invalidated = false;
+            };
+
+            return pub_tr;
+        }());
 
         function jquery_insert($target, $elem, idx){
             var idx_last = $target.children().size();
@@ -212,24 +207,25 @@
                 $target.children().eq(idx).before($target.children().last())
             }
         }
-        var insertTalken = function(base_data, idx, temp){
-            jquery_insert($textbox, createTalken(base_data, temp), idx);
+        var insertTalken = function(l_base_data, idx, is_temp){
+            jquery_insert($textbox, createTalken(l_base_data, is_temp), idx);
         };
 
-        var getPauseTalkenDataToInsert = function($last, next_base_data){
+        var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
-                if(next_base_data.bgn-$last[0].base_data.end > 0.3){
+                var last_base_datum = $last[0].l_base_data[$last[0].l_base_data.length-1];
+                if(next_base_datum.bgn-last_base_datum.end > 0.3){
                     return {
                         word:'\xa0',
-                        bgn: $last[0].base_data.end,
-                        end: next_base_data.bgn,
-                        annotid: next_base_data.annotid
+                        bgn: last_base_datum.end,
+                        end: next_base_datum.bgn,
+                        annotid: next_base_datum.annotid
                     }
                 }
             }
         };
 
-        var createTalken = function(base_data, is_temp){
+        var createTalken = function(l_base_data, is_temp){
             function newViewTalken(uid, word) {
                 var $vt = $(document.createElement('div'));
                 $vt.addClass('ssui-viewtalken');
@@ -243,7 +239,7 @@
                 if (word === ('\xa0')){
                     $vt.addClass('ssui-pause');
                     $vt_span.text('');
-                    $vt.css('padding-right', (base_data.end-base_data.bgn-0.3)*0.25+'em');
+                    $vt.css('padding-right', (l_base_data[l_base_data.length-1].end-l_base_data[0].bgn-0.3)*0.25+'em');
                 }
                 else{
                     $vt.addClass('ssui-word');
@@ -255,7 +251,7 @@
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
-                $ct[0].base_data = base_data;
+                $ct[0].l_base_data = l_base_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
@@ -267,10 +263,12 @@
 
             var uid = r2.util.generateGuid();
 
-            var $vt = newViewTalken(uid, base_data.word);
+            var word = l_base_data.map(function(datum){return datum.word;}).join(' ').replace(/\s+/g, '\xa0').trim();
+
+            var $vt = newViewTalken(uid, word);
             $overlay.append($vt);
 
-            var $ct = newCtrlTalken($vt, uid, base_data.word);
+            var $ct = newCtrlTalken($vt, uid, word);
 
             if(is_temp){
                 $vt.toggleClass('temp', true);
@@ -342,7 +340,6 @@
                 r2.keyboard.CONST.KEY_DN
             ];
 
-            //carret = getCarret();
             if(key_enable_default.indexOf(e.keyCode) > -1){
             }
             else {
@@ -405,20 +402,15 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
-                    if(carret.is_collapsed){
-                        op.paste(
-                            carret.idx_focus
-                        );
-                    }
-                    else{
+                    if(!carret.is_collapsed){
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end
                         );
-                        op.paste(
-                            carret.idx_bgn
-                        );
                     }
+                    op.paste(
+                        carret.idx_bgn
+                    );
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
@@ -428,7 +420,7 @@
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
                         if(carret.idx_focus < ctrl_talkens.length){
-                            pub.synthesizeAndPlay(content_changed, getCarretRenderedTime(carret)).then(
+                            pub.synthesizeAndPlay(content_changed, talkenRenderer.getRenderedTime(carret.idx_focus)).then(
                                 function(){
                                     content_changed = false;
                                 }
@@ -438,18 +430,24 @@
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
-                    if(r2.keyboard.shift_key_dn){
-                        transcriptionPopUp();
+                    if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+
                     }
                     else{
-                        if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-
+                        if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                            r2.rich_audio.stop();
                         }
-                        else{
-                            if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
-                                r2.rich_audio.stop();
-                            }
-                            pub.insertRecording();
+                        pub.insertRecording();
+                    }
+                    e.preventDefault();
+                }
+                else if(e.keyCode === r2.keyboard.CONST.KEY_ESC) {
+                    if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+                        r2.recordingCtrl.stop(false); // to_upload = false
+                    }
+                    else{
+                        if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                            r2.rich_audio.stop();
                         }
                     }
                     e.preventDefault();
@@ -469,7 +467,7 @@
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
-                if(!transcriptionPopUp()){
+                if(!popUpTranscription()){
                     event.preventDefault();
                 }
             }
@@ -478,7 +476,7 @@
             }
         };
 
-        var transcriptionPopUp = function(){
+        var popUpTranscription = function(){
             var word_idx = carret.idx_end-1;
             if(word_idx >= 0 && carret.idx_end-carret.idx_bgn <= 1){
                 var $ct = $($textbox.children('span')[word_idx]);
@@ -487,20 +485,19 @@
 
                 var tooltip = new r2.tooltip(
                     $textbox.parent(),
-                    carret.is_collapsed ? $ct[0].base_data.word : '',
+                    carret.is_collapsed ? $ct[0].l_base_data[0].word : '',
                     {
                         x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
                         y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
                     },
                     function(text){
-                        console.log('Done '+text);
-                        var new_base_data = $ct[0].base_data;
+                        var new_base_data = $ct[0].l_base_data[0];
                         new_base_data.word = text.replace(/\s+/g, '\xa0').trim(); // reduce multiple spaces to one
                         op.remove(
                             word_idx,
                             word_idx+1
                         );
-                        insertTalken(new_base_data, word_idx, false);
+                        insertTalken([new_base_data], word_idx, false);
                         renderViewTalkens();
                         $textbox.focus();
                         setCarret(word_idx+1);
@@ -528,7 +525,7 @@
             if(is_changed){
                 var ctrl_talkens = $textbox.children('span');
                 if(carret.idx_focus < ctrl_talkens.length){
-                    pub.movePlayHeader(getCarretRenderedTime(carret));
+                    pub.movePlayHeader(talkenRenderer.getRenderedTime(carret.idx_focus));
                 }
             }
             return is_changed;
@@ -580,22 +577,25 @@
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
+                talkenRenderer.invalidate();
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
+                talkenRenderer.invalidate();
             };
 
             pub_op.paste = function(idx){
                 copied_ctrl_talkens.each(
                     function(){
-                        insertTalken(this.base_data, idx, false);
+                        insertTalken(this.l_base_data, idx, false);
                         ++idx;
                     }
                 );
                 setCarret(idx);
                 content_changed = true;
+                talkenRenderer.invalidate();
             };
 
             return pub_op;

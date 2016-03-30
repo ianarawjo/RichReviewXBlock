@@ -132,6 +132,9 @@
                     r2.audioRecorder.BgnRecording();
 
                     /* update system variables */
+                    if(piece_multi_recording){
+                        r2.dom_model.cbRecordingBgn(piece_multi_recording.GetAnnotId(), 'fa-stop');
+                    }
                     r2.dom.enableRecordingIndicators();
                     r2App.mode = r2App.AppModeEnum.RECORDING;
                 }

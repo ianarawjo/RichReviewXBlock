@@ -259,7 +259,10 @@
         this._spotlight_cache = [];
         var i, spotlight, cache;
         for (var annotid in r2App.annots) {
-            if (r2App.annots.hasOwnProperty(annotid) && !r2App.annots[annotid].getIsBaseAnnot()){
+            if (
+                (r2App.annots.hasOwnProperty(annotid) && !r2App.annots[annotid].getIsBaseAnnot()) ||
+                (r2App.cur_recording_annot !== null && annotid === r2App.cur_recording_annot.GetId())
+            ){
                 var annot = r2App.annots[annotid];
                 var spotlights_of_page = annot.GetSpotlightsByNumPage(this._num);
 
@@ -1756,13 +1759,6 @@
 
             //$(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
-            if(this.simplespeech.isContentChanged()){
-                if(r2App.mode !== r2App.AppModeEnum.RECORDING)
-                    this.simplespeech.synthesizeNewAnnot(this._annotid);
-
-                //console.log('>>>>__contentschanged:', this.ExportToTextChange());
-                //r2Sync.PushToUploadCmd(this.ExportToTextChange());
-            }
         }.bind(this));
         /* add event handlers*/
 
