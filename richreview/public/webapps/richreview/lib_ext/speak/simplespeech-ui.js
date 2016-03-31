@@ -50,16 +50,19 @@
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
-                    bgn: data[1],
-                    end: data[2],
-                    annotid: annotid
+                    data: [{
+                        word: data[0],
+                        bgn: data[1],
+                        end: data[2],
+                        annotid: annotid
+                    }]
                 };
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data);
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data.data[0]);
                 if(pause_talken_datum){
-                    insertTalken([pause_talken_datum], insert_pos++, true);
+                    insertNewTalken(pause_talken_datum, insert_pos++, true);
                 }
 
-                insertTalken([next_base_data], insert_pos++, true);
+                insertNewTalken(next_base_data, insert_pos++, true);
             });
             renderViewTalkens();
             content_changed = true;
@@ -70,15 +73,18 @@
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
-                    bgn: data[1],
-                    end: data[2],
-                    annotid: annotid
+                    data: [{
+                        word: data[0],
+                        bgn: data[1],
+                        end: data[2],
+                        annotid: annotid
+                    }]
                 };
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data);
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data.data[0]);
                 if(pause_talken_datum){
-                    insertTalken([pause_talken_datum], insert_pos++, false);
+                    insertNewTalken(pause_talken_datum, insert_pos++, false);
                 }
-                insertTalken([next_base_data], insert_pos++, false);
+                insertNewTalken(next_base_data, insert_pos++, false);
                 setCarret(insert_pos);
             });
             renderViewTalkens();
@@ -151,7 +157,7 @@
 
                 var rtn = [];
                 $textbox.children().each(function(){
-                    this.l_base_data.forEach(function(datum){
+                    this.talken_data.data.forEach(function(datum){
                         rtn.push(datum);
                     });
                 });
@@ -163,7 +169,7 @@
 
                 var rtn = [];
                 $textbox.children().each(function(){
-                    this.l_base_data.forEach(function(datum){
+                    this.talken_data.data.forEach(function(datum){
                         rtn.push({
                             base_annotid: datum.annotid,
                             base_bgn: datum.bgn,
@@ -188,7 +194,7 @@
                 $textbox.children().each(function(){
                     this.rendered_data = {};
                     this.rendered_data.bgn = t;
-                    this.l_base_data.forEach(function(datum){
+                    this.talken_data.data.forEach(function(datum){
                         datum.audio_url = r2App.annots[datum.annotid].GetAudioFileUrl();
                         t += datum.end - datum.bgn;
                     });
@@ -200,32 +206,53 @@
             return pub_tr;
         }());
 
-        function jquery_insert($target, $elem, idx){
-            var idx_last = $target.children().size();
-            $target.append($elem);
-            if (idx < idx_last) {
-                $target.children().eq(idx).before($target.children().last())
-            }
-        }
-        var insertTalken = function(l_base_data, idx, is_temp){
-            jquery_insert($textbox, createTalken(l_base_data, is_temp), idx);
+        var removeTempTalkens = function(){
+            $overlay.find('.temp').remove();
+            insert_pos-=$textbox.find('.temp').length;
+            $textbox.find('.temp').remove();
         };
 
         var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
-                var last_base_datum = $last[0].l_base_data[$last[0].l_base_data.length-1];
+                var last_base_datum = $last[0].talken_data.data[$last[0].talken_data.data.length-1];
                 if(next_base_datum.bgn-last_base_datum.end > 0.3){
                     return {
-                        word:'\xa0',
-                        bgn: last_base_datum.end,
-                        end: next_base_datum.bgn,
-                        annotid: next_base_datum.annotid
-                    }
+                        word: '\xa0',
+                        data: [{
+                            word:'\xa0',
+                            bgn: last_base_datum.end,
+                            end: next_base_datum.bgn,
+                            annotid: next_base_datum.annotid
+                        }]
+                    };
                 }
             }
         };
 
-        var createTalken = function(l_base_data, is_temp){
+        var insertNewTalken = function(talken_data, idx, is_temp){
+
+            r2.util.jqueryInsert($textbox, createTalken(talken_data, is_temp), idx);
+
+            function createTalken(talken_data, is_temp){
+                var uid = r2.util.generateGuid();
+                var word;
+                if(talken_data.word){
+                    word = talken_data.word;
+                }
+                else{
+                    word = talken_data.data.map(function(datum){return datum.word;}).join(' ').replace(/\s+/g, '\xa0').trim();
+                }
+
+                var $vt = newViewTalken(uid, word);
+                $overlay.append($vt);
+                var $ct = newCtrlTalken($vt, uid);
+                if(is_temp){
+                    $vt.toggleClass('temp', true);
+                    $ct.toggleClass('temp', true);
+                }
+                return $ct;
+            }
+
             function newViewTalken(uid, word) {
                 var $vt = $(document.createElement('div'));
                 $vt.addClass('ssui-viewtalken');
@@ -239,50 +266,29 @@
                 if (word === ('\xa0')){
                     $vt.addClass('ssui-pause');
                     $vt_span.text('');
-                    $vt.css('padding-right', (l_base_data[l_base_data.length-1].end-l_base_data[0].bgn-0.3)*0.25+'em');
+                    $vt.css('padding-right', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn-0.3)*0.25+'em');
                 }
                 else{
                     $vt.addClass('ssui-word');
                 }
                 return $vt;
             }
-            function newCtrlTalken($vt, uid, word) {
+
+            function newCtrlTalken ($vt, uid) {
                 var $ct = $(document.createElement('span'));
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
 
-                $ct[0].l_base_data = l_base_data;
+                $ct[0].talken_data = talken_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
                 $ct.attr('uid', uid);
-                $ct.attr('word', word);
 
                 return $ct;
             }
-
-            var uid = r2.util.generateGuid();
-
-            var word = l_base_data.map(function(datum){return datum.word;}).join(' ').replace(/\s+/g, '\xa0').trim();
-
-            var $vt = newViewTalken(uid, word);
-            $overlay.append($vt);
-
-            var $ct = newCtrlTalken($vt, uid, word);
-
-            if(is_temp){
-                $vt.toggleClass('temp', true);
-                $ct.toggleClass('temp', true);
-            }
-
-            return $ct;
         };
 
-        var removeTempTalkens = function(){
-            $overlay.find('.temp').remove();
-            insert_pos-=$textbox.find('.temp').length;
-            $textbox.find('.temp').remove();
-        };
 
         var renderViewTalkens = function(){
             var arrayDiff = function(a, b) {
@@ -485,19 +491,20 @@
 
                 var tooltip = new r2.tooltip(
                     $textbox.parent(),
-                    carret.is_collapsed ? $ct[0].l_base_data[0].word : '',
+                    carret.is_collapsed ? $ct[0].talken_data.data[0].word : '',
                     {
                         x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
                         y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
                     },
                     function(text){
-                        var new_base_data = $ct[0].l_base_data[0];
+                        var new_base_data = {}
+                        new_base_data.data = $ct[0].talken_data.data;
                         new_base_data.word = text.replace(/\s+/g, '\xa0').trim(); // reduce multiple spaces to one
                         op.remove(
                             word_idx,
                             word_idx+1
                         );
-                        insertTalken([new_base_data], word_idx, false);
+                        insertNewTalken(new_base_data, word_idx, false);
                         renderViewTalkens();
                         $textbox.focus();
                         setCarret(word_idx+1);
@@ -589,7 +596,7 @@
             pub_op.paste = function(idx){
                 copied_ctrl_talkens.each(
                     function(){
-                        insertTalken(this.l_base_data, idx, false);
+                        insertNewTalken(this.talken_data, idx, false);
                         ++idx;
                     }
                 );
