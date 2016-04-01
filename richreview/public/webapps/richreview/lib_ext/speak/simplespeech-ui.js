@@ -467,13 +467,14 @@
 
         // Events
         var onKeyPress = function(event) {
+            console.log(event);
             if(
                 String.fromCharCode(event.which) === '.' ||
                 String.fromCharCode(event.which) === ',' ||
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
-                if(!popUpTranscription()){
+                if(!popupTranscription(carret.idx_bgn, carret.idx_end)){
                     event.preventDefault();
                 }
             }
@@ -482,43 +483,89 @@
             }
         };
 
-        var popUpTranscription = function(){
-            var word_idx = carret.idx_end-1;
-            if(word_idx >= 0 && carret.idx_end-carret.idx_bgn <= 1){
-                var $ct = $($textbox.children('span')[word_idx]);
-                var tb_bbox = $textbox[0].getBoundingClientRect();
-                var ct_bbox = $ct[0].getBoundingClientRect();
-
+        var popupTranscription = function(idx_bgn, idx_end, force_blank){
+            force_blank = typeof force_blank === 'undefined' ? false : true;
+            var with_blank_text = true;
+            if(idx_bgn === idx_end){ // when collapsed
+                idx_bgn -= 1;
+                with_blank_text = false || force_blank;
+            }
+            if(0 <= idx_bgn && idx_bgn < idx_end && idx_end <= $textbox.children('span').length){
                 var tooltip = new r2.tooltip(
                     $textbox.parent(),
-                    carret.is_collapsed ? $ct[0].talken_data.data[0].word : '',
-                    {
-                        x: (ct_bbox.left-tb_bbox.left+ct_bbox.width*0.5)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
-                        y: (ct_bbox.top-tb_bbox.top+ct_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
-                    },
+                    with_blank_text ? '' : getPopUpWord(idx_bgn, idx_end),
+                    getPopUpPos(idx_bgn, idx_end),
                     function(text){
-                        var new_base_data = {}
-                        new_base_data.data = $ct[0].talken_data.data;
-                        new_base_data.word = text.replace(/\s+/g, '\xa0').trim(); // reduce multiple spaces to one
+                        var new_base_data = getNewBaseData(idx_bgn, idx_end, text);
                         op.remove(
-                            word_idx,
-                            word_idx+1
+                            idx_bgn,
+                            idx_end
                         );
-                        insertNewTalken(new_base_data, word_idx, false);
+                        insertNewTalken(new_base_data, idx_bgn, false);
                         renderViewTalkens();
                         $textbox.focus();
-                        setCarret(word_idx+1);
+                        setCarret(idx_end+1);
+                        getCarret();
+                        if(!popupTranscription(carret.idx_bgn, carret.idx_end, true)){
+                            event.preventDefault();
+                        }
                     },
                     function(){
                         $textbox.focus();
-                        setCarret(word_idx+1);
+                        setCarret(idx_end);
                     }
                 );
                 $textbox.blur();
                 tooltip.focus();
                 return true;
             }
-            return false;
+            else{
+                console.error('invalid caret range:', idx_bgn, idx_end);
+                $textbox.focus();
+                return false;
+            }
+
+            function getPopUpPos(idx_bgn, idx_end){
+                var tb_bbox = $textbox[0].getBoundingClientRect();
+                var l_bbox = $textbox.children('span')[idx_bgn].getBoundingClientRect();
+                var r_bbox = $textbox.children('span')[idx_end-1].getBoundingClientRect();
+                if(l_bbox.top === r_bbox.top){
+                    return {
+                        x: ((l_bbox.left+r_bbox.right)*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                        y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                    };
+                }
+                else{
+                    return {
+                        x: (r_bbox.left+r_bbox.width*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                        y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                    };
+                }
+            }
+            function getPopUpWord(idx_bgn, idx_end){
+                var l = [];
+                $textbox.children('span').slice(idx_bgn, idx_end).map(
+                    function(){
+                        l.push(this.talken_data.word);
+                    }
+                );
+                return l.join('\xa0');
+            }
+            function getNewBaseData(idx_bgn, idx_end, word){
+                var l = [];
+                $textbox.children('span').slice(idx_bgn, idx_end).map(
+                    function(){
+                        this.talken_data.data.forEach(function(datum){
+                            l.push(datum);
+                        });
+                    }
+                );
+                return {
+                    word: word.replace(/\s+/g, '\xa0').trim(),
+                    data: l
+                };
+            }
+
         };
 
         var checkCarretPositionUpdate = function(event){
@@ -560,7 +607,6 @@
             var sel = window.getSelection();
             var range = document.createRange();
             try{
-
                 if(idx!==0){
                     var n = $textbox.children()[idx-1];
                     range.setStartAfter(n);
@@ -570,8 +616,8 @@
                     range.setStartBefore(n);
                 }
             }
-            catch(e){
-                var x = 0;
+            catch(err){
+                console.error(err);
             }
             sel.removeAllRanges();
             sel.addRange(range);
