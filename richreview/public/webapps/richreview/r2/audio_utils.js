@@ -255,7 +255,7 @@
                 try {
                     // webkit shim
                     window.AudioContext = window.AudioContext || window.webkitAudioContext;
-                    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.mediaDevices.getUserMedia;
 
                     audio_context = new AudioContext;
 
@@ -280,6 +280,7 @@
                                     blob = blob.getBlob();
                                 }
                                 var src = audio_context.createMediaStreamSource(stream);
+                                window.leakMyAudioNodes = [src];
                                 recorder = new Recorder(
                                     src,
                                     {
