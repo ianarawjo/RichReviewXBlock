@@ -1309,7 +1309,7 @@
 
                 var annotId = this.GetAnnotId();
                 r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
-                r2.localLog.blobURL(finalAudioURL, annotId);
+                r2.localLog.editedBlobURL(finalAudioURL, annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
 
                 // Get timestamps for TTS audio with HTK
@@ -1511,7 +1511,7 @@
 
             this.appendVoice(words, this.annotids[0]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
             r2.localLog.event('appendVoice', this._annotid, {'words':words, 'url':this._last_audio_url});
-            r2.localLog.blobURL(this._last_audio_url);
+            r2.localLog.baseBlobURL(this._last_audio_url);
 
             this._last_words = null;
             this._last_audio_url = null;
@@ -1536,7 +1536,7 @@
 
             this.insertVoice(this._last_words, this.annotids[0]);
             r2.localLog.event('insertVoice', this._annotid, {'words':this._last_words, 'url':audioURL});
-            r2.localLog.blobURL(audioURL);
+            r2.localLog.baseBlobURL(audioURL);
 
             this._last_words = null;
         }
