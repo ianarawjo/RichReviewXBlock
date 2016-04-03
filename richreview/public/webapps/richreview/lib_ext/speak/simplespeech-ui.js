@@ -11,7 +11,7 @@
 (function(simplespeech) {
     'use strict';
 
-    simplespeech.ui = function(_textbox, _overlay) {
+    simplespeech.ui = function(_textbox, _overlay, _annotid) {
         var pub = {};
 
         // DOM elements
@@ -69,9 +69,22 @@
         var _init = function() {
 
             // Setup event handlers
-            $textbox[0].addEventListener('keyup', checkCarretPositionUpdate);
-            $textbox[0].addEventListener('click', checkCarretPositionUpdate);
-            $textbox[0].addEventListener('focus', checkCarretPositionUpdate);
+            $textbox[0].addEventListener('keyup', function(e) {
+                checkCarretPositionUpdate(e);
+                r2.localLog.event('keyup', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
+            });
+            $textbox[0].addEventListener('click', function(e) {
+                checkCarretPositionUpdate(e);
+                r2.localLog.event('click', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
+            });
+            $textbox[0].addEventListener('focus', function(e) {
+                checkCarretPositionUpdate(e);
+                r2.localLog.event('focus', _annotid);
+            });
+            $textbox[0].addEventListener('blur', function(e) {
+                r2.localLog.event('blur', _annotid);
+            });
+
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
         };
@@ -188,11 +201,14 @@
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(getCtrlTalkens()).then(
                 function(result){
+                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url});
+                    r2.localLog.blobURL(result.url, _annot_id);
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     return null;
                 }
             ).then(
                 function(){
+                    r2.localLog.event('synth-gesture', _annot_id);
                     r2.gestureSynthesizer.run(_annot_id, getCtrlTalkens_Gesture());
                     is_recording_and_synthesizing = false;
                     content_changed = false;
@@ -333,8 +349,18 @@
             return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
         }
 
+        function getSelectedText() {
+            var txt = '';
+            $textbox.children('span').slice(carret.idx_bgn, carret.idx_end).each(function() {
+                txt += this.base_data.word + ' ';
+            });
+            return txt.trim();
+        }
+
         var onKeyDown = function(e) {
             //console.log('onKeyDown');
+            r2.localLog.event('keydown', _annotid, {'key':e.keyCode, 'carret':[carret.idx_bgn, carret.idx_end]});
+
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
                 r2.keyboard.CONST.KEY_RGHT,
@@ -378,6 +404,7 @@
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
                     if(carret.is_collapsed){
+                        r2.localLog.event('copy-err', _annotid, {'reason':'caret is collapsed'});
                         ;
                     }
                     else{
@@ -390,9 +417,11 @@
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
                     if(carret.is_collapsed){
+                        r2.localLog.event('cut-err', _annotid, {'reason':'caret is collapsed'});
                         ;
                     }
                     else{
+                        r2.localLog.event('cut', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
                         op.copy(
                             carret.idx_bgn,
                             carret.idx_end
@@ -405,6 +434,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
+                    r2.localLog.event('paste', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
                     if(carret.is_collapsed){
                         op.paste(
                             carret.idx_focus
@@ -423,11 +453,13 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                        r2.localLog.event('cmd-stop', _annotid);
                         r2.rich_audio.stop();
                     }
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
                         if(carret.idx_focus < ctrl_talkens.length){
+                            r2.localLog.event('cmd-play', _annotid);
                             pub.synthesizeAndPlay(content_changed, getCarretRenderedTime(carret)).then(
                                 function(){
                                     content_changed = false;
@@ -443,12 +475,14 @@
                     }
                     else{
                         if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-
+                            r2.localLog.event('cmd-err', _annotid, {'reason':'enter key pressed while recording'});
                         }
                         else{
                             if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                                r2.localLog.event('cmd-voice-insertion-force-stop', _annotid);
                                 r2.rich_audio.stop();
                             }
+                            r2.localLog.event('cmd-voice-insertion', _annotid);
                             pub.insertRecording();
                         }
                     }
@@ -463,6 +497,8 @@
 
         // Events
         var onKeyPress = function(event) {
+            r2.localLog.event('keypress', _annotid, {'key': event.keyCode});
+
             if(
                 String.fromCharCode(event.which) === '.' ||
                 String.fromCharCode(event.which) === ',' ||
@@ -481,6 +517,8 @@
         var transcriptionPopUp = function(){
             var word_idx = carret.idx_end-1;
             if(word_idx >= 0 && carret.idx_end-carret.idx_bgn <= 1){
+                r2.localLog.event('cmd-edit-transcript', _annotid, {'text':getSelectedText()});
+
                 var $ct = $($textbox.children('span')[word_idx]);
                 var tb_bbox = $textbox[0].getBoundingClientRect();
                 var ct_bbox = $ct[0].getBoundingClientRect();
@@ -500,6 +538,7 @@
                             word_idx,
                             word_idx+1
                         );
+                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text':text});
                         insertTalken(new_base_data, word_idx, false);
                         renderViewTalkens();
                         $textbox.focus();
@@ -521,11 +560,13 @@
             if(is_recording_and_synthesizing){
                 return;
             }
+
             var old_anchor = carret.idx_anchor;
             var old_focus = carret.idx_focus;
             getCarret();
             var is_changed = !(old_anchor === carret.idx_anchor && old_focus === carret.idx_focus);
             if(is_changed){
+                r2.localLog.event('caret-change', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
                 var ctrl_talkens = $textbox.children('span');
                 if(carret.idx_focus < ctrl_talkens.length){
                     pub.movePlayHeader(getCarretRenderedTime(carret));
@@ -578,18 +619,22 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
+                r2.localLog.event('remove', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
+                r2.localLog.event('copy', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
             };
 
             pub_op.paste = function(idx){
+                r2.localLog.event('paste', _annotid, {});
                 copied_ctrl_talkens.each(
                     function(){
+                        r2.localLog.event('pasted-elem', _annotid, {'index':idx});
                         insertTalken(this.base_data, idx, false);
                         ++idx;
                     }

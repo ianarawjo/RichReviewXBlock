@@ -1144,6 +1144,8 @@
 
         var dom = this.CreateDom();
 
+        r2.localLog.pieceCreated('newspeak', annotid, anchor_pid);
+
         r2.dom_model.appendPieceEditableAudio(
             this._username,
             this._annotid,
@@ -1198,12 +1200,38 @@
         var func_UpdateSizeWithTextInput = this.updateSizeWithTextInput.bind(this);
 
         // Debug
+        var annotId = this._annotid;
+        var _tb = $(this.dom_textbox);
+        function getSelectionJSON() {
+            var sel = document.getSelection();
+            if (sel.rangeCount === 0) return {}; // no selection
+            var range = [sel.getRangeAt(0).startOffset, sel.getRangeAt(0).endOffset];
+            return {'selectionText':sel.toString(), 'selectionRange':range};
+        }
+
         this.dom_textbox.addEventListener('keydown', function(e) {
-            if (e.keyCode === 13) {
-                this.SetAnonAudioRenderType(( this.anonAudioRenderType === 'anon' ? 'patch' : 'anon' ));
-                e.preventDefault();
-            }
+            //if (e.keyCode === 13) {
+            //    this.SetAnonAudioRenderType(( this.anonAudioRenderType === 'anon' ? 'patch' : 'anon' ));
+            //    e.preventDefault();
+            //} else {
+            //}
+
+            r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
         }.bind(this.speak_ctrl));
+
+        this.dom_textbox.addEventListener('keyup', function(e) {
+            r2.localLog.event('keyup', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
+        }.bind(this.speak_ctrl));
+
+        this.dom_textbox.addEventListener('selectstart', function(e) {
+            r2.localLog.event('selectstart', annotId, getSelectionJSON());
+        });
+        this.dom_textbox.addEventListener('mousedown', function(e) {
+            r2.localLog.event('mousedown', annotId, getSelectionJSON());
+        });
+        this.dom_textbox.addEventListener('mouseup', function(e) {
+            r2.localLog.event('mouseup', annotId, getSelectionJSON());
+        });
 
         this.dom_textbox.addEventListener('input', function() {
             this.__contentschanged = true;
@@ -1219,6 +1247,7 @@
             this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
             $(this.dom).css("pointer-events", 'auto');
             $(this.dom_textbox).toggleClass('editing', true);
+            r2.localLog.event('focus', annotId, {'text':_tb.text()});
         }.bind(this));
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
@@ -1240,6 +1269,8 @@
                 //r2Sync.PushToUploadCmd(this.ExportToTextChange());
                 this.__contentschanged = false;
             }
+
+            r2.localLog.event('blur', annotId, {'text':_tb.text()});
         }.bind(this));
 
         /* add event handlers*/
@@ -1274,6 +1305,8 @@
                 }
 
                 var annotId = this.GetAnnotId();
+                r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
+                r2.localLog.blobURL(finalAudioURL, annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
 
                 // Get timestamps for TTS audio with HTK
@@ -1318,6 +1351,7 @@
                     this._last_tts_talkens = gesynth_tks;
 
                     // Resynthesize gestures for this annotation for new TTS audio...
+                    r2.localLog.event('synth-gesture', annotId);
                     r2.gestureSynthesizer.run(annotId, gesynth_tks);
 
                 }).bind(this));
@@ -1385,6 +1419,9 @@
             $(this.dom_textbox).find(':last-child').remove();
         }
 
+        r2.localLog.event('setCaptionTemporary', this._annotid, words);
+
+        var temp_texts = '';
         var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
         var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
         for(i = 0; i < words.length; ++i){
@@ -1394,7 +1431,7 @@
 
             if (i < words.length-1) {
                 var pause_len = 1000.0 * (words[i+1][1] - w[2]);
-                if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
+                if (pause_len >= SENTENCE_PAUSE_THRESHOLD_MS) {
                     w[0] += '.'; // add period and capitalize next word...
                     words[i+1][0] = capitalize(words[i+1][0]);
                 } else if (pause_len > PAUSE_THRESHOLD_MS) {
@@ -1405,8 +1442,12 @@
             }
 
             $span.text(w[0]+' ');
+            temp_texts += $span.text();
             $(this.dom_textbox).append($span);
         }
+
+        r2.localLog.event('setCaptionTemporary', this._annotid, {'temporaryText':temp_texts,'completeText':$(this.dom_textbox).text(),'rawTranscriptResults':words});
+
         this._temporary_n = words.length;
         if(this.updateSizeWithTextInput()){
             r2App.invalidate_size = true;
@@ -1428,13 +1469,14 @@
 
         words[0][0] = capitalize(words[0][0]); // capitalize first word of transcription
 
+        var temp_texts = '';
         for(i = 0; i < words.length; ++i){
             var w = words[i];
             var $span = $(document.createElement('span'));
 
             if (i < words.length-1) {
                 var pause_len = 1000.0 * (words[i+1][1] - w[2]);
-                if (pause_len > SENTENCE_PAUSE_THRESHOLD_MS) {
+                if (pause_len >= SENTENCE_PAUSE_THRESHOLD_MS) {
                     w[0] += '.'; // add period and capitalize next word...
                     words[i+1][0] = capitalize(words[i+1][0]);
                 } else if (pause_len > PAUSE_THRESHOLD_MS) {
@@ -1445,9 +1487,13 @@
             }
 
             $span.text(w[0]+' ');
+            temp_texts += $span.text();
 
-            $(this.dom_textbox).append($span);
+            $(this.dom_textbox).text($(this.dom_textbox).text() + $span.text()); // append text
+            //$(this.dom_textbox).append($span);
         }
+
+        r2.localLog.event('setCaptionFinal', this._annotid, {'finalText':temp_texts,'completeText':$(this.dom_textbox).text(),'rawTranscriptResults':words, 'rawTranscriptAlts':alternatives});
 
         if (!this._last_words)
             this._last_words = words;
@@ -1461,6 +1507,8 @@
         if (this._last_audio_url) { // Microphone audio finished processing before Watson did, so we insert voice now --
 
             this.appendVoice(words, this.annotids[0]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+            r2.localLog.event('appendVoice', this._annotid, {'words':words, 'url':this._last_audio_url});
+            r2.localLog.blobURL(this._last_audio_url);
 
             this._last_words = null;
             this._last_audio_url = null;
@@ -1484,6 +1532,8 @@
             this._last_audio_url = audioURL;
 
             this.insertVoice(this._last_words, this.annotids[0]);
+            r2.localLog.event('insertVoice', this._annotid, {'words':this._last_words, 'url':audioURL});
+            r2.localLog.blobURL(audioURL);
 
             this._last_words = null;
         }
@@ -1494,6 +1544,8 @@
             this._last_audio_url = audioURL;
 
         }
+
+        r2.localLog.download();
     };
     r2.PieceNewSpeak.prototype.insertVoice = function(words, annotId) {
         this.speak_ctrl.insertVoice(0, words, annotId); // for now
@@ -1688,7 +1740,7 @@
         this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
-        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay);
+        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, this._annotid);
 
         /* add event handlers*/
         this.simplespeech.on_input = function() {

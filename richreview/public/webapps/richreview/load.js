@@ -51,6 +51,7 @@
                 ['lib_ext/speak/speak.js', 'js'], // NONSPEAK AUDIO CORE
                 ['lib_ext/speak/simplespeech-ui.js', 'js'], // NONSPEAK AUDIO UI
                 ['lib_ext/speak/utils/audio_stitcher.js', 'js'], // NONSPEAK AUDIO UTILS
+                ['lib_ext/speak/utils/FileSaver.min.js', 'js'], // NONSPEAK UTIL DEPENDENCY
                 ['r2/utils.js', 'js'],
                 ['r2/helpers.js', 'js'],
                 ['r2/shared_objs.js', 'js'],

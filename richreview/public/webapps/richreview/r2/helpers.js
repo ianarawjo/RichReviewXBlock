@@ -493,25 +493,33 @@
         var pub = {};
 
         var q = [];
+        var urls_to_download = [];
 
         pub.text = function(text, annotid){
             var data = text;
-            q.push(getTemplate('text', annotid, data));
+            push(getTemplate('text', annotid, data));
         };
 
         pub.pieceCreated = function(piece_type, annotid, anchor_pid){
             var data =  { 'type': piece_type, 'anchor':anchor_pid };
-            q.push(getTemplate('piece_created', annotid, data));
+            push(getTemplate('piece_created', annotid, data));
         };
 
         pub.json = function(json, annotid){
             var data = json;
-            q.push(getTemplate('json', annotid, data));
+            push(getTemplate('json', annotid, data));
+        };
+
+        pub.event = function(eventType, annotId, json) {
+            if (typeof json === 'undefined') json = {};
+            push(getTemplate(eventType, annotId, json));
         };
 
         pub.blobURL = function(blob_url, annotid){
-            var data = blog_url;
-            q.push(getTemplate('blobURL', annotid, data));
+            var data = blob_url;
+            if(urls_to_download.indexOf(blob_url) === -1)
+                urls_to_download.push(blob_url);
+            push(getTemplate('blobURL', annotid, data));
         };
 
         /*
@@ -521,9 +529,35 @@
         * - So, the data.json will include metadata of the wav files that store <annotid>s for tracking each of the files.
         */
         pub.download = function(){
+
             // create blob of q
+            var blob = new Blob([JSON.stringify(q, null, 2)], {type: "text/plain;charset=utf-8"});
+
             // download
+            saveAs(blob, 'log_' + (new Date().getTime()).toString() + '.json');
+
+            // download all resources
+            urls_to_download.forEach(function(url) {
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.responseType = 'blob';
+                xhr.onload = function(e) {
+                  if (this.status == 200) {
+                    var blobReturned = this.response;
+                    var path_str = url.split('/');
+                    saveAs(blobReturned, path_str[path_str.length-1] + '.wav');
+                  }
+                };
+                xhr.send();
+            });
+            urls_to_download = [];
         };
+
+        function push(loginfo) {
+            console.log('r2.localLog: ', loginfo);
+            q.push(loginfo);
+        }
 
         function getTemplate(type, annotid, data){
             var t = {};
