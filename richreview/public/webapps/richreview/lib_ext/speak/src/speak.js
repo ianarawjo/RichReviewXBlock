@@ -362,7 +362,11 @@
                 // Store
                 ops = edits;
 
-                // Compile edits
+                // Experimental: Double-check consequtive sequences of edits
+                // with CMU Sphinx Long Aligner.
+                // ...
+
+                // Compile edits on talken array
                 edited = _compile(base, ops);
                 console.log('edited: ', edited);
 

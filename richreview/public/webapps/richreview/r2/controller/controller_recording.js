@@ -124,6 +124,8 @@
             );
             r2App.annots[annotid] = r2App.cur_recording_annot;
 
+            r2.localLog.event('recordingBgn', annotid);
+
             /* set context */
             r2App.cur_recording_anchor_piece = anchor_piece;
             r2App.cur_recording_pieceaudios = [];
@@ -350,6 +352,9 @@
 
                     /* annot */
                     r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob);
+                    r2.localLog.event('recordingStop', r2App.cur_recording_annot, {'url': result.url});
+                    r2.localLog.blobURL(result.url);
+
                     if(r2App.cur_recording_piece.onEndRecording)
                         r2App.cur_recording_piece.onEndRecording(result.url);
 
@@ -418,7 +423,6 @@
                     r2.userGroup.cur_user.name,
                     (npiece-1)*timePerPiece,
                     r2App.cur_time-annot.GetBgnTime());
-
 
                 r2App.cur_recording_pieceaudios.push(pieceaudio);
                 r2App.cur_recording_piece = pieceaudio;
