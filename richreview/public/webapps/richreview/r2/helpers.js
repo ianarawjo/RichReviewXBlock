@@ -514,6 +514,10 @@
             q.push(getTemplate('blobURL', annotid, data));
         };
 
+        pub.baseBlobUrl = function(blob_url, base_annot_id, annotid){
+            //
+        };
+
         /*
         * It generates a ZIP file that has
         * - one big 'data.json' file that has all the meta data.
@@ -2031,6 +2035,16 @@
             var sel = window.getSelection();
             var range = document.createRange();
             range.setStart($tooltip_input[0], 1);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        };
+
+        this.selectAll = function(){
+            $tooltip_input.focus();
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents($tooltip_input[0]);
             range.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range);

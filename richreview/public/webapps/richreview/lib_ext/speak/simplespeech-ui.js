@@ -495,7 +495,8 @@
             if(0 <= idx_bgn && idx_bgn < idx_end && idx_end <= $textbox.children('span').length){
                 var tooltip = new r2.tooltip(
                     $textbox.parent(),
-                    with_blank_text ? '' : getPopUpWord(idx_bgn, idx_end),
+                    //with_blank_text ? '' : getPopUpWord(idx_bgn, idx_end),
+                    getPopUpWord(idx_bgn, idx_end),
                     getPopUpPos(idx_bgn, idx_end),
                     function(text){
                         var new_base_data = getNewBaseData(idx_bgn, idx_end, text);
@@ -510,6 +511,9 @@
                         getCarret();
                         if(!popupTranscription(carret.idx_bgn, carret.idx_end, true)){
                             event.preventDefault();
+                        }
+                        else{
+                            tooltip.selectAll();
                         }
                     },
                     function(){
