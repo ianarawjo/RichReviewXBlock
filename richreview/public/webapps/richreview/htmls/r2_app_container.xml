@@ -66,6 +66,19 @@
             </div>
         </div>
 
+        <div style="float:right;margin: 0 6px;">
+            <div id="btn-group-speech-ui-select" class="btn-group">
+                <button type="button" class="btn btn-sm btn-primary btn-dashboard dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fa fa-gear"></i>
+                </button>
+                <div class="dropdown-menu  pull-right">
+                    <button class="waveform dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setWaveform()">Waveform</button>
+                    <button class="newspeak dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setNewSpeak()">NewSpeak</button>
+                    <button class="simplespeech dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setSimpleSpeech()">SimpleSpeech</button>
+                </div>
+            </div>
+        </div>
+
         <div style="float:right;margin:0 6px;" >
             <div style="float:left;margin: 0" >
                 <button id="btn-input-set-mode-desktop" onclick="r2.input.setModeDesktop()" class="btn btn-sm btn-primary btn-dashboard"

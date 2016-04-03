@@ -404,7 +404,7 @@ var r2Ctrl = {};
                 if(r2.input.isTap(pos_dn, new_pen_pt)){
                     if(mode === PenMode.MANIPULATION){
                         if(!r2App.pieceSelector.isNull()){
-                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.WAVEFORM);
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
                             r2.log.Log_Simple("Recording_Bgn_PenTap");
                         }
                     }
@@ -863,23 +863,9 @@ var r2Ctrl = {};
                         }
                         break;
                     case CONST.KEY_ENTER: // enter
-                        if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.SIMPLE_SPEECH);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_SimpleSpeech");
-                            }
-                        }
-                        else if(pub.ctrlkey_dn){
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.NEW_SPEAK);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_NewSpeak");
-                            }
-                        }
-                        else { // trigger recording using Waveform UI
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.WAVEFORM);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_Waveform");
-                            }
+                        if(!r2App.pieceSelector.isNull()){
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
+                            r2.log.Log_Simple("Recording_Bgn_Enter_"+r2.speechUi.mode);
                         }
                         break;
                     default:
@@ -895,23 +881,9 @@ var r2Ctrl = {};
                     case CONST.KEY_ENTER: // enter
                         r2.log.Log_AudioStop('enter', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                         r2.rich_audio.stop();
-                        if(pub.shift_key_dn){ // trigger recording using SimpleSpeech UI
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.SIMPLE_SPEECH);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_SimpleSpeech");
-                            }
-                        }
-                        else if(pub.ctrlkey_dn){
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.NEW_SPEAK);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_NewSpeak");
-                            }
-                        }
-                        else {
-                            if(!r2App.pieceSelector.isNull()){
-                                r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.WAVEFORM);
-                                r2.log.Log_Simple("Recording_Bgn_Enter_Waveform");
-                            }
+                        if(!r2App.pieceSelector.isNull()){
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
+                            r2.log.Log_Simple("Recording_Bgn_Enter_"+r2.speechUi.mode);
                         }
                         break;
                     default:
@@ -1026,8 +998,8 @@ var r2Ctrl = {};
                 }
                 else{
                     if(!r2App.pieceSelector.isNull()){
-                        r2.recordingCtrl.set(r2App.pieceSelector.get(), r2App.RecordingUI.WAVEFORM);
-                        r2.log.Log_Simple("Recording_Bgn_OnScrBtn");
+                        r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
+                        r2.log.Log_Simple("Recording_Bgn_OnScrBtn_"+r2.speechUi.mode);
                     }
                 }
                 r2.mouse.mode = r2.MouseModeEnum.HOVER; // should set mouse mode here, since we are calling stopPropagation().
