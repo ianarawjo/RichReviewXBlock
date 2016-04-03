@@ -1548,7 +1548,8 @@
 
         }
 
-        r2.localLog.download();
+        // DEBUG
+        //r2.localLog.download();
     };
     r2.PieceNewSpeak.prototype.insertVoice = function(words, annotId) {
         this.speak_ctrl.insertVoice(0, words, annotId); // for now

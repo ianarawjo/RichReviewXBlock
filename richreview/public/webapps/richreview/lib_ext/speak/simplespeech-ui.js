@@ -679,14 +679,14 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                r2.localLog.event('remove', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
+                r2.localLog.event('remove', _annotid, {'range':[idx_bgn, idx_end], 'text':getSelectedText()});
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
                 talkenRenderer.invalidate();
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
-                r2.localLog.event('copy', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
+                r2.localLog.event('copy', _annotid, {'range':[idx_bgn, idx_end], 'text':getSelectedText()});
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
                 talkenRenderer.invalidate();
