@@ -93,6 +93,7 @@
         };
         pub.bgnCommenting = function(){
             is_recording_and_synthesizing = true;
+            r2App.is_recording_or_transcribing = true;
             $textbox.focus();
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('old', true);
@@ -101,6 +102,7 @@
             insert_pos = getCarret().idx_anchor;
         };
         pub.endCommenting = function(){
+            r2App.is_recording_or_transcribing = false;
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('old', false);
                 $(this).toggleClass('old', false);

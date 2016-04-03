@@ -14,6 +14,10 @@
         var piece_multi_recording = null;
 
         pub.set = function(_anchor_piece, _ui_type, _piece_multi_recording){
+            if(r2App.is_recording_or_transcribing){
+                alert('Recording and transcribing is currently in progress.');
+                return;
+            }
             if(r2App.disable_comment_production){
                 alert('This page is only for the review. Features for creating comments are disabled.');
                 return;

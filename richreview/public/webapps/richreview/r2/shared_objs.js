@@ -131,6 +131,7 @@ var r2App = (function() {
     pub.cur_recording_piece = null;
     pub.cur_recording_minmax = [0.05, 0.25];
     pub.cur_focused_piece_keyboard = null;
+    pub.is_recording_or_transcribing = false;
 
     pub.splight_prerender = null;
     pub.splight_prerender_ctx = null;
