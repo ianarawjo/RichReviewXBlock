@@ -493,7 +493,8 @@
         var pub = {};
 
         var q = [];
-        var urls_to_download = [];
+        var edited_urls = [];
+        var base_urls = [];
 
         pub.text = function(text, annotid){
             var data = text;
@@ -515,15 +516,18 @@
             push(getTemplate(eventType, annotId, json));
         };
 
-        pub.blobURL = function(blob_url, annotid){
+        pub.editedBlobURL = function(blob_url, annotid){
             var data = blob_url;
-            if(urls_to_download.indexOf(blob_url) === -1)
-                urls_to_download.push(blob_url);
-            push(getTemplate('blobURL', annotid, data));
+            if(edited_urls.indexOf(blob_url) === -1)
+                edited_urls.push(blob_url);
+            push(getTemplate('editedBlobURL', annotid, data));
         };
 
-        pub.baseBlobUrl = function(blob_url, base_annot_id, annotid){
-            //
+        pub.baseBlobURL = function(blob_url, base_annot, annotid){
+            var data = {blob_url:blob_url, base_annot:base_annot};
+            if(base_urls.indexOf(blob_url) === -1)
+                base_urls.push(blob_url);
+            push(getTemplate('baseBlobURL', annotid, data));
         };
 
         /*
@@ -541,7 +545,14 @@
             saveAs(blob, 'log_' + (new Date().getTime()).toString() + '.json');
 
             // download all resources
-            urls_to_download.forEach(function(url) {
+            downloadFiles(edited_urls);
+            downloadFiles(base_urls);
+            edited_urls = [];
+            base_urls = [];
+        };
+
+        function downloadFiles(url_arr) {
+            url_arr.forEach(function(url) {
 
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', url, true);
@@ -555,8 +566,7 @@
                 };
                 xhr.send();
             });
-            urls_to_download = [];
-        };
+        }
 
         function push(loginfo) {
             console.log('r2.localLog: ', loginfo);

@@ -1220,6 +1220,15 @@
             //}
 
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
+
+            if (r2.keyboard.modifier_key_dn) {
+                if (e.keyCode === r2.keyboard.CONST.KEY_C)
+                    r2.localLog.event('copy', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                else if (e.keyCode === r2.keyboard.CONST.KEY_X)
+                    r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                else if (e.keyCode === r2.keyboard.CONST.KEY_V)
+                    r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+            }
         }.bind(this.speak_ctrl));
 
         this.dom_textbox.addEventListener('keyup', function(e) {
@@ -1309,7 +1318,7 @@
 
                 var annotId = this.GetAnnotId();
                 r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
-                r2.localLog.blobURL(finalAudioURL, annotId);
+                r2.localLog.editedBlobURL(finalAudioURL, annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
 
                 // Get timestamps for TTS audio with HTK
@@ -1511,7 +1520,7 @@
 
             this.appendVoice(words, this.annotids[0]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
             r2.localLog.event('appendVoice', this._annotid, {'words':words, 'url':this._last_audio_url});
-            r2.localLog.blobURL(this._last_audio_url);
+            r2.localLog.baseBlobURL(this._last_audio_url);
 
             this._last_words = null;
             this._last_audio_url = null;
@@ -1536,7 +1545,7 @@
 
             this.insertVoice(this._last_words, this.annotids[0]);
             r2.localLog.event('insertVoice', this._annotid, {'words':this._last_words, 'url':audioURL});
-            r2.localLog.blobURL(audioURL);
+            r2.localLog.baseBlobURL(audioURL);
 
             this._last_words = null;
         }
@@ -1548,7 +1557,8 @@
 
         }
 
-        r2.localLog.download();
+        // DEBUG
+        //r2.localLog.download();
     };
     r2.PieceNewSpeak.prototype.insertVoice = function(words, annotId) {
         this.speak_ctrl.insertVoice(0, words, annotId); // for now
@@ -1676,6 +1686,9 @@
     r2.PieceSimpleSpeech.prototype = Object.create(r2.Piece.prototype);
     r2.PieceSimpleSpeech.prototype.Destructor = function(){
         r2.Piece.prototype.Destructor.apply(this);
+    };
+    r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
+        return this._annotid;
     };
     r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, live_recording){
         this._annotid = annotid;

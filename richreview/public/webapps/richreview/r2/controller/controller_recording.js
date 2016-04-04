@@ -353,7 +353,7 @@
                     /* annot */
                     r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob);
                     r2.localLog.event('recordingStop', r2App.cur_recording_annot, {'url': result.url});
-                    r2.localLog.blobURL(result.url);
+                    r2.localLog.baseBlobURL(result.url, r2App.cur_recording_annot, r2App.cur_recording_piece.GetAnnotId());
 
                     if(r2App.cur_recording_piece.onEndRecording)
                         r2App.cur_recording_piece.onEndRecording(result.url);

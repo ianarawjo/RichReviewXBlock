@@ -146,7 +146,7 @@
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
                     r2.localLog.event('rendered-audio', _annot_id, {'url':result.url, all_text: getAllText()});
-                    r2.localLog.blobURL(result.url, _annot_id);
+                    r2.localLog.editedBlobURL(result.url, _annot_id);
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     return null;
                 }
@@ -234,7 +234,7 @@
         var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
                 var last_base_datum = $last[0].talken_data.data[$last[0].talken_data.data.length-1];
-                if(next_base_datum.bgn-last_base_datum.end > 0.3){
+                if(next_base_datum.bgn-last_base_datum.end > 0.03){ // 30 ms to be consistent with Newspeak.
                     return {
                         word: '\xa0',
                         data: [{
