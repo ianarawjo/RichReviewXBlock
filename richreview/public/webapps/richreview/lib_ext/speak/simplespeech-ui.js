@@ -193,8 +193,8 @@
                             base_annotid: datum.annotid,
                             base_bgn: datum.bgn,
                             base_end: datum.end,
-                            new_bgn: datum.bgn,
-                            new_end: datum.end,
+                            new_bgn: datum.rendered_bgn,
+                            new_end: datum.rendered_end,
                             word: datum.word
                         });
                     });
@@ -215,7 +215,9 @@
                     this.rendered_data.bgn = t;
                     this.talken_data.data.forEach(function(datum){
                         datum.audio_url = r2App.annots[datum.annotid].GetAudioFileUrl();
+                        datum.rendered_bgn = t;
                         t += datum.end - datum.bgn;
+                        datum.rendered_end = t;
                     });
                     this.rendered_data.end = t;
                 });
