@@ -1577,13 +1577,77 @@
         this.dom_textbox.focus();
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
-        // diable for now
-        if (true || this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
+        // disable for now
+        if (true && this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
             return;
         }
 
-        var wrds = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
+        var wrds_without_pauses = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
+        var wrds = $(this.dom_textbox).text().trim().split(/\s+/g);
+        var tks = $.extend(true, [], this._last_tts_talkens);
+        if (wrds_without_pauses.length !== tks.length) {
+            if (this._dynamic_setup) {
+                this.EndDrawDynamic();
+            }
+            console.log('# words != # talkens.', wrds, tks);
+            return;
+        } else if (!this._dynamic_setup) {
+            /*var extra_split = [];
+            wrds.forEach(function(w) {
+                if (w.trim().length > 1 && w.indexOf('♦') > -1) {
+                    var str = w.split('♦');
+                    str.forEach(function(s) {
+                        extra_split.push(s);
+                    });
+                } else  extra_split.push(w);
+            });
+            wrds = extra_split;*/
+
+            var j = 0; // Repair stored transcript + add pause breaks.
+            var k = 1;
+            for(; j < tks.length && k < wrds.length; j++) {
+                var tk = tks[j];
+                var tk_next = j < tks.length-1 ? tks[j+1] : null;
+                var w = wrds[k];
+
+                console.log(tk.word, tk_next?tk_next.word:null, w);
+
+                if (w.trim() === '♦') {
+                    if (tk.pause_after > 0) {
+                        tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
+                                          new_end:tk.new_end + tk.pause_after,
+                                          word:'♦',
+                                          pause_after:0,
+                                          pause_before:0 });
+                        j++;
+                    }
+                    else if (tk_next && tk_next.pause_before > 0) {
+                        tks.splice(j, 0, { new_bgn:tk_next.new_bgn-tk_next.pause_before,
+                                          new_end:tk_next.new_bgn-0.00001,
+                                          word:'♦',
+                                          pause_after:0,
+                                          pause_before:0 });
+                        j++;
+                    }
+                    else {
+                        tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
+                                          new_end:tk.new_end + tk.pause_after,
+                                          word:'♦',
+                                          pause_after:0,
+                                          pause_before:0 });
+                        j++;
+                    }
+                }
+
+                k++;
+            }
+
+            console.log(tks)
+            this._stored_tks = tks;
+        }
+
+        /*var wrds = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
         var tks = $.extend(true, [], this._last_tts_talkens);
         if (wrds.length !== tks.length) {
             if (this._dynamic_setup) {
@@ -1617,7 +1681,9 @@
                 }
                 k++;
             }
-        }
+        }*/
+
+        tks = this._stored_tks;
 
         var $txtbox = $(this.dom_textbox);
         var curtime = r2App.cur_audio_time;
