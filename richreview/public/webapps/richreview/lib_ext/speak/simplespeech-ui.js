@@ -188,7 +188,7 @@
                     else {
                         return false;
                     }
-                }
+                 }
             };
 
             pub_pu.periodForPause = function(pos){

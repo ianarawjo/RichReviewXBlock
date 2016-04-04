@@ -243,7 +243,7 @@
 
         // audio recording initial settings
         pub.RECORDER_SAMPLE_SCALE = 2.5;
-        pub.RECORDER_BUFFER_LEN = 4096;
+        pub.RECORDER_BUFFER_LEN = 4096*2;
         pub.RECORDER_SAMPLE_RATE = 22050;
         pub.RECORDER_SOURCE_SAMPLE_RATE = 44100;
 
