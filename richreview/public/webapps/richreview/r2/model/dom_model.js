@@ -534,7 +534,9 @@
                     });
                     r2.radialMenu.addBtnCircular($rm, 'fa-trash', 'erase', function(){
                         if(r2.userGroup.cur_user.name === user.name){
-                            alert("This feature is yet to be implemented.")
+                            if(r2.removeAnnot(annot_id, true, false)){ // askuser, mute
+                                r2.localLog.event('delete', annot_id);
+                            }
                         }
                         else{
                             alert("You can only delete your own comments.")
