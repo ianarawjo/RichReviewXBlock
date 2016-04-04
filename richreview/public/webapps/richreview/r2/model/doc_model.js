@@ -1220,6 +1220,15 @@
             //}
 
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
+
+            if (r2.keyboard.modifier_key_dn) {
+                if (e.keyCode === r2.keyboard.CONST.KEY_C)
+                    r2.localLog.event('copy', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                else if (e.keyCode === r2.keyboard.CONST.KEY_X)
+                    r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                else if (e.keyCode === r2.keyboard.CONST.KEY_V)
+                    r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+            }
         }.bind(this.speak_ctrl));
 
         this.dom_textbox.addEventListener('keyup', function(e) {

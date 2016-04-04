@@ -523,7 +523,7 @@
             push(getTemplate('editedBlobURL', annotid, data));
         };
 
-        pub.baseBlobUrl = function(blob_url, base_annot_id, annotid){
+        pub.baseBlobURL = function(blob_url, base_annot_id, annotid){
             var data = blob_url;
             if(base_urls.indexOf(blob_url) === -1)
                 base_urls.push(blob_url);

@@ -234,7 +234,7 @@
         var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
                 var last_base_datum = $last[0].talken_data.data[$last[0].talken_data.data.length-1];
-                if(next_base_datum.bgn-last_base_datum.end > 0.3){
+                if(next_base_datum.bgn-last_base_datum.end > 0.03){ // 30 ms to be consistent with Newspeak.
                     return {
                         word: '\xa0',
                         data: [{
