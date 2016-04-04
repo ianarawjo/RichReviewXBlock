@@ -24,7 +24,7 @@
             idx_bgn: 0,
             idx_end: 0
         };
-        var copied_ctrl_talkens = [];
+        var copied_ctrl_talkens = null;
         var content_changed = false;
         var insert_pos = 0;
         var is_recording_and_synthesizing = false;
@@ -41,18 +41,18 @@
             // Setup event handlers
             $textbox[0].addEventListener('keyup', function(e) {
                 checkCarretPositionUpdate(e);
-                r2.localLog.event('keyup', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
+                //r2.localLog.event('keyup', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
             });
             $textbox[0].addEventListener('click', function(e) {
                 checkCarretPositionUpdate(e);
-                r2.localLog.event('click', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
+                //r2.localLog.event('click', _annotid, {'range':[carret.idx_bgn, carret.idx_end]});
             });
             $textbox[0].addEventListener('focus', function(e) {
                 checkCarretPositionUpdate(e);
-                r2.localLog.event('focus', _annotid);
+                //r2.localLog.event('focus', _annotid);
             });
             $textbox[0].addEventListener('blur', function(e) {
-                r2.localLog.event('blur', _annotid);
+                //r2.localLog.event('blur', _annotid);
             });
 
             $textbox[0].addEventListener('keydown', onKeyDown);
@@ -145,7 +145,7 @@
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
-                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url});
+                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url, all_text: getAllText()});
                     r2.localLog.blobURL(result.url, _annot_id);
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
                     return null;
@@ -255,7 +255,7 @@
             function createTalken(talken_data, is_temp){
                 var uid = r2.util.generateGuid();
                 var word;
-                if(talken_data.word){
+                if(typeof talken_data.word === 'string'){
                     word = talken_data.word;
                 }
                 else{
@@ -357,16 +357,42 @@
         }
 
         function getSelectedText() {
-            var txt = '';
+            var l = [];
             $textbox.children('span').slice(carret.idx_bgn, carret.idx_end).each(function() {
-                txt += this.base_data.word + ' ';
+                l.push(this.talken_data.word);
             });
-            return txt.trim();
+            return {
+                text: l.join(' '),
+                list: l
+            };
+        }
+        function getAllText(){
+            var l = [];
+            $textbox.children('span').each(function() {
+                l.push(this.talken_data.word);
+            });
+            return {
+                text: l.join(' '),
+                list: l
+            };
+        }
+        function getCopiedText(){
+            var l = [];
+            if(copied_ctrl_talkens){
+                copied_ctrl_talkens.each(function(){
+                    l.push(this.talken_data.word);
+                });
+            }
+
+            return {
+                text: l.join(' '),
+                list: l
+            };
         }
 
         var onKeyDown = function(e) {
             //console.log('onKeyDown');
-            r2.localLog.event('keydown', _annotid, {'key':e.keyCode, 'carret':[carret.idx_bgn, carret.idx_end]});
+            //r2.localLog.event('keydown', _annotid, {'key':e.keyCode, 'carret':[carret.idx_bgn, carret.idx_end]});
 
             var key_enable_default = [
                 r2.keyboard.CONST.KEY_LEFT,
@@ -411,9 +437,9 @@
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
                     if(carret.is_collapsed){
                         r2.localLog.event('copy-err', _annotid, {'reason':'caret is collapsed'});
-                        ;
                     }
                     else{
+                        r2.localLog.event('copy', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                         op.copy(
                             carret.idx_bgn,
                             carret.idx_end
@@ -424,10 +450,9 @@
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
                     if(carret.is_collapsed){
                         r2.localLog.event('cut-err', _annotid, {'reason':'caret is collapsed'});
-                        ;
                     }
                     else{
-                        r2.localLog.event('cut', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
+                        r2.localLog.event('cut', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                         op.copy(
                             carret.idx_bgn,
                             carret.idx_end
@@ -440,9 +465,8 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
-                    r2.localLog.event('paste', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
-
                     if(!carret.is_collapsed){
+                        r2.localLog.event('paste-remove', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'copied_text':getCopiedText()});
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end
@@ -451,17 +475,18 @@
                     op.paste(
                         carret.idx_bgn
                     );
+                    r2.localLog.event('paste', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'copied_text':getCopiedText()});
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
-                        r2.localLog.event('cmd-stop', _annotid);
+                        r2.localLog.event('cmd-stop-space', _annotid, {'input': 'key-space'});
                         r2.rich_audio.stop();
                     }
                     else if(r2App.mode === r2App.AppModeEnum.IDLE){
                         var ctrl_talkens = $textbox.children('span');
                         if(carret.idx_focus < ctrl_talkens.length){
-                            r2.localLog.event('cmd-play', _annotid);
+                            r2.localLog.event('cmd-play', _annotid, {'input': 'key-space', 'cursor_pos': carret.idx_focus});
                             pub.synthesizeAndPlay(content_changed, talkenRenderer.getRenderedTime(carret.idx_focus)).then(
                                 function(){
                                     content_changed = false;
@@ -477,22 +502,22 @@
                     }
                     else{
                         if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
-                            r2.localLog.event('cmd-voice-insertion-force-stop', _annotid);
+                            r2.localLog.event('cmd-audio-force-stop', _annotid, {'input': 'key-enter'});
                             r2.rich_audio.stop();
                         }
-                        r2.localLog.event('cmd-voice-insertion', _annotid);
+                        r2.localLog.event('cmd-insertion', _annotid, {'input': 'key-enter', 'cursor_pos': carret.idx_focus});
                         pub.insertRecording();
                     }
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_ESC) {
                     if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-                        r2.localLog.event('cmd-stop', _annotid);
+                        r2.localLog.event('cmd-stop', _annotid, {'input': 'key-esc'});
                         r2.recordingCtrl.stop(false); // to_upload = false
                     }
                     else{
                         if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
-                            r2.localLog.event('cmd-stop', _annotid);
+                            r2.localLog.event('cmd-audio-force-stop', _annotid, {'input': 'key-esc'});
                             r2.rich_audio.stop();
                         }
                     }
@@ -507,14 +532,13 @@
 
         // Events
         var onKeyPress = function(event) {
-            r2.localLog.event('keypress', _annotid, {'key': event.keyCode});
-
             if(
                 String.fromCharCode(event.which) === '.' ||
                 String.fromCharCode(event.which) === ',' ||
                 String.fromCharCode(event.which) === '?' ||
                 String.fromCharCode(event.which).match(/\w/)
             ){ //alphanumeric
+                r2.localLog.event('popup_transcription', _annotid, {'charCode': String.fromCharCode(event.which),'key': event.which});
                 if(!popupTranscription(carret.idx_bgn, carret.idx_end)){
                     event.preventDefault();
                 }
@@ -524,20 +548,22 @@
             }
         };
 
-        var popupTranscription = function(idx_bgn, idx_end, force_blank){
-            force_blank = typeof force_blank === 'undefined' ? false : true;
-            var with_blank_text = true;
+        var popupTranscription = function(idx_bgn, idx_end, force_select_all){
+            force_select_all = typeof force_select_all === 'undefined' ? false : force_select_all;
+            var select_all = true;
             if(idx_bgn === idx_end){ // when collapsed
                 idx_bgn -= 1;
-                with_blank_text = false || force_blank;
+                select_all = false || force_select_all;
+                r2.localLog.event('cmd-edit-transcript-collapsed', _annotid);
             }
             if(0 <= idx_bgn && idx_bgn < idx_end && idx_end <= $textbox.children('span').length){
-                r2.localLog.event('cmd-edit-transcript', _annotid, {'text':getSelectedText()});
+                var popup_word = getPopUpWord(idx_bgn, idx_end);
+                r2.localLog.event('cmd-edit-transcript-popup', _annotid, {'text-before': popup_word, 'range': [idx_bgn, idx_end]});
 
                 var tooltip = new r2.tooltip(
                     $textbox.parent(),
                     //with_blank_text ? '' : getPopUpWord(idx_bgn, idx_end),
-                    getPopUpWord(idx_bgn, idx_end),
+                    popup_word,
                     getPopUpPos(idx_bgn, idx_end),
                     function(text){
                         var new_base_data = getNewBaseData(idx_bgn, idx_end, text);
@@ -546,26 +572,31 @@
                             idx_end
                         );
 
-                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text':text});
+                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text-after':text});
                         insertNewTalken(new_base_data, idx_bgn, false);
                         renderViewTalkens();
                         $textbox.focus();
-                        setCarret(idx_end+1);
-                        getCarret();
-                        if(!popupTranscription(carret.idx_bgn, carret.idx_end, true)){
-                            event.preventDefault();
-                        }
-                        else{
-                            tooltip.selectAll();
+                        if(idx_bgn+1 < $textbox.children('span').length){
+                            setCarret(idx_bgn+2);
+                            getCarret();
+                            if(!popupTranscription(carret.idx_bgn, carret.idx_end, true)){
+                                event.preventDefault();
+                            }
                         }
                     },
                     function(){
+                        r2.localLog.event('cmd-edit-transcript-cancel', _annotid);
                         $textbox.focus();
                         setCarret(idx_end);
+
                     }
                 );
                 $textbox.blur();
                 tooltip.focus();
+                if(select_all){
+                    console.log('selectAll');
+                    tooltip.selectAll();
+                }
                 return true;
             }
             else{
@@ -627,7 +658,7 @@
             getCarret();
             var is_changed = !(old_anchor === carret.idx_anchor && old_focus === carret.idx_focus);
             if(is_changed){
-                r2.localLog.event('caret-change', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'text':getSelectedText()});
+                r2.localLog.event('caret-change', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                 var ctrl_talkens = $textbox.children('span');
                 if(carret.idx_focus < ctrl_talkens.length){
                     pub.movePlayHeader(talkenRenderer.getRenderedTime(carret.idx_focus));
@@ -641,7 +672,7 @@
                 return {idx_anchor:0};
             }
             var sel = window.getSelection();
-            if(sel.anchorNode.parentNode.parentNode !== $textbox[0]){ // when focused to textbox
+            if(sel.anchorNode === null || sel.anchorNode.parentNode.parentNode !== $textbox[0]){ // when focused to textbox
                 sel = setCarret(sel.anchorOffset);
             }
             carret.idx_anchor = sel.anchorOffset + $textbox.children().index($(sel.anchorNode.parentNode));
@@ -679,28 +710,29 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                r2.localLog.event('remove', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
+                r2.localLog.event('op-remove', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
                 talkenRenderer.invalidate();
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
-                r2.localLog.event('copy', _annotid, {'range':[idx_bgn, idx_end], 'text':$textbox.children().slice(idx_bgn, idx_end).text()});
+                r2.localLog.event('op-copy', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
                 talkenRenderer.invalidate();
             };
 
             pub_op.paste = function(idx){
-                r2.localLog.event('paste', _annotid, {});
-                copied_ctrl_talkens.each(
-                    function(){
-                        r2.localLog.event('pasted-elem', _annotid, {'index':idx});
-                        insertNewTalken(this.talken_data, idx, false);
-                        ++idx;
-                    }
-                );
+                r2.localLog.event('op-paste', _annotid, {'index':idx, 'copied_text':getCopiedText()});
+                if(copied_ctrl_talkens){
+                    copied_ctrl_talkens.each(
+                        function(){
+                            insertNewTalken(this.talken_data, idx, false);
+                            ++idx;
+                        }
+                    );
+                }
                 setCarret(idx);
                 content_changed = true;
                 talkenRenderer.invalidate();

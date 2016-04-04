@@ -2079,7 +2079,6 @@
             var sel = window.getSelection();
             var range = document.createRange();
             range.selectNodeContents($tooltip_input[0]);
-            range.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range);
         };
