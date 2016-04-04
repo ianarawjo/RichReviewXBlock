@@ -1753,6 +1753,9 @@
     r2.PieceSimpleSpeech.prototype.Destructor = function(){
         r2.Piece.prototype.Destructor.apply(this);
     };
+    r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
+        return this._annotid;
+    };
     r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, live_recording){
         this._annotid = annotid;
         this._username = username;

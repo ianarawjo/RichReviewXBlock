@@ -523,8 +523,8 @@
             push(getTemplate('editedBlobURL', annotid, data));
         };
 
-        pub.baseBlobURL = function(blob_url, base_annot_id, annotid){
-            var data = blob_url;
+        pub.baseBlobURL = function(blob_url, base_annot, annotid){
+            var data = {blob_url:blob_url, base_annot:base_annot};
             if(base_urls.indexOf(blob_url) === -1)
                 base_urls.push(blob_url);
             push(getTemplate('baseBlobURL', annotid, data));
@@ -2089,7 +2089,6 @@
             var sel = window.getSelection();
             var range = document.createRange();
             range.selectNodeContents($tooltip_input[0]);
-            range.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range);
         };
