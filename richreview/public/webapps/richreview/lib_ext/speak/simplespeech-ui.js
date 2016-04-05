@@ -97,6 +97,10 @@
                 var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data.data[0]);
                 if(pause_talken_datum){
                     insertNewTalken(pause_talken_datum, insert_pos++, false);
+                    punctuationUtil.periodForPause(insert_pos-2);
+                }
+                if(punctuationUtil.toCapitalize(insert_pos)){
+                    next_base_data.word = next_base_data.word.charAt(0).toUpperCase() + next_base_data.word.slice(1)
                 }
                 insertNewTalken(next_base_data, insert_pos++, false);
                 setCarret(insert_pos);
@@ -106,6 +110,7 @@
             talkenRenderer.invalidate();
         };
         pub.bgnCommenting = function(){
+            r2.localLog.event('bgn-commenting', _annotid, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
             $textbox.focus();
@@ -116,6 +121,9 @@
             insert_pos = getCarret().idx_anchor;
         };
         pub.endCommenting = function(){
+            r2.localLog.event('end-commenting', _annotid, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+            punctuationUtil.periodForEndCommenting(insert_pos-1);
+
             r2App.is_recording_or_transcribing = false;
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('old', false);
@@ -161,6 +169,55 @@
                 }
             );
         };
+
+        var punctuationUtil = (function(){
+            var pub_pu = {};
+
+            pub_pu.toCapitalize = function(pos){
+                pos -= 1;
+                while(pos >= 0 && $textbox.children('span')[pos].talken_data.word === '\xa0'){
+                    pos -= 1;
+                }
+                if(pos < 0){
+                    return true;
+                }
+                else {
+                    // check if the prior word ends with '.'
+                    var w = $textbox.children('span')[pos].talken_data.word;
+                    if (w[w.length - 1] === '.') {
+                        return true;
+                    }
+                    else {
+                        return false;
+                    }
+                 }
+            };
+
+            pub_pu.periodForPause = function(pos){
+                if(pos < 0){return;}
+                var rd = $textbox.children('span')[pos+1].talken_data.data;
+                if(rd[rd.length-1].end-rd[0].bgn > 1.0){
+                    putPeriod(pos);
+                }
+            };
+
+            pub_pu.periodForEndCommenting = function(pos){
+                if(pos < 0){return;}
+                putPeriod(pos);
+                renderViewTalkens();
+            };
+
+            pub_pu.capitalize = function(){
+            };
+
+            function putPeriod(pos){
+                var datum = $textbox.children('span')[pos].talken_data;
+                datum.word += '.';
+                replaceTalken(datum, pos);
+            }
+
+            return pub_pu;
+        }());
 
         var talkenRenderer = (function(){
             var pub_tr = {};
@@ -248,6 +305,13 @@
                     };
                 }
             }
+        };
+
+        var replaceTalken = function(talken_data, idx){
+            $textbox.children().slice(idx, idx+1).remove();
+            insertNewTalken(talken_data, idx, false);
+            talkenRenderer.invalidate();
+            setCarret(idx+1);
         };
 
         var insertNewTalken = function(talken_data, idx, is_temp){
@@ -359,22 +423,25 @@
         }
 
         function getSelectedText() {
+            getSelectedTextRange(carret.idx_bgn, carret.idx_end);
+        }
+        function getSelectedTextRange(bgn, end){
             var l = [];
-            $textbox.children('span').slice(carret.idx_bgn, carret.idx_end).each(function() {
-                l.push(this.talken_data.word);
+            $textbox.children('span').slice(bgn, end).each(function() {
+                l.push(this.talken_data);
             });
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
         function getAllText(){
             var l = [];
             $textbox.children('span').each(function() {
-                l.push(this.talken_data.word);
+                l.push(this.talken_data);
             });
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
@@ -382,12 +449,11 @@
             var l = [];
             if(copied_ctrl_talkens){
                 copied_ctrl_talkens.each(function(){
-                    l.push(this.talken_data.word);
+                    l.push(this.talken_data);
                 });
             }
-
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
@@ -423,12 +489,14 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
                     if(carret.is_collapsed){
+                        r2.localLog.event('remove-collapsed', _annotid, {'range':[carret.idx_bgn-1, carret.idx_end]});
                         op.remove(
                             carret.idx_bgn-1,
                             carret.idx_end
                         );
                     }
                     else{
+                        r2.localLog.event('remove-not-collapsed', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end
@@ -574,7 +642,7 @@
                             idx_end
                         );
 
-                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text-after':text});
+                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text-after':text, 'text-before': popup_word});
                         insertNewTalken(new_base_data, idx_bgn, false);
                         renderViewTalkens();
                         $textbox.focus();
@@ -712,14 +780,14 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                r2.localLog.event('op-remove', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
+                r2.localLog.event('op-remove', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedTextRange(idx_bgn, idx_end)}); // fixMe
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
                 talkenRenderer.invalidate();
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
-                r2.localLog.event('op-copy', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
+                r2.localLog.event('op-copy', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedTextRange(idx_bgn, idx_end)}); //fixMe
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
                 talkenRenderer.invalidate();

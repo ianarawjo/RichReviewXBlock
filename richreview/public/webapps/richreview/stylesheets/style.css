@@ -358,24 +358,27 @@ a:active {
   padding: 0;
 }
 
-.ssui-overlay > .ssui-pause {
-  background-color: rgb(220, 220, 220);
-  border: solid 0.1em rgb(220, 220, 220);
-  border-radius: 0.2em;
-}
-.ssui-overlay > .ssui-word {
+.ssui-overlay >  .ssui-viewtalken {
   background-color: rgb(220, 220, 220);
   border: solid 0.1em rgb(220, 220, 220);
   color: black;
 }
-.ssui-overlay > .ssui-word.temp,
-.ssui-overlay > .ssui-word.old{
-  background-color: rgb(250, 250, 250);
+.ssui-overlay > .ssui-viewtalken.ssui-pause {
+  border-radius: 0.2em;
+}
+.ssui-overlay >  .ssui-viewtalken.temp{
+  background-color: rgb(220, 220, 220);
   border: solid 0.1em rgb(240, 240, 240);
   color: gray;
 }
-.ssui-overlay > .ssui-pause.replay_highlight,
-.ssui-overlay > .ssui-word.replay_highlight {
+
+.ssui-overlay >  .ssui-viewtalken.old{
+  background-color: rgb(255, 255, 255);
+  border: solid 0.1em rgb(240, 240, 240);
+  color: gray;
+}
+
+.ssui-overlay >  .ssui-viewtalken.replay_highlight {
   background-color: lightsteelblue;
   border: solid 0.1em lightsteelblue;
   color: black;
