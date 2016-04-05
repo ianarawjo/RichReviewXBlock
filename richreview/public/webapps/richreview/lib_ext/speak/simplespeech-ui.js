@@ -49,10 +49,10 @@
             });
             $textbox[0].addEventListener('focus', function(e) {
                 checkCarretPositionUpdate(e);
-                //r2.localLog.event('focus', _annotid);
+                r2.localLog.event('focus', _annotid);
             });
             $textbox[0].addEventListener('blur', function(e) {
-                //r2.localLog.event('blur', _annotid);
+                r2.localLog.event('blur', _annotid);
             });
 
             $textbox[0].addEventListener('keydown', onKeyDown);

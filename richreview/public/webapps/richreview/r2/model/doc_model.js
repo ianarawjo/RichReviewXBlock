@@ -1206,17 +1206,15 @@
         var annotId = this._annotid;
         var _tb = $(this.dom_textbox);
         function getSelectionJSON() {
-            var sel = document.getSelection();
-            if (sel.rangeCount === 0) return {}; // no selection
-            var range = [sel.getRangeAt(0).startOffset, sel.getRangeAt(0).endOffset];
-            return {'selectionText':sel.toString(), 'selectionRange':range};
+            var sel = r2.speak.saveSelection(_tb[0]);
+            var range = [sel.start, sel.end];
+            return {'selectionText':(sel.start === sel.end ? '' : _tb.text().substring(sel.start, sel.end)), 'selectionRange':range};
         }
 
         this.dom_textbox.addEventListener('keydown', function(e) {
             //if (e.keyCode === 13) {
             //    this.SetAnonAudioRenderType(( this.anonAudioRenderType === 'anon' ? 'patch' : 'anon' ));
             //    e.preventDefault();
-            //} else {
             //}
 
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
@@ -1229,7 +1227,31 @@
                 else if (e.keyCode === r2.keyboard.CONST.KEY_V)
                     r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
             }
-        }.bind(this.speak_ctrl));
+
+            if (e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
+                // Insert voice recording
+                if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+
+                }
+                else{
+                    if (r2App.mode === r2App.AppModeEnum.REPLAYING) {
+                        r2.localLog.event('cmd-audio-force-stop', annotId, {'input': 'key-enter'});
+                        r2.rich_audio.stop();
+                    }
+
+                     // INSERT RECORDING
+                    r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
+                }
+                e.preventDefault();
+            }
+
+            if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+                if (e.keyCode === r2.keyboard.CONST.KEY_ESC)
+                    r2.recordingCtrl.stop();
+                e.preventDefault();
+            }
+
+        }.bind(this));
 
         this.dom_textbox.addEventListener('keyup', function(e) {
             r2.localLog.event('keyup', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
@@ -1271,8 +1293,10 @@
             r2App.cur_focused_piece_keyboard = null;
             this.dom_textbox.style.boxShadow = "none";
 
-            this.updateSpeakCtrl();
-            this.renderAudio();
+            if (r2App.mode !== r2App.AppModeEnum.RECORDING) {
+                this.updateSpeakCtrl();
+                this.renderAudio();
+            }
 
             //$(this.dom).css("pointer-events", 'none');
             $(this.dom_textbox).toggleClass('editing', false);
@@ -1363,7 +1387,8 @@
                     this._last_tts_talkens = gesynth_tks;
 
                     // Resynthesize gestures for this annotation for new TTS audio...
-                    r2.localLog.event('synth-gesture', annotId);
+                    r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+                    console.warn('gesynth ----> ',gesynth_tks);
                     r2.gestureSynthesizer.run(annotId, gesynth_tks);
 
                 }).bind(this));
@@ -1427,11 +1452,20 @@
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
-        for(i = 0; i < this._temporary_n; ++i){
-            $(this.dom_textbox).find(':last-child').remove();
-        }
 
-        r2.localLog.event('setCaptionTemporary', this._annotid, words);
+        $(this.dom_textbox).text(this.text_while_rec); // erase changes
+        //for(i = 0; i < this._temporary_n; ++i){
+        //    $(this.dom_textbox).find(':last-child').remove();
+        //}
+
+        var bckup_words = [];
+        words.forEach(function(w) { bckup_words.push(w); });
+
+        var pre_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(0, this.insert_idx) : $(this.dom_textbox).text();
+        var post_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(this.insert_idx) : '';
+
+        console.log('pre_text', pre_text);
+        console.log('post_text', post_text);
 
         var temp_texts = '';
         var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
@@ -1455,10 +1489,45 @@
 
             $span.text(w[0]+' ');
             temp_texts += $span.text();
-            $(this.dom_textbox).append($span);
+            //$(this.dom_textbox).append($span);
         }
 
-        r2.localLog.event('setCaptionTemporary', this._annotid, {'temporaryText':temp_texts,'completeText':$(this.dom_textbox).text(),'rawTranscriptResults':words});
+        // Fixes for inner insertion:
+        // - uncapitalize first capital if prev word not capitalized, and
+        // - remove period at end of results if next word starts lowercase, and
+        // - if next char is a period, remove space at end of temp_texts, and
+        // - repair space at end of pre if one doesn't exist
+        if (this.insert_idx > -1) {
+            var pre = pre_text.trim();
+            var tt = temp_texts.trim();
+            var post = post_text.trim();
+            if (pre.length > 0) {
+                if (pre.charAt(pre.length-1).indexOf('.') === -1) { // if last char is not sentence-ending punctuation...
+                    temp_texts = temp_texts.charAt(0).toLowerCase() + temp_texts.substring(1); // uncapitalized the first inserted word
+                    tt = temp_texts.trim();
+                    if (pre_text.charAt(pre_text.length-1) !== ' ') {
+                        pre_text += ' '; // add space to end of pre_text
+                    }
+                } else if (pre_text.charAt(pre_text.length-1) === '.') {
+                    pre_text += ' ';
+                }
+            }
+            if (post.length > 0 && post.charAt(0) === post.charAt(0).toLowerCase()) { // if first char of next sentence is lowercase...
+                if (tt.charAt(tt.length-1).indexOf('.') > -1) { // ...and if last char is sentence-ending punctuation, then
+                    temp_texts = tt.substring(0, tt.length-1) + ' '; // remove the punctuation
+                }
+            }
+            if (post.length > 0 && post.charAt(0) === '.')
+                temp_texts = temp_texts.trim();
+        }
+
+        console.log('temp_texts', temp_texts);
+        $(this.dom_textbox).text(pre_text + temp_texts + post_text);
+
+        var fixed_insert_idx = pre_text.length + temp_texts.length;
+        r2.speak.restoreSelection(this.dom_textbox, {'start':fixed_insert_idx, 'end':fixed_insert_idx});
+
+        r2.localLog.event('setCaptionTemporary', this._annotid, {'temporaryText':temp_texts,'completeText':$(this.dom_textbox).text(),'transcriptResultsWithPunct':words,'rawTranscriptResults':bckup_words});
 
         this._temporary_n = words.length;
         if(this.updateSizeWithTextInput()){
@@ -1467,7 +1536,6 @@
         }
     };
     r2.PieceNewSpeak.prototype.setCaptionFinal = function(words, alternatives){
-        console.log(alternatives);
 
         var i;
         var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
@@ -1475,9 +1543,19 @@
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
-        for(i = 0; i < this._temporary_n; ++i){
-            $(this.dom_textbox).find(':last-child').remove();
-        }
+
+        $(this.dom_textbox).text(this.text_while_rec);
+
+        var pre_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(0, this.insert_idx) : $(this.dom_textbox).text();
+        var post_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(this.insert_idx) : '';
+
+        //for(i = 0; i < this._temporary_n; ++i){
+        //    $(this.dom_textbox).find(':last-child').remove();
+        //}
+
+        var bckup_words = [];
+        words.forEach(function(w) { bckup_words.push(w); });
+        console.log(' >>>> begin setCaptionFinal with words: ', bckup_words);
 
         words[0][0] = capitalize(words[0][0]); // capitalize first word of transcription
 
@@ -1501,11 +1579,55 @@
             $span.text(w[0]+' ');
             temp_texts += $span.text();
 
-            $(this.dom_textbox).text($(this.dom_textbox).text() + $span.text()); // append text
             //$(this.dom_textbox).append($span);
         }
 
-        r2.localLog.event('setCaptionFinal', this._annotid, {'finalText':temp_texts,'completeText':$(this.dom_textbox).text(),'rawTranscriptResults':words, 'rawTranscriptAlts':alternatives});
+        temp_texts = temp_texts.trim();
+
+        // Fixes for inner insertion:
+        // - uncapitalize first capital if prev word not capitalized, and
+        // - remove period at end of results if next word starts lowercase, and
+        // - if next char is a period, remove space at end of temp_texts, and
+        // - repair space at end of pre if one doesn't exist
+        if (this.insert_idx > -1) {
+            var pre = pre_text.trim();
+            var tt = temp_texts.trim();
+            var post = post_text.trim();
+            if (pre.length > 0) {
+                if (pre.charAt(pre.length-1).indexOf('.') === -1) { // if last char is not sentence-ending punctuation...
+                    temp_texts = temp_texts.charAt(0).toLowerCase() + temp_texts.substring(1); // uncapitalized the first inserted word
+                    tt = temp_texts.trim();
+                    if (pre_text.charAt(pre_text.length-1) !== ' ') {
+                        pre_text += ' '; // add space to end of pre_text
+                    }
+                } else if (pre_text.charAt(pre_text.length-1) === '.') {
+                    pre_text += ' ';
+                }
+            }
+            if (post.length > 0 && post.charAt(0) === post.charAt(0).toLowerCase()) { // if first char of next sentence is lowercase...
+                if (tt.charAt(tt.length-1).indexOf('.') > -1) { // ...and if last char is sentence-ending punctuation, then
+                    temp_texts = tt.substring(0, tt.length-1) + ' '; // remove the punctuation
+                }
+            }
+            if (post.length > 0 && post.charAt(0) === '.')
+                temp_texts = temp_texts.trim();
+        }
+
+        console.log(' >>>> temp_texts is ', temp_texts, 'words is ', words);
+        var m = 0;
+        temp_texts.trim().split(/\s+/g).forEach(function(w) {
+            if (w.indexOf('♦') === -1) {
+                words[m][0] = w; // repair words to match fixed transcript
+                m++;
+            }
+        });
+        $(this.dom_textbox).text(pre_text + temp_texts + post_text); // append text
+        this.text_while_rec = $(this.dom_textbox).text();
+        this.insert_idx = pre_text.length + temp_texts.length;
+        this.word_insert_idx = pre_text.split(/\s+/g).length-1;
+        r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+
+        r2.localLog.event('setCaptionFinal', this._annotid, {'finalText':temp_texts,'completeText':$(this.dom_textbox).text(),'transcriptResultsWithPunct':words,'rawTranscriptResults':bckup_words, 'rawTranscriptAlts':alternatives});
 
         if (!this._last_words)
             this._last_words = words;
@@ -1518,9 +1640,8 @@
 
         if (this._last_audio_url) { // Microphone audio finished processing before Watson did, so we insert voice now --
 
-            this.appendVoice(words, this.annotids[0]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
-            r2.localLog.event('appendVoice', this._annotid, {'words':words, 'url':this._last_audio_url});
-            r2.localLog.baseBlobURL(this._last_audio_url);
+            this.insertVoice(this.insert_word_idx_before_rec, words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+            r2.localLog.event('appendVoice', this.annotids[this.annotids.length-1], {'words':words, 'url':this._last_audio_url});
 
             this._last_words = null;
             this._last_audio_url = null;
@@ -1535,6 +1656,21 @@
     r2.PieceNewSpeak.prototype.bgnCommenting = function(recording_annot_id){
         r2App.annots[recording_annot_id].setIsBaseAnnot();
         this.annotids.push(recording_annot_id);
+        this.text_before_rec = $(this.dom_textbox).text();
+        this.text_while_rec = this.text_before_rec;
+        this.insert_word_idx_before_rec = 0;
+
+        // Save the cursor position, flatten the div, and then restore it.
+        if ($(this.dom_textbox).text().length > 0) {
+            var cur = r2.speak.saveSelection(this.dom_textbox);
+            $(this.dom_textbox).text($(this.dom_textbox).text()); // strange but true
+            r2.speak.restoreSelection(this.dom_textbox, cur); // hope this works!
+            this.insert_idx = r2.speak.saveSelection(this.dom_textbox).start; // simplified range...
+            this.insert_word_idx_before_rec = this.text_before_rec.substring(0, this.insert_idx).split(/\s+/g).length - 1;
+            console.log('Recorded cursor range: ', this.insert_range);
+
+            r2.localLog.event('cmd-insertion', this._annotid, {'input': 'key-enter', 'cursor_pos': this.insert_range});
+        } else this.insert_idx = -1;
     };
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
@@ -1543,9 +1679,8 @@
 
             this._last_audio_url = audioURL;
 
-            this.insertVoice(this._last_words, this.annotids[0]);
-            r2.localLog.event('insertVoice', this._annotid, {'words':this._last_words, 'url':audioURL});
-            r2.localLog.baseBlobURL(audioURL);
+            this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
+            r2.localLog.event('insertVoice', this.annotids[this.annotids.length-1], {'words':this._last_words, 'url':audioURL});
 
             this._last_words = null;
         }
@@ -1560,12 +1695,16 @@
         // DEBUG
         //r2.localLog.download();
     };
-    r2.PieceNewSpeak.prototype.insertVoice = function(words, annotId) {
-        this.speak_ctrl.insertVoice(0, words, annotId); // for now
+    r2.PieceNewSpeak.prototype.insertVoice = function(idx, words, annotId) {
+        if (words.length === 0) return;
+        console.warn('insertVoice with idx', idx, words);
+        if (idx > 0) this.speak_ctrl.flatten(); // edited becomes base
+        this.speak_ctrl.insertVoice(idx, words, annotId); // for now
         this.updateSpeakCtrl();
         this.renderAudio();
     };
     r2.PieceNewSpeak.prototype.appendVoice = function(words, annotId) {
+        if (words.length === 0) return;
         this.speak_ctrl.appendVoice(words, annotId); // for now
         this.updateSpeakCtrl();
         this.renderAudio();
@@ -1578,7 +1717,7 @@
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
         // disable for now
-        if (true && this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
+        if (true || this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
             return;
         }
