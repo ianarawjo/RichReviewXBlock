@@ -428,20 +428,20 @@
         function getSelectedTextRange(bgn, end){
             var l = [];
             $textbox.children('span').slice(bgn, end).each(function() {
-                l.push(this.talken_data.word);
+                l.push(this.talken_data);
             });
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
         function getAllText(){
             var l = [];
             $textbox.children('span').each(function() {
-                l.push(this.talken_data.word);
+                l.push(this.talken_data);
             });
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
@@ -449,12 +449,11 @@
             var l = [];
             if(copied_ctrl_talkens){
                 copied_ctrl_talkens.each(function(){
-                    l.push(this.talken_data.word);
+                    l.push(this.talken_data);
                 });
             }
-
             return {
-                text: l.join(' '),
+                text: l.map(function(datum){return datum.word;}).join(' '),
                 list: l
             };
         }
