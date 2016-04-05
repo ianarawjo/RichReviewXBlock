@@ -110,6 +110,7 @@
             talkenRenderer.invalidate();
         };
         pub.bgnCommenting = function(){
+            r2.localLog.event('bgn-commenting', _annotid, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
             $textbox.focus();
@@ -120,6 +121,7 @@
             insert_pos = getCarret().idx_anchor;
         };
         pub.endCommenting = function(){
+            r2.localLog.event('end-commenting', _annotid, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
             punctuationUtil.periodForEndCommenting(insert_pos-1);
 
             r2App.is_recording_or_transcribing = false;
@@ -421,8 +423,11 @@
         }
 
         function getSelectedText() {
+            getSelectedTextRange(carret.idx_bgn, carret.idx_end);
+        }
+        function getSelectedTextRange(bgn, end){
             var l = [];
-            $textbox.children('span').slice(carret.idx_bgn, carret.idx_end).each(function() {
+            $textbox.children('span').slice(bgn, end).each(function() {
                 l.push(this.talken_data.word);
             });
             return {
@@ -485,12 +490,14 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
                     if(carret.is_collapsed){
+                        r2.localLog.event('remove-collapsed', _annotid, {'range':[carret.idx_bgn-1, carret.idx_end]});
                         op.remove(
                             carret.idx_bgn-1,
                             carret.idx_end
                         );
                     }
                     else{
+                        r2.localLog.event('remove-not-collapsed', _annotid, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end
@@ -636,7 +643,7 @@
                             idx_end
                         );
 
-                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text-after':text});
+                        r2.localLog.event('cmd-edit-transcript-done', _annotid, {'text-after':text, 'text-before': popup_word});
                         insertNewTalken(new_base_data, idx_bgn, false);
                         renderViewTalkens();
                         $textbox.focus();
@@ -774,14 +781,14 @@
             var pub_op = {};
 
             pub_op.remove = function(idx_bgn, idx_end){ // remove [idx_bgn,idx_end), note that 'idx_end' item is not included
-                r2.localLog.event('op-remove', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
+                r2.localLog.event('op-remove', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedTextRange(idx_bgn, idx_end)}); // fixMe
                 $textbox.children().slice(idx_bgn, idx_end).remove();
                 content_changed = true;
                 talkenRenderer.invalidate();
             };
 
             pub_op.copy = function(idx_bgn, idx_end){
-                r2.localLog.event('op-copy', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedText()});
+                r2.localLog.event('op-copy', _annotid, {'range':[idx_bgn, idx_end], 'selected_text':getSelectedTextRange(idx_bgn, idx_end)}); //fixMe
                 copied_ctrl_talkens = $textbox.children().slice(idx_bgn, idx_end);
                 content_changed = true;
                 talkenRenderer.invalidate();
