@@ -1219,15 +1219,6 @@
 
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
 
-            if (r2.keyboard.modifier_key_dn) {
-                if (e.keyCode === r2.keyboard.CONST.KEY_C)
-                    r2.localLog.event('copy', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
-                else if (e.keyCode === r2.keyboard.CONST.KEY_X)
-                    r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
-                else if (e.keyCode === r2.keyboard.CONST.KEY_V)
-                    r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
-            }
-
             if (e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
                 // Insert voice recording
                 if (r2App.mode === r2App.AppModeEnum.RECORDING) {
@@ -1240,15 +1231,26 @@
                     }
 
                      // INSERT RECORDING
+                    r2.localLog.event('cmd-audio-insert', annotId, {'input': 'key-enter'});
                     r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
                 }
                 e.preventDefault();
             }
-
-            if (r2App.mode === r2App.AppModeEnum.RECORDING) {
-                if (e.keyCode === r2.keyboard.CONST.KEY_ESC)
-                    r2.recordingCtrl.stop();
+            else if (this.isWaitingForWatson()) {
                 e.preventDefault();
+            }
+            else if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+                r2.recordingCtrl.stop(); // stop recording if any key other is hit while recording
+                e.preventDefault();
+            } else {
+                if (r2.keyboard.modifier_key_dn) {
+                    if (e.keyCode === r2.keyboard.CONST.KEY_C)
+                        r2.localLog.event('copy', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_X)
+                        r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_V)
+                        r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                }
             }
 
         }.bind(this));
@@ -1327,11 +1329,15 @@
         // }); // NOTE: This assumes all talkens have the same audio.
         // r2.annotSynthesizer.run([annotid], tks);
     };
+    r2.PieceNewSpeak.prototype.isWaitingForWatson = function() {
+        return this._waiting_for_watson;
+    };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
 
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
+            this._last_tts_talkens = null;
             var edited_talkens = this.speak_ctrl.getCompiledTalkens();
             this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
 
@@ -1524,8 +1530,10 @@
         console.log('temp_texts', temp_texts);
         $(this.dom_textbox).text(pre_text + temp_texts + post_text);
 
+        var blurred = !$(this.dom_textbox).is(':focus');
         var fixed_insert_idx = pre_text.length + temp_texts.length;
         r2.speak.restoreSelection(this.dom_textbox, {'start':fixed_insert_idx, 'end':fixed_insert_idx});
+        if (blurred) $(this.dom_textbox).blur();
 
         r2.localLog.event('setCaptionTemporary', this._annotid, {'temporaryText':temp_texts,'completeText':$(this.dom_textbox).text(),'transcriptResultsWithPunct':words,'rawTranscriptResults':bckup_words});
 
@@ -1625,7 +1633,9 @@
         this.text_while_rec = $(this.dom_textbox).text();
         this.insert_idx = pre_text.length + temp_texts.length;
         this.word_insert_idx = pre_text.split(/\s+/g).length-1;
+        var blurred = !$(this.dom_textbox).is(':focus');
         r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+        if (blurred) $(this.dom_textbox).blur();
 
         r2.localLog.event('setCaptionFinal', this._annotid, {'finalText':temp_texts,'completeText':$(this.dom_textbox).text(),'transcriptResultsWithPunct':words,'rawTranscriptResults':bckup_words, 'rawTranscriptAlts':alternatives});
 
@@ -1645,6 +1655,7 @@
 
             this._last_words = null;
             this._last_audio_url = null;
+            this._waiting_for_watson = false;
         }
 
         this._temporary_n = 0;
@@ -1689,6 +1700,7 @@
             // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
             // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
             this._last_audio_url = audioURL;
+            this._waiting_for_watson = true;
 
         }
 
@@ -1717,7 +1729,7 @@
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
         // disable for now
-        if (true || this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
+        if (this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
             return;
         }
@@ -1729,9 +1741,36 @@
             if (this._dynamic_setup) {
                 this.EndDrawDynamic();
             }
-            console.log('# words != # talkens.', wrds, tks);
+            console.log('# words != # talkens.', wrds.length, tks.length);
             return;
         } else if (!this._dynamic_setup) {
+
+            // Returns an array with all occurences of 'matchstr' in string array 'strarr'
+            // merged into the string immediately to the left and separated by 'separator'.
+            function mergeLeft(strarr, matchstr, separator) {
+                var i;
+                for (i = 0; i < strarr.length; i++) {
+                    var s = strarr[i];
+                    if (s === matchstr) {
+                        if (i > 0) strarr[i-1] += separator + matchstr; // mergeleft
+                        strarr.splice(i, 1); // remove matched element
+                        i--;
+                    }
+                }
+            }
+            mergeLeft(wrds, '♦', ' ');
+
+            if (wrds.length !== tks.length) {
+                console.warn('After mergeLeft of ♦s, # words still != # talkens.');
+                return;
+            }
+
+            var n; // Mirror changes in talken words.
+            for(n = 0; n < wrds.length; n++) {
+                tks[n].word = wrds[n];
+            }
+            this._stored_tks = tks;
+
             /*var extra_split = [];
             wrds.forEach(function(w) {
                 if (w.trim().length > 1 && w.indexOf('♦') > -1) {
@@ -1743,47 +1782,47 @@
             });
             wrds = extra_split;*/
 
-            var j = 0; // Repair stored transcript + add pause breaks.
-            var k = 1;
-            for(; j < tks.length && k < wrds.length; j++) {
-                var tk = tks[j];
-                var tk_next = j < tks.length-1 ? tks[j+1] : null;
-                var w = wrds[k];
-
-                console.log(tk.word, tk_next?tk_next.word:null, w);
-
-                if (w.trim() === '♦') {
-                    if (tk.pause_after > 0) {
-                        tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
-                                          new_end:tk.new_end + tk.pause_after,
-                                          word:'♦',
-                                          pause_after:0,
-                                          pause_before:0 });
-                        j++;
-                    }
-                    else if (tk_next && tk_next.pause_before > 0) {
-                        tks.splice(j, 0, { new_bgn:tk_next.new_bgn-tk_next.pause_before,
-                                          new_end:tk_next.new_bgn-0.00001,
-                                          word:'♦',
-                                          pause_after:0,
-                                          pause_before:0 });
-                        j++;
-                    }
-                    else {
-                        tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
-                                          new_end:tk.new_end + tk.pause_after,
-                                          word:'♦',
-                                          pause_after:0,
-                                          pause_before:0 });
-                        j++;
-                    }
-                }
-
-                k++;
-            }
-
-            console.log(tks)
-            this._stored_tks = tks;
+            // var j = 0; // Repair stored transcript + add pause breaks.
+            // var k = 1;
+            // for(; j < tks.length && k < wrds.length; j++) {
+            //     var tk = tks[j];
+            //     var tk_next = j < tks.length-1 ? tks[j+1] : null;
+            //     var w = wrds[k];
+            //
+            //     console.log(tk.word, tk_next?tk_next.word:null, w);
+            //
+            //     if (w.trim() === '♦') {
+            //         if (tk.pause_after > 0) {
+            //             tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
+            //                               new_end:tk.new_end + tk.pause_after,
+            //                               word:'♦',
+            //                               pause_after:0,
+            //                               pause_before:0 });
+            //             j++;
+            //         }
+            //         else if (tk_next && tk_next.pause_before > 0) {
+            //             tks.splice(j, 0, { new_bgn:tk_next.new_bgn-tk_next.pause_before,
+            //                               new_end:tk_next.new_bgn-0.00001,
+            //                               word:'♦',
+            //                               pause_after:0,
+            //                               pause_before:0 });
+            //             j++;
+            //         }
+            //         else {
+            //             tks.splice(j+1, 0, { new_bgn:tk.new_end+0.00001,
+            //                               new_end:tk.new_end + tk.pause_after,
+            //                               word:'♦',
+            //                               pause_after:0,
+            //                               pause_before:0 });
+            //             j++;
+            //         }
+            //     }
+            //
+            //     k++;
+            // }
+            //
+            // console.log(tks)
+            // this._stored_tks = tks;
         }
 
         /*var wrds = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
@@ -1898,6 +1937,7 @@
     r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, live_recording){
         this._annotid = annotid;
         this._username = username;
+        this._waiting_for_watson = false;
 
         var dom = this.CreateDom();
 
