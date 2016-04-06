@@ -36,6 +36,10 @@
         pub.bgn_streaming = null;
         pub.end_streaming = null;
 
+        pub.isContentChanged = function(){
+            return content_changed;
+        };
+
         // Init
         var _init = function() {
             // Setup event handlers
@@ -161,7 +165,12 @@
             ).then(
                 function(){
                     r2.localLog.event('synth-gesture', _annot_id);
-                    r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture());
+                    r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture()).then(
+                        function(){
+                            r2.localLog.event('end-synthesis', _annotid, {'annot': r2App.annots[_annotid]}); // fixMe
+                            return null;
+                        }
+                    );;
                     is_recording_and_synthesizing = false;
                     content_changed = false;
                     pub.end_streaming();
