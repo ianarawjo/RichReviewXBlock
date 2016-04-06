@@ -1656,6 +1656,9 @@
             this._last_words = null;
             this._last_audio_url = null;
             this._waiting_for_watson = false;
+
+            $(this.dom_textbox).focus(); // return user to selection
+            r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
         }
 
         this._temporary_n = 0;
@@ -1694,6 +1697,10 @@
             r2.localLog.event('insertVoice', this.annotids[this.annotids.length-1], {'words':this._last_words, 'url':audioURL});
 
             this._last_words = null;
+            this._waiting_for_watson = false;
+
+            r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+            $(this.dom_textbox).focus();
         }
         else {
 
