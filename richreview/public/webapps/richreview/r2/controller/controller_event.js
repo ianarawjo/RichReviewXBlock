@@ -25,7 +25,7 @@ var r2Ctrl = {};
 
             mode = InputMode.DESKTOP;
             $('#btn-input-set-mode-desktop').toggleClass('btn-primary', true);
-            r2.mouse.rightClickContextMenu.enable();
+            r2.mouse.rightClickContextMenu.disable();
             r2.mouse.setEventHandlers();
         };
         pub.setModeTabletTouch = function(){
@@ -576,7 +576,7 @@ var r2Ctrl = {};
                         r2.spotlightCtrl.recordingSpotlightMv(r2.viewCtrl.mapScrToDoc(new_mouse_pt), r2App.annot_private_spotlight);
                     }
                     else{
-                        r2.onScreenButtons.mouseMv(pos_dn, new_mouse_pt);
+                        //r2.onScreenButtons.mouseMv(pos_dn, new_mouse_pt);
                     }
                 }
                 else if(r2App.mode == r2App.AppModeEnum.RECORDING){
@@ -610,7 +610,7 @@ var r2Ctrl = {};
                     r2.spotlightCtrl.recordingSpotlightUp(r2.viewCtrl.mapScrToDoc(new_mouse_pt), r2App.cur_recording_annot);
                 }
 
-                r2.onScreenButtons.mouseUp();
+                //r2.onScreenButtons.mouseUp();
                 pub.mode = r2.MouseModeEnum.HOVER;
             }
             else if(pub.mode == r2.MouseModeEnum.RDN){
