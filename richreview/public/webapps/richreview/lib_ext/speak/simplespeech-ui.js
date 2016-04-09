@@ -123,9 +123,16 @@
                 $(this).toggleClass('old', true);
             });
             insert_pos = getCarret().idx_anchor;
+            insertRecordingIndicator(insert_pos++, false);
+            renderViewTalkens();
         };
         pub.endCommenting = function(){
             r2.localLog.event('end-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+
+            $overlay.find('.ssui-recording-indicator-talken').remove();
+            $textbox.find('.ssui-recording-indicator-talken').remove();
+            insert_pos-=1;
+            renderViewTalkens();
             punctuationUtil.periodForEndCommenting(insert_pos-1);
 
             r2App.is_recording_or_transcribing = false;
@@ -374,6 +381,61 @@
                 $ct.text('\xa0');
 
                 $ct[0].talken_data = talken_data;
+                $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
+                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+                $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
+                $ct.attr('uid', uid);
+
+                return $ct;
+            }
+        };
+
+        var insertRecordingIndicator = function(idx){
+
+            var indicator_character = '@';
+            r2.util.jqueryInsert($textbox, createTalken(), idx);
+
+            function createTalken(){
+                var uid = r2.util.generateGuid();
+                var word = indicator_character;
+
+                var $vt = newViewTalken(uid, word);
+                $overlay.append($vt);
+                var $ct = newCtrlTalken($vt, uid);
+                return $ct;
+            }
+
+            function newViewTalken(uid, word) {
+                var $vt = $(document.createElement('div'));
+                $vt.addClass('ssui-viewtalken');
+                $vt.addClass('ssui-recording-indicator-talken');
+                $vt.attr('uid', uid);
+
+                var $vt_span = $(document.createElement('span'));
+                $vt_span.addClass('ssui-viewtalken-span');
+                $vt_span.text(word);
+                $vt.append($vt_span);
+                $vt.addClass('ssui-recording-indicator');
+                $vt.addClass('blink_me');
+                return $vt;
+            }
+
+            function newCtrlTalken ($vt, uid) {
+                var $ct = $(document.createElement('span'));
+                $ct.addClass('ssui-ctrltalken');
+                $ct.addClass('ssui-recording-indicator-talken');
+
+                $ct.text('\xa0');
+
+                $ct[0].talken_data = {
+                    word: indicator_character,
+                    data: [{
+                        word: indicator_character,
+                        bgn: 0,
+                        end: 0,
+                        annotid: _annotid
+                    }]
+                };
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
                 $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
