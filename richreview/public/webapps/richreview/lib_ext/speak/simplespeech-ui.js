@@ -83,7 +83,7 @@
         };
         function flushBaseDataBuf(){
             base_data_buf.forEach(function(datum){
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), datum.data[0]);
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old-recording)').last(), datum.data[0]);
                 if(pause_talken_datum){
                     insertNewTalken(pause_talken_datum, insert_pos++, false, true); // is_temp = false, is_fresh = true
                     punctuationUtil.periodForPause(insert_pos-2);
@@ -108,6 +108,7 @@
             $textbox.children('span').each(function(idx) {
                 this.$vt.toggleClass('fresh-recording', false);
                 $(this).toggleClass('fresh-recording', false);
+                $(this).toggleClass('old-recording', true);
             });
 
             insert_pos = getCarret().idx_anchor;
@@ -124,6 +125,10 @@
             flushBaseDataBuf();
 
             punctuationUtil.periodForEndCommenting(insert_pos-1);
+
+            $textbox.children('span').each(function(idx) {
+                $(this).toggleClass('old-recording', false);
+            });
 
             r2App.is_recording_or_transcribing = false;
         };
@@ -362,6 +367,7 @@
             }
 
             function newCtrlTalken ($vt, uid) {
+                var CTRL_TKN_MARGIN = 0.1;
                 var $ct = $(document.createElement('span'));
                 $ct.addClass('ssui-ctrltalken');
                 $ct.text('\xa0');
@@ -369,12 +375,37 @@
                 $ct[0].talken_data = talken_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
                 $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
-                $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
+                $ct.css('letter-spacing',
+                    (transferPx2EmNumeric($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
                 $ct.attr('uid', uid);
 
                 return $ct;
             }
         };
+
+        var spaceWidth = (function(){
+            var pub_sw = {};
+
+            var w = -1; // in em.
+
+            pub_sw.get = function(){
+                if(w < 0){
+                    init();
+                }
+                return w;
+            };
+
+            function init(){
+                var $ct = $(document.createElement('span'));
+                $ct.addClass('ssui-ctrltalken');
+                $ct.text('\xa0');
+                $textbox.append($ct);
+                w = transferPx2EmNumeric($ct[0].getBoundingClientRect().width, r2Const.SIMPLESPEECH_FONT_SIZE);
+                $ct.remove();
+            }
+
+            return pub_sw;
+        }());
 
         var insertRecordingIndicator = function(idx){
 
@@ -476,7 +507,11 @@
         };
 
         function transferPx2Em(px, this_font_size){
-            return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size+'em';
+            return transferPx2EmNumeric(px, this_font_size) + 'em';
+        }
+
+        function transferPx2EmNumeric(px, this_font_size){
+            return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size;
         }
 
         function getSelectedText() {
