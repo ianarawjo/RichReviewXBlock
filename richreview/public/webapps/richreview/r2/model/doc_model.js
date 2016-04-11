@@ -1144,6 +1144,7 @@
     r2.PieceNewSpeak.prototype.SetPieceNewSpeak = function(anchor_pid, annotid, username, inner_html, live_recording){
         this._annotid = annotid;
         this._username = username;
+        this.RENDER_AUDIO_IMMEDIATELY = true;
 
         var dom = this.CreateDom();
 
@@ -1659,6 +1660,9 @@
 
             $(this.dom_textbox).focus(); // return user to selection
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+
+            if (this.RENDER_AUDIO_IMMEDIATELY)
+                this.renderAudio();
         }
 
         this._temporary_n = 0;
@@ -1701,6 +1705,9 @@
 
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
             $(this.dom_textbox).focus();
+
+            if (this.RENDER_AUDIO_IMMEDIATELY)
+                this.renderAudio();
         }
         else {
 
