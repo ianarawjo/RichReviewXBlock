@@ -2015,7 +2015,7 @@
         this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
-        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, this._annotid);
+        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, this._annotid, this.annotids);
 
         /* add event handlers*/
         this.simplespeech.on_input = function() {
@@ -2042,13 +2042,6 @@
                     resolve();
                 }
             }.bind(this));
-        }.bind(this);
-
-        this.simplespeech.movePlayHeader = function(time){
-            if(r2App.mode === r2App.AppModeEnum.IDLE){
-                r2.rich_audio.jump(this._annotid, time);
-                r2App.invalidate_dynamic_scene = true;
-            }
         }.bind(this);
 
         this.simplespeech.insertRecording = function(){

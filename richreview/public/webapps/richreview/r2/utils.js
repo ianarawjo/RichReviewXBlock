@@ -351,5 +351,20 @@
         return pub;
     }());
 
+    r2.jquerySpecialEvents = (function(){
+        /*
+        * mtkopone's answer from SO: http://stackoverflow.com/questions/2200494
+        * $(<dom>).bind('destroyed', function(){});
+        */
+        (function($){
+            $.event.special.destroyed = {
+                remove: function(o) {
+                    if (o.handler) {
+                        o.handler()
+                    }
+                }
+            }
+        })(jQuery);
+    }());
 
 }(window.r2 = window.r2 || {}));

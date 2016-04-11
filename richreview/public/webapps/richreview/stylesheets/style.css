@@ -366,22 +366,36 @@ a:active {
 .ssui-overlay > .ssui-viewtalken.ssui-pause {
   border-radius: 0.2em;
 }
-.ssui-overlay >  .ssui-viewtalken.temp{
+.ssui-overlay > .ssui-viewtalken.temp{
   background-color: rgb(220, 220, 220);
   border: solid 0.1em rgb(240, 240, 240);
   color: gray;
 }
 
-.ssui-overlay >  .ssui-viewtalken.old{
+.ssui-overlay > .ssui-viewtalken.old{
   background-color: rgb(255, 255, 255);
   border: solid 0.1em rgb(240, 240, 240);
   color: gray;
 }
 
-.ssui-overlay >  .ssui-viewtalken.replay_highlight {
+.ssui-overlay > .ssui-viewtalken.replay_highlight {
   background-color: lightsteelblue;
   border: solid 0.1em lightsteelblue;
   color: black;
+}
+
+.ssui-overlay > .ssui-viewtalken.ssui-recording-indicator {
+  background-color: rgba(205, 92, 92, 0.85);
+  color: transparent;
+  border: solid 0.1em rgb(205, 92, 92);
+  border-radius: 0.75em;
+}
+
+.blink_me {
+  animation: blinker 1.5s linear infinite;
+}
+@keyframes blinker {
+  50% { opacity: 0.5; }
 }
 
 

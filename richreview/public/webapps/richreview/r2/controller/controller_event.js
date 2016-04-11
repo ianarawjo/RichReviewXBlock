@@ -751,9 +751,15 @@ var r2Ctrl = {};
             pub_ph.setBtn = function(dom_btn){
                 dom_btn.addEventListener('focus', function(){
                     mode = r2.KeyboardModeEnum.ON_BTN;
+                    console.log('mode = r2.KeyboardModeEnum.ON_BTN');
                 });
                 dom_btn.addEventListener('blur', function(){
                     mode = r2.KeyboardModeEnum.NORMAL;
+                    console.log('mode = r2.KeyboardModeEnum.NORMAL');
+                });
+                $(dom_btn).bind('destroyed', function(){
+                    mode = r2.KeyboardModeEnum.NORMAL;
+                    console.log('mode = r2.KeyboardModeEnum.NORMAL');
                 });
             };
             pub_ph.setToolTip = function(dom_btn){

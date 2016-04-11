@@ -569,7 +569,7 @@
         }
 
         function push(loginfo) {
-            //console.log('r2.localLog: ', loginfo);
+            console.log('r2.localLog: ', loginfo);
             q.push(loginfo);
         }
 
