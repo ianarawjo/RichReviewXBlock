@@ -30,6 +30,7 @@
         var is_recording_and_synthesizing = false;
         var annotid_copy = _annotid; // The r2.Annot id of the SimpleSpeech piece. This is a copy from the piece's this._annotid.
         var annotids_copy = _annotids; // The list ([]) of r2.Annot ids for the base recordings. This is a copy from the piece's this._annotids.
+        var base_data_buf = [];
 
         // Listener callbacks
         pub.on_input = null;
@@ -64,30 +65,9 @@
         };
 
         pub.setCaptionTemporary = function(words, annotid){
-            removeTempTalkens();
-            words.forEach(function(data){
-                var next_base_data = {
-                    word: data[0],
-                    data: [{
-                        word: data[0],
-                        bgn: data[1],
-                        end: data[2],
-                        annotid: annotid
-                    }]
-                };
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data.data[0]);
-                if(pause_talken_datum){
-                    insertNewTalken(pause_talken_datum, insert_pos++, true);
-                }
-
-                insertNewTalken(next_base_data, insert_pos++, true);
-            });
-            renderViewTalkens();
-            content_changed = true;
-            talkenRenderer.invalidate();
+            ;
         };
         pub.setCaptionFinal = function(words, annotid){
-            removeTempTalkens();
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
@@ -98,30 +78,38 @@
                         annotid: annotid
                     }]
                 };
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), next_base_data.data[0]);
+                base_data_buf.push(next_base_data);
+            });
+        };
+        function flushBaseDataBuf(){
+            base_data_buf.forEach(function(datum){
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old)').last(), datum.data[0]);
                 if(pause_talken_datum){
-                    insertNewTalken(pause_talken_datum, insert_pos++, false);
+                    insertNewTalken(pause_talken_datum, insert_pos++, false, true); // is_temp = false, is_fresh = true
                     punctuationUtil.periodForPause(insert_pos-2);
                 }
                 if(punctuationUtil.toCapitalize(insert_pos)){
-                    next_base_data.word = next_base_data.word.charAt(0).toUpperCase() + next_base_data.word.slice(1)
+                    datum.word = datum.word.charAt(0).toUpperCase() + datum.word.slice(1)
                 }
-                insertNewTalken(next_base_data, insert_pos++, false);
+                insertNewTalken(datum, insert_pos++, false, true); // is_temp = false, is_fresh = true
                 setCarret(insert_pos);
             });
+            base_data_buf = [];
             renderViewTalkens();
             content_changed = true;
             talkenRenderer.invalidate();
-        };
+        }
         pub.bgnCommenting = function(){
             r2.localLog.event('bgn-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
             $textbox.focus();
+
             $textbox.children('span').each(function(idx) {
-                this.$vt.toggleClass('old', true);
-                $(this).toggleClass('old', true);
+                this.$vt.toggleClass('fresh-recording', false);
+                $(this).toggleClass('fresh-recording', false);
             });
+
             insert_pos = getCarret().idx_anchor;
             insertRecordingIndicator(insert_pos++, false);
             renderViewTalkens();
@@ -132,14 +120,12 @@
             $overlay.find('.ssui-recording-indicator-talken').remove();
             $textbox.find('.ssui-recording-indicator-talken').remove();
             insert_pos-=1;
-            renderViewTalkens();
+
+            flushBaseDataBuf();
+
             punctuationUtil.periodForEndCommenting(insert_pos-1);
 
             r2App.is_recording_or_transcribing = false;
-            $textbox.children('span').each(function(idx) {
-                this.$vt.toggleClass('old', false);
-                $(this).toggleClass('old', false);
-            });
         };
 
         pub.drawDynamic = function(duration){
@@ -300,12 +286,6 @@
             return pub_tr;
         }());
 
-        var removeTempTalkens = function(){
-            $overlay.find('.temp').remove();
-            insert_pos-=$textbox.find('.temp').length;
-            $textbox.find('.temp').remove();
-        };
-
         var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
                 var last_base_datum = $last[0].talken_data.data[$last[0].talken_data.data.length-1];
@@ -324,13 +304,15 @@
         };
 
         var replaceTalken = function(talken_data, idx){
+            var was_fresh = $($textbox.children()[idx]).hasClass('fresh-recording');
             $textbox.children().slice(idx, idx+1).remove();
-            insertNewTalken(talken_data, idx, false);
+            insertNewTalken(talken_data, idx, false, was_fresh);
             talkenRenderer.invalidate();
             setCarret(idx+1);
         };
 
-        var insertNewTalken = function(talken_data, idx, is_temp){
+        var insertNewTalken = function(talken_data, idx, is_temp, is_fresh){
+            is_fresh = typeof is_fresh === 'undefined' ? false : is_fresh; // default false
 
             r2.util.jqueryInsert($textbox, createTalken(talken_data, is_temp), idx);
 
@@ -350,6 +332,10 @@
                 if(is_temp){
                     $vt.toggleClass('temp', true);
                     $ct.toggleClass('temp', true);
+                }
+                if(is_fresh){
+                    $vt.toggleClass('fresh-recording', true);
+                    $ct.toggleClass('fresh-recording', true);
                 }
                 return $ct;
             }
@@ -392,7 +378,7 @@
 
         var insertRecordingIndicator = function(idx){
 
-            var indicator_character = '@';
+            var indicator_character = ' ';
             r2.util.jqueryInsert($textbox, createTalken(), idx);
 
             function createTalken(){

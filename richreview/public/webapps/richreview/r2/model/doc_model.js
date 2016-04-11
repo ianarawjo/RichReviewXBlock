@@ -2148,6 +2148,7 @@
         this.Focus();
         this.done_captioning = true;
         this.doneCommenting();
+        this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         this.done_recording = true;
