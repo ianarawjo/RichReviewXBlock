@@ -2101,4 +2101,98 @@
         this.setText(init_text);
     };
 
+    r2.tooltipAudioWaveform = (function(){
+        var pub_ta = {};
+
+        var CONST = {
+            CANV_W: 150,
+            CANV_H: 30,
+            CANV_W_DOM: '5em',
+            CANV_H_DOM: '1em'
+        };
+
+        var is_display = false;
+
+        var $tooltip = $(document.createElement('div'));
+        $tooltip.addClass('tooltip_audio_waveform');
+
+        var $arrow_up = $(document.createElement('div'));
+        $arrow_up.addClass('arrow_up');
+        $tooltip.append($arrow_up);
+
+        var canv = document.createElement('canvas');
+        $(canv).addClass('arrow_up');
+        canv.width = CONST.CANV_W;
+        canv.height = CONST.CANV_H;
+        $(canv).css('width', CONST.CANV_W_DOM);
+        $(canv).css('height', CONST.CANV_H_DOM);
+        var ctx = canv.getContext('2d');
+        $tooltip.append($(canv));
+
+        pub_ta.show = function($parent, pos){
+            is_display = true;
+            $parent.append($tooltip);
+            $tooltip.css('left', pos.x);
+            $tooltip.css('top', pos.y);
+            centerDiv();
+        };
+
+        pub_ta.dismiss = function(){
+            is_display = false;
+            $tooltip.remove();
+        };
+
+        pub_ta.drawDynamic = function(){
+            if(is_display){
+                var l = r2.audioRecorder.getRecorder().getPower();
+                var power = [];
+                var p = 0;
+                while(l.length + p < CONST.CANV_W){
+                    power.push(0);
+                    p++;
+                }
+                for(var i = l.length-(CONST.CANV_W-p); i < l.length; ++i ){
+                    power.push(l[i]);
+                }
+
+                var min = 0.0;
+                var max = 0.2;
+                power.forEach(function(v){
+                    min = Math.min(min, v);
+                    max = Math.max(max, v);
+                });
+
+                for(var i = 0; i < power.length; ++i){
+                    power[i] = (power[i]-min) / (max-min);
+                }
+
+                console.log(power[149]);
+
+
+                ctx.clearRect(0, 0, CONST.CANV_W, CONST.CANV_H);
+                ctx.beginPath();
+                var x = 0;
+                var y = CONST.CANV_H;
+                ctx.moveTo(x, y);
+                for(var i = 0; i < CONST.CANV_W; ++i){
+                    x = i;
+                    y = CONST.CANV_H*(1.0-power[i]*1.2);
+                    ctx.lineTo(x, y);
+                }
+                y = CONST.CANV_H;
+                ctx.lineTo(x, y);
+                ctx.fillStyle = "rgb(200,0,0)";
+                ctx.closePath();
+                ctx.fill();
+            }
+        };
+
+        function centerDiv(){
+            $tooltip.css('margin-left', -$tooltip[0].getBoundingClientRect().width/2+'px');
+        }
+
+        return pub_ta;
+
+    }());
+
 }(window.r2 = window.r2 || {}));

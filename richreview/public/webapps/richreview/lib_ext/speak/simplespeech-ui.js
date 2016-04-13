@@ -113,6 +113,9 @@
 
             insert_pos = getCarret().idx_anchor;
             insertRecordingIndicator(insert_pos++, false);
+
+            r2.tooltipAudioWaveform.show($textbox.parent(), getPopUpPos(insert_pos-1, insert_pos));
+
             renderViewTalkens();
         };
         pub.endCommenting = function(){
@@ -121,6 +124,7 @@
             $overlay.find('.ssui-recording-indicator-talken').remove();
             $textbox.find('.ssui-recording-indicator-talken').remove();
             insert_pos-=1;
+            r2.tooltipAudioWaveform.dismiss();
 
             flushBaseDataBuf();
 
@@ -767,23 +771,6 @@
                 return false;
             }
 
-            function getPopUpPos(idx_bgn, idx_end){
-                var tb_bbox = $textbox[0].getBoundingClientRect();
-                var l_bbox = $textbox.children('span')[idx_bgn].getBoundingClientRect();
-                var r_bbox = $textbox.children('span')[idx_end-1].getBoundingClientRect();
-                if(l_bbox.top === r_bbox.top){
-                    return {
-                        x: ((l_bbox.left+r_bbox.right)*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
-                        y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
-                    };
-                }
-                else{
-                    return {
-                        x: (r_bbox.left+r_bbox.width*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
-                        y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
-                    };
-                }
-            }
             function getPopUpWord(idx_bgn, idx_end){
                 var l = [];
                 $textbox.children('span').slice(idx_bgn, idx_end).map(
@@ -807,8 +794,25 @@
                     data: l
                 };
             }
-
         };
+
+        function getPopUpPos(idx_bgn, idx_end){
+            var tb_bbox = $textbox[0].getBoundingClientRect();
+            var l_bbox = $textbox.children('span')[idx_bgn].getBoundingClientRect();
+            var r_bbox = $textbox.children('span')[idx_end-1].getBoundingClientRect();
+            if(l_bbox.top === r_bbox.top){
+                return {
+                    x: ((l_bbox.left+r_bbox.right)*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                    y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                };
+            }
+            else{
+                return {
+                    x: (r_bbox.left+r_bbox.width*0.5-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                    y: (r_bbox.top+r_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                };
+            }
+        }
 
         var checkCarretPositionUpdate = function(event){
             if(is_recording_and_synthesizing){

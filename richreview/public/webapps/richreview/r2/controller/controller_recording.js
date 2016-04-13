@@ -401,7 +401,10 @@
     }());
 
     r2.recordingUpdate = function(){
-        r2.audioRecorder.getDbs(function(dbs){
+        var l = r2.audioRecorder.getRecorder().getPower();
+        var dbs = l[l.length-1];
+        //console.log(dbs, l.length);
+        {
             r2App.cur_recording_annot.UpdateDbs(dbs);
             r2.util.lastOf(r2App.cur_recording_pieceaudios).UpdateAudioDbsRecording(r2App.cur_time-r2App.cur_recording_annot.GetBgnTime());
 
@@ -437,6 +440,6 @@
                 r2.dom_model.appendPieceVoice(annot.GetId(), npiece-1, r2App.cur_recording_annot.GetBgnTime(), pieceaudio);
             }
             r2.PieceAudio.prototype.NormalizePieceAudio(r2App.cur_recording_pieceaudios, refresh_all = false);
-        });
+        }
     };
 }(window.r2 = window.r2 || {}));

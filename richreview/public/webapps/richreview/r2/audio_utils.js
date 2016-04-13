@@ -399,6 +399,10 @@
             recorder.setOnExportChunkCallback(onAudioCallback);
         };
 
+        pub.getRecorder = function(){
+            return recorder;
+        };
+
         return pub;
     })();
 

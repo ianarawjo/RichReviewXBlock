@@ -1742,6 +1742,20 @@
         this.dom_textbox.focus();
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
+        // Returns an array with all occurences of 'matchstr' in string array 'strarr'
+        // merged into the string immediately to the left and separated by 'separator'.
+        function mergeLeft(strarr, matchstr, separator) {
+            var i;
+            for (i = 0; i < strarr.length; i++) {
+                var s = strarr[i];
+                if (s === matchstr) {
+                    if (i > 0) strarr[i-1] += separator + matchstr; // mergeleft
+                    strarr.splice(i, 1); // remove matched element
+                    i--;
+                }
+            }
+        }
+
         // disable for now
         if (this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
@@ -1759,19 +1773,6 @@
             return;
         } else if (!this._dynamic_setup) {
 
-            // Returns an array with all occurences of 'matchstr' in string array 'strarr'
-            // merged into the string immediately to the left and separated by 'separator'.
-            function mergeLeft(strarr, matchstr, separator) {
-                var i;
-                for (i = 0; i < strarr.length; i++) {
-                    var s = strarr[i];
-                    if (s === matchstr) {
-                        if (i > 0) strarr[i-1] += separator + matchstr; // mergeleft
-                        strarr.splice(i, 1); // remove matched element
-                        i--;
-                    }
-                }
-            }
             mergeLeft(wrds, '♦', ' ');
 
             if (wrds.length !== tks.length) {
@@ -2640,10 +2641,10 @@
         return v0+v1;
     };
     r2.Annot.prototype.UpdateDbs = function(dbs){
-        var dbsPerSec = r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE/r2.audioRecorder.RECORDER_BUFFER_LEN/1000;
-        var nDbs = Math.floor((r2App.cur_time-this._bgn_time) * dbsPerSec);
+        this._duration = r2App.cur_time-this._bgn_time;
 
-        this._duration = nDbs/dbsPerSec;
+        var dbsPerSec = r2.audioRecorder.RECORDER_POWER_SAMPLE_PER_SEC;
+        var nDbs = Math.floor((r2App.cur_time-this._bgn_time) * dbsPerSec);
 
         for(var i = this._audio_dbs.length; i < nDbs; ++i) {
             this._audio_dbs.push((r2.audioRecorder.RECORDER_SAMPLE_SCALE*dbs).toFixed(3));

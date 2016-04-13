@@ -5,13 +5,13 @@
 
     var Recorder = function(media_stream_source, cfg){
         var recording = false;
-        var callbacks = {};
+        var callbacks = {
+        };
 
         this.context = media_stream_source.context;
         this.config = cfg || {};
         this.config.sample_rate_src = this.context.sampleRate;
         this.config.sample_rate_dst = this.context.sampleRate / cfg.downsample_ratio;
-
 
         this.node = (
             this.context.createScriptProcessor || this.context.createJavaScriptNode
@@ -58,6 +58,58 @@
 
         media_stream_source.connect(this.node);
         this.node.connect(this.context.destination);
+
+        // register node for capturing the audio power
+
+        {
+            var power_buf_size = this.config.buffer_size/16;
+            var power = {
+                sample: [],
+                buffer_size: power_buf_size,
+                sec_per_sample: this.context.sampleRate/power_buf_size
+            };
+
+            this.node_power = (
+                this.context.createScriptProcessor || this.context.createJavaScriptNode
+            ).call(
+                this.context, power.buffer_size, 1, 1  // # of input channel and output channel
+            );
+
+            this.node_power.onaudioprocess = function(event){
+                if (recording){
+                    var channel_buffer = event.inputBuffer.getChannelData(0);
+                    var arr = new Float32Array(channel_buffer);
+                    arr.set(channel_buffer, 0);
+                    var v = rootMeanSquare(arr, 0, arr.length);
+                    power.sample.push(v);
+                }
+                else{
+                    if(power.sample.length !== 0){
+                        power.sample = [];
+                    }
+                }
+
+                function rootMeanSquare(l, bgn, end){
+                    var HOP = 32;
+                    var i = bgn;
+                    var accum = 0;
+                    while(i < end){
+                        accum += l[i]*l[i];
+                        i+=HOP;
+                    }
+                    return Math.sqrt(accum/ ((end-bgn)/HOP));
+                }
+            };
+
+            this.getPower = function(){
+                return power.sample;
+            };
+
+            r2.audioRecorder.RECORDER_POWER_SAMPLE_PER_SEC = power_buf_size/this.context.sampleRate;
+        }
+
+        media_stream_source.connect(this.node_power);
+        this.node_power.connect(this.context.destination);
 
         r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE = this.config.sample_rate_src;
         r2.audioRecorder.RECORDER_SAMPLE_RATE = this.config.sample_rate_dst;
