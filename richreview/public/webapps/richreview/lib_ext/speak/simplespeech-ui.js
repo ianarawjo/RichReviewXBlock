@@ -8,10 +8,10 @@
  * @author ian
  * Created by ian on 03/01/2016.
  */
-(function(simplespeech) {
+(function(r2) {
     'use strict';
 
-    simplespeech.ui = function(_textbox, _overlay, _annotid, _annotids) {
+    r2.transcriptionUI = function(_textbox, _overlay, _annotid, _annotids, _type) {
         var pub = {};
 
         // DOM elements
@@ -31,6 +31,7 @@
         var annotid_copy = _annotid; // The r2.Annot id of the SimpleSpeech piece. This is a copy from the piece's this._annotid.
         var annotids_copy = _annotids; // The list ([]) of r2.Annot ids for the base recordings. This is a copy from the piece's this._annotids.
         var base_data_buf = [];
+        var type = _type; // r2.RecordingUI.SIMPLE_SPEECH or r2.RecordingUI.WAVE_WEAVER
 
         // Listener callbacks
         pub.on_input = null;
@@ -915,4 +916,4 @@
         return pub;
     };
 
-}(window.simplespeech = window.simplespeech || {}));
+}(window.r2 = window.r2 || {}));

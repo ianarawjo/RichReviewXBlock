@@ -72,9 +72,10 @@
                     <i class="fa fa-gear"></i>
                 </button>
                 <div class="dropdown-menu  pull-right">
-                    <button class="waveform dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setWaveform()">Waveform</button>
-                    <button class="newspeak dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setNewSpeak()">NewSpeak</button>
-                    <button class="simplespeech dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.setSimpleSpeech()">SimpleSpeech</button>
+                    <button class="waveform dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.set('waveform')">Waveform</button>
+                    <button class="newspeak dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.set('newspeak')">NewSpeak</button>
+                    <button class="simplespeech dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.set('simplespeech')">SimpleSpeech</button>
+                    <button class="waveweaver dropdown-item btn btn-sm btn-default" onclick="r2.speechUi.set('waveweaver')">WaveWeaver</button>
                 </div>
             </div>
         </div>

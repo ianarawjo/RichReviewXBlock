@@ -2105,10 +2105,10 @@
         var pub_ta = {};
 
         var CONST = {
-            CANV_W: 150,
-            CANV_H: 30,
-            CANV_W_DOM: '5em',
-            CANV_H_DOM: '1em'
+            CANV_W: 120,
+            CANV_H: 40,
+            CANV_W_DOM: '3.6em',
+            CANV_H_DOM: '1.2em'
         };
 
         var is_display = false;

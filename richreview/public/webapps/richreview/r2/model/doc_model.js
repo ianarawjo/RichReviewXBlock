@@ -1948,6 +1948,7 @@
         this.done_recording = true;
         this.done_captioning = true;
         this.annotids = [];
+        this.ui_type = r2App.RecordingUI.SIMPLE_SPEECH;
     };
     r2.PieceSimpleSpeech.prototype = Object.create(r2.Piece.prototype);
     r2.PieceSimpleSpeech.prototype.Destructor = function(){
@@ -1956,10 +1957,13 @@
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         return this._annotid;
     };
-    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, inner_html, live_recording){
+    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(
+        anchor_pid, annotid, username, inner_html, live_recording, ui_type
+    ){
         this._annotid = annotid;
         this._username = username;
         this._waiting_for_watson = false;
+        this.ui_type = ui_type;
 
         var dom = this.CreateDom();
 
@@ -2023,7 +2027,9 @@
         this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
-        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, this._annotid, this.annotids);
+        this.simplespeech = new r2.transcriptionUI(
+            this.dom_textbox, dom_overlay, this._annotid, this.annotids, this.ui_type
+        );
 
         /* add event handlers*/
         this.simplespeech.on_input = function() {

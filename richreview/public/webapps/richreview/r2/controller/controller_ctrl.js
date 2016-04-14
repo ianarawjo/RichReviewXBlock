@@ -221,50 +221,42 @@
 
         pub.mode = null;
 
+        var mode_map = {
+            'waveform': r2App.RecordingUI.WAVEFORM,
+            'simplespeech': r2App.RecordingUI.SIMPLE_SPEECH,
+            'newspeak': r2App.RecordingUI.NEW_SPEAK,
+            'waveweaver': r2App.RecordingUI.WAVE_WEAVER
+        };
+
         pub.init = function(){
             var cookie_setting = r2.util.getCookie('r2_speech_ui');
-            if(cookie_setting === 'waveform'){
-                pub.setWaveform();
-            }
-            else if(cookie_setting === 'newspeak'){
-                pub.setNewSpeak();
-            }
-            else if(cookie_setting === 'simplespeech'){
-                pub.setSimpleSpeech();
+            if( cookie_setting === 'waveform' ||
+                cookie_setting === 'newspeak' ||
+                cookie_setting === 'simplespeech' ||
+                cookie_setting === 'waveweaver'){
+                pub.set(cookie_setting);
             }
             else{
-                pub.setWaveform();
+                pub.set('waveform');
             }
         };
 
-        pub.setWaveform = function(){
+        pub.set = function(type_str){
             reset();
-            pub.mode = r2App.RecordingUI.WAVEFORM;
-            $('#btn-group-speech-ui-select').find('.waveform').toggleClass('btn-primary', true);
-            r2.util.setCookie('r2_speech_ui', 'waveform', 7);
-        };
-
-        pub.setNewSpeak = function(){
-            reset();
-            pub.mode = r2App.RecordingUI.NEW_SPEAK;
-            $('#btn-group-speech-ui-select').find('.newspeak').toggleClass('btn-primary', true);
-            r2.util.setCookie('r2_speech_ui', 'newspeak', 7);
-        };
-
-        pub.setSimpleSpeech = function(){
-            reset();
-            pub.mode = r2App.RecordingUI.SIMPLE_SPEECH;
-            $('#btn-group-speech-ui-select').find('.simplespeech').toggleClass('btn-primary', true);
-            r2.util.setCookie('r2_speech_ui', 'simplespeech', 7);
+            pub.mode = mode_map[type_str];
+            $('#btn-group-speech-ui-select').find('.'+type_str).toggleClass('btn-primary', true);
+            r2.util.setCookie('r2_speech_ui', type_str, 7);
         };
 
         function reset(){
             $('#btn-group-speech-ui-select').find('.waveform').toggleClass('btn-default', true);
             $('#btn-group-speech-ui-select').find('.newspeak').toggleClass('btn-default', true);
             $('#btn-group-speech-ui-select').find('.simplespeech').toggleClass('btn-default', true);
+            $('#btn-group-speech-ui-select').find('.waveweaver').toggleClass('btn-default', true);
             $('#btn-group-speech-ui-select').find('.waveform').toggleClass('btn-primary', false);
             $('#btn-group-speech-ui-select').find('.newspeak').toggleClass('btn-primary', false);
             $('#btn-group-speech-ui-select').find('.simplespeech').toggleClass('btn-primary', false);
+            $('#btn-group-speech-ui-select').find('.waveweaver').toggleClass('btn-primary', false);
         }
 
         return pub;

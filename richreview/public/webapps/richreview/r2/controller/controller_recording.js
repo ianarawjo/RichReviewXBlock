@@ -10,7 +10,7 @@
 
         var triggered = false;
         var anchor_piece = null;
-        var options = {}; // has ui_type, WAVEFORM, SIMPLE_SPEECH, SIMPLE_SPEECH_INSERT, OR NEW_SPEAK
+        var options = {}; // has ui_type, WAVEFORM, SIMPLE_SPEECH, NEW_SPEAK, OR WAVE_WEAVER
 
         pub.set = function(_anchor_piece, _options){
             if(r2App.is_recording_or_transcribing){
@@ -37,8 +37,9 @@
             }
             else{
                 var done = function(){
-                    if( options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH ||
-                        options.ui_type === r2App.RecordingUI.NEW_SPEAK
+                    if( options.ui_type === r2App.RecordingUI.NEW_SPEAK ||
+                        options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH ||
+                        options.ui_type === r2App.RecordingUI.WAVE_WEAVER
                     ){
                         r2.recordingBgn.transcription(anchor_piece, options);
                     }
@@ -75,9 +76,10 @@
                 r2.recordingStop.waveform(anchor_piece);
             }
             else if(
+                options.ui_type === r2App.RecordingUI.NEW_SPEAK ||
                 options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH ||
-                options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH_INSERT ||
-                options.ui_type === r2App.RecordingUI.NEW_SPEAK
+                options.ui_type === r2App.RecordingUI.WAVE_WEAVER
+
             ){
                 r2.recordingStop.transcription(anchor_piece);
             }
@@ -167,13 +169,16 @@
 
                 var NewPieceType = null;
                 var setPieceFunc = '';
-                if(options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH){
-                    NewPieceType = r2.PieceSimpleSpeech;
-                    setPieceFunc = r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech;
-                }
-                else if(options.ui_type === r2App.RecordingUI.NEW_SPEAK){
+                if(options.ui_type === r2App.RecordingUI.NEW_SPEAK){
                     NewPieceType = r2.PieceNewSpeak;
                     setPieceFunc = r2.PieceNewSpeak.prototype.SetPieceNewSpeak;
+                }
+                else if(
+                    options.ui_type === r2App.RecordingUI.SIMPLE_SPEECH ||
+                    options.ui_type === r2App.RecordingUI.WAVE_WEAVER
+                ){
+                    NewPieceType = r2.PieceSimpleSpeech;
+                    setPieceFunc = r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech;
                 }
 
                 var piece_simple_speech = null;
@@ -201,7 +206,8 @@
                         piece_annot_id,
                         r2.userGroup.cur_user.name,
                         '',
-                        true // live_recording
+                        true, // live_recording
+                        options.ui_type
                     );
 
                     anchor_piece.AddChildAtFront(piece_simple_speech);
