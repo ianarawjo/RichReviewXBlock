@@ -2166,9 +2166,6 @@
                     power[i] = (power[i]-min) / (max-min);
                 }
 
-                console.log(power[149]);
-
-
                 ctx.clearRect(0, 0, CONST.CANV_W, CONST.CANV_H);
                 ctx.beginPath();
                 var x = 0;

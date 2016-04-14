@@ -1233,7 +1233,14 @@
 
                      // INSERT RECORDING
                     r2.localLog.event('cmd-audio-insert', annotId, {'input': 'key-enter'});
-                    r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
+                    r2.recordingCtrl.set(
+                        this._parent,
+                        { // option
+                            ui_type: r2App.RecordingUI.SIMPLE_SPEECH,
+                            caption_major: true,
+                            piece_to_insert: this
+                        }
+                    );
                 }
                 e.preventDefault();
             }
@@ -1949,7 +1956,7 @@
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         return this._annotid;
     };
-    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, live_recording){
+    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, inner_html, live_recording){
         this._annotid = annotid;
         this._username = username;
         this._waiting_for_watson = false;
@@ -2046,7 +2053,14 @@
         }.bind(this);
 
         this.simplespeech.insertRecording = function(){
-            r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
+            r2.recordingCtrl.set(
+                this._parent,
+                { // option
+                    ui_type: r2App.RecordingUI.SIMPLE_SPEECH,
+                    caption_major: true,
+                    piece_to_insert: this
+                }
+            );
         }.bind(this);
 
         this.simplespeech.bgn_streaming = function(){
