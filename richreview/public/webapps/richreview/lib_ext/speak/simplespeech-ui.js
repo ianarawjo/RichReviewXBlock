@@ -82,6 +82,7 @@
         pub.setCaptionTemporary = function(words, base_annotid){;};
 
         pub.setCaptionFinal = function(words, base_annotid){
+            console.log(words);
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
@@ -89,6 +90,7 @@
                         word: data[0],
                         bgn: data[1],
                         end: data[2],
+                        conf: data[3], // confidence
                         annotid: base_annotid
                     }]
                 };
@@ -384,6 +386,8 @@
                 var $vt_span = $(document.createElement('span'));
                 $vt_span.addClass('ssui-viewtalken-span');
                 $vt_span.text(word);
+                var opacity = talken_data.data[0].conf*0.75+0.25;
+                $vt_span.css('color', 'rgba(0, 0, 0, '+opacity+')');
                 $vt.append($vt_span);
 
                 if (word === ('\xa0')){
@@ -454,6 +458,16 @@
                 var $vt_canv = $(canv);
                 $vt_canv.addClass('ssui-viewtalken-canv');
                 $vt.append($vt_canv);
+
+                var $vt_span_wrapper = $(document.createElement('div'));
+                $vt_span_wrapper.addClass('ssui-waveform-span-wrapper-div');
+                $vt.append($vt_span_wrapper);
+
+                var $vt_span = $(document.createElement('span'));
+                $vt_span.addClass('ssui-waveform-span');
+                $vt_span.text(word);
+                $vt_span.css('color', 'rgba(0, 0, 0, '+talken_data.data[0].conf+')');
+                $vt_span_wrapper.append($vt_span);
 
                 $vt.css('width', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn)*6+'em');
                 $vt.addClass('ssui-word');
@@ -895,6 +909,7 @@
                             idx_bgn,
                             idx_end
                         );
+                        new_base_data.data[0].conf = 1.0;
 
                         r2.localLog.event('cmd-edit-transcript-done', annotid_copy, {'text-after':text, 'text-before': popup_word});
                         insertNewTalken(new_base_data, idx_bgn);
