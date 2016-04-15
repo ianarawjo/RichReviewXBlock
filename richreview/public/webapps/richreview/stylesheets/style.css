@@ -357,14 +357,19 @@ a:active {
   margin: 0;
   padding: 0;
 }
+.ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-canv {
+  display: -webkit-inline-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
 .ssui-overlay >  .ssui-viewtalken {
   background-color: rgb(220, 220, 220);
-  border: solid 0.1em rgb(220, 220, 220);
   color: black;
 }
 .ssui-overlay >  .ssui-viewtalken.fresh-recording {
   background-color: rgb(189, 200, 210);
-  border: solid 0.1em rgb(189, 200, 210);
   color: black;
 }
 .ssui-overlay > .ssui-viewtalken.ssui-pause {
@@ -372,7 +377,6 @@ a:active {
 }
 .ssui-overlay > .ssui-viewtalken.replay_highlight {
   background-color: lightsteelblue;
-  border: solid 0.1em lightsteelblue;
   color: black;
 }
 .ssui-overlay > .ssui-viewtalken.ssui-recording-indicator {

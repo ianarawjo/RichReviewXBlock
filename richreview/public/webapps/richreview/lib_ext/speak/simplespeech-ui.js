@@ -31,19 +31,24 @@
         var annotid_copy = _annotid; // The r2.Annot id of the SimpleSpeech piece. This is a copy from the piece's this._annotid.
         var annotids_copy = _annotids; // The list ([]) of r2.Annot ids for the base recordings. This is a copy from the piece's this._annotids.
         var base_data_buf = [];
-        var type = _type; // r2.RecordingUI.SIMPLE_SPEECH or r2.RecordingUI.WAVE_WEAVER
+        var type = _type; // r2App.RecordingUI.SIMPLE_SPEECH or r2.RecordingUI.WAVE_WEAVER
+
+        var insertNewTalken =
+            _type === r2App.RecordingUI.SIMPLE_SPEECH ?
+                insertNewTalkenSimpleSpeech :
+                insertNewTalkenWaveWeaver;
 
         // Listener callbacks
         pub.on_input = null;
         pub.bgn_streaming = null;
         pub.end_streaming = null;
 
-        pub.isContentChanged = function(){
-            return content_changed;
-        };
 
-        // Init
-        var _init = function() {
+        /*
+         * Initializer
+         */
+
+        function _init() {
             // Setup event handlers
             $textbox[0].addEventListener('keyup', function(e) {
                 checkCarretPositionUpdate(e);
@@ -63,12 +68,20 @@
 
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
+        }
+
+
+        /*
+         * Public functions
+         */
+
+        pub.isContentChanged = function(){
+            return content_changed;
         };
 
-        pub.setCaptionTemporary = function(words, annotid){
-            ;
-        };
-        pub.setCaptionFinal = function(words, annotid){
+        pub.setCaptionTemporary = function(words, base_annotid){;};
+
+        pub.setCaptionFinal = function(words, base_annotid){
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
@@ -76,32 +89,16 @@
                         word: data[0],
                         bgn: data[1],
                         end: data[2],
-                        annotid: annotid
+                        annotid: base_annotid
                     }]
                 };
                 base_data_buf.push(next_base_data);
             });
         };
-        function flushBaseDataBuf(){
-            base_data_buf.forEach(function(datum){
-                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old-recording)').last(), datum.data[0]);
-                if(pause_talken_datum){
-                    insertNewTalken(pause_talken_datum, insert_pos++, false, true); // is_temp = false, is_fresh = true
-                    punctuationUtil.periodForPause(insert_pos-2);
-                }
-                if(punctuationUtil.toCapitalize(insert_pos)){
-                    datum.word = datum.word.charAt(0).toUpperCase() + datum.word.slice(1)
-                }
-                insertNewTalken(datum, insert_pos++, false, true); // is_temp = false, is_fresh = true
-                setCarret(insert_pos);
-            });
-            base_data_buf = [];
-            renderViewTalkens();
-            content_changed = true;
-            talkenRenderer.invalidate();
-        }
+
         pub.bgnCommenting = function(){
             r2.localLog.event('bgn-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
             $textbox.focus();
@@ -113,17 +110,17 @@
             });
 
             insert_pos = getCarret().idx_anchor;
-            insertRecordingIndicator(insert_pos++, false);
+            insertRecordingIndicator.insert(insert_pos++);
 
             r2.tooltipAudioWaveform.show($textbox.parent(), getPopUpPos(insert_pos-1, insert_pos));
 
             renderViewTalkens();
         };
+
         pub.endCommenting = function(){
             r2.localLog.event('end-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
 
-            $overlay.find('.ssui-recording-indicator-talken').remove();
-            $textbox.find('.ssui-recording-indicator-talken').remove();
+            insertRecordingIndicator.dismiss();
             insert_pos-=1;
             r2.tooltipAudioWaveform.dismiss();
 
@@ -156,13 +153,14 @@
                 });
             }
         };
+
         pub.synthesizeNewAnnot = function(_annot_id){
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
                     r2.localLog.event('rendered-audio', _annot_id, {'url':result.url, all_text: getAllText()});
                     r2.localLog.editedBlobURL(result.url, _annot_id);
-                    r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob);
+                    r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob, result.buffer);
                     return null;
                 }
             ).then(
@@ -173,7 +171,7 @@
                             r2.localLog.event('end-synthesis', annotid_copy, {'annot': r2App.annots[annotid_copy]}); // fixMe
                             return null;
                         }
-                    );;
+                    );
                     is_recording_and_synthesizing = false;
                     content_changed = false;
                     pub.end_streaming();
@@ -181,6 +179,11 @@
                 }
             );
         };
+
+
+        /*
+         * Putting commas and capitalize words
+         */
 
         var punctuationUtil = (function(){
             var pub_pu = {};
@@ -219,17 +222,27 @@
                 renderViewTalkens();
             };
 
-            pub_pu.capitalize = function(){
-            };
-
             function putPeriod(pos){
                 var datum = $textbox.children('span')[pos].talken_data;
                 datum.word += '.';
                 replaceTalken(datum, pos);
             }
 
+            var replaceTalken = function(talken_data, idx){
+                var was_fresh = $($textbox.children()[idx]).hasClass('fresh-recording');
+                $textbox.children().slice(idx, idx+1).remove();
+                insertNewTalken(talken_data, idx, was_fresh);
+                talkenRenderer.invalidate();
+                setCarret(idx+1);
+            };
+
             return pub_pu;
         }());
+
+
+        /*
+         * Synthesizer for audios and gestures from multiple base recordings
+         */
 
         var talkenRenderer = (function(){
             var pub_tr = {};
@@ -296,6 +309,31 @@
             return pub_tr;
         }());
 
+
+
+        /*
+         * Inserting new talkens
+         */
+
+        function flushBaseDataBuf(){
+            base_data_buf.forEach(function(datum){
+                var pause_talken_datum = getPauseTalkenDatum($textbox.children().filter(':not(.old-recording)').last(), datum.data[0]);
+                if(pause_talken_datum){
+                    insertNewTalken(pause_talken_datum, insert_pos++, true); // is_fresh = true
+                    punctuationUtil.periodForPause(insert_pos-2);
+                }
+                if(punctuationUtil.toCapitalize(insert_pos)){
+                    datum.word = datum.word.charAt(0).toUpperCase() + datum.word.slice(1)
+                }
+                insertNewTalken(datum, insert_pos++, true); // is_fresh = true
+                setCarret(insert_pos);
+            });
+            base_data_buf = [];
+            renderViewTalkens();
+            content_changed = true;
+            talkenRenderer.invalidate();
+        }
+
         var getPauseTalkenDatum = function($last, next_base_datum){
             if($last[0]){
                 var last_base_datum = $last[0].talken_data.data[$last[0].talken_data.data.length-1];
@@ -313,20 +351,12 @@
             }
         };
 
-        var replaceTalken = function(talken_data, idx){
-            var was_fresh = $($textbox.children()[idx]).hasClass('fresh-recording');
-            $textbox.children().slice(idx, idx+1).remove();
-            insertNewTalken(talken_data, idx, false, was_fresh);
-            talkenRenderer.invalidate();
-            setCarret(idx+1);
-        };
-
-        var insertNewTalken = function(talken_data, idx, is_temp, is_fresh){
+        function insertNewTalkenSimpleSpeech(talken_data, idx, is_fresh){
             is_fresh = typeof is_fresh === 'undefined' ? false : is_fresh; // default false
 
-            r2.util.jqueryInsert($textbox, createTalken(talken_data, is_temp), idx);
+            r2.util.jqueryInsert($textbox, createTalken(talken_data), idx);
 
-            function createTalken(talken_data, is_temp){
+            function createTalken(talken_data){
                 var uid = r2.util.generateGuid();
                 var word;
                 if(typeof talken_data.word === 'string'){
@@ -339,10 +369,6 @@
                 var $vt = newViewTalken(uid, word);
                 $overlay.append($vt);
                 var $ct = newCtrlTalken($vt, uid);
-                if(is_temp){
-                    $vt.toggleClass('temp', true);
-                    $ct.toggleClass('temp', true);
-                }
                 if(is_fresh){
                     $vt.toggleClass('fresh-recording', true);
                     $ct.toggleClass('fresh-recording', true);
@@ -363,7 +389,7 @@
                 if (word === ('\xa0')){
                     $vt.addClass('ssui-pause');
                     $vt_span.text('');
-                    $vt.css('padding-right', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn-0.3)*0.25+'em');
+                    $vt.css('padding-right', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn)*0.2+0.15+'em');
                 }
                 else{
                     $vt.addClass('ssui-word');
@@ -386,7 +412,99 @@
 
                 return $ct;
             }
-        };
+        }
+
+        function insertNewTalkenWaveWeaver(talken_data, idx, is_fresh){
+            is_fresh = typeof is_fresh === 'undefined' ? false : is_fresh; // default false
+
+            r2.util.jqueryInsert($textbox, createTalken(talken_data), idx);
+
+            function createTalken(talken_data){
+                var uid = r2.util.generateGuid();
+                var word;
+                if(typeof talken_data.word === 'string'){
+                    word = talken_data.word;
+                }
+                else{
+                    word = talken_data.data.map(function(datum){return datum.word;}).join(' ').replace(/\s+/g, '\xa0').trim();
+                }
+
+                var $vt = newViewTalken(uid, word);
+                $overlay.append($vt);
+                var $ct = newCtrlTalken($vt, uid);
+                if(is_fresh){
+                    $vt.toggleClass('fresh-recording', true);
+                    $ct.toggleClass('fresh-recording', true);
+                }
+                return $ct;
+            }
+
+            function newViewTalken(uid, word) {
+                var $vt = $(document.createElement('div'));
+                $vt.addClass('ssui-viewtalken');
+                $vt.attr('uid', uid);
+
+                var px_w = 100;
+                var px_h = 100;
+
+                var canv = document.createElement('canvas');
+                canv.width = px_w;
+                canv.height = px_h;
+
+                var $vt_canv = $(canv);
+                $vt_canv.addClass('ssui-viewtalken-canv');
+                $vt.append($vt_canv);
+
+                $vt.css('width', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn)*6+'em');
+                $vt.addClass('ssui-word');
+
+
+                var datum = talken_data.data[0];
+                var annot = r2App.annots[datum.annotid];
+                var t_step = (datum.end-datum.bgn)/px_w;
+
+                var ctx = canv.getContext('2d');
+                ctx.clearRect(0, 0, px_w, px_h);
+                ctx.beginPath();
+                var x = 0;
+                var y = px_h;
+                ctx.moveTo(x, y);
+                for(var i = 0; i < px_w; ++i){
+                    x = i;
+                    y = px_h*(1.0-1.2*annot.SampleAudioDbs((datum.bgn+t_step*i)*1000));
+                    ctx.lineTo(x, y);
+                }
+                y = px_h;
+                ctx.lineTo(x, y);
+                ctx.fillStyle = 'rgba(33, 150, 243, 1.0)';
+                ctx.closePath();
+                ctx.fill();
+
+                return $vt;
+            }
+
+            function newCtrlTalken ($vt, uid) {
+                var CTRL_TKN_MARGIN = 0.075;
+                var $ct = $(document.createElement('span'));
+                $ct.addClass('ssui-ctrltalken');
+                $ct.text('\xa0');
+
+                $ct[0].talken_data = talken_data;
+                $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
+                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+                $ct.css('letter-spacing',
+                    (transferPx2EmNumeric($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
+                $ct.attr('uid', uid);
+
+                return $ct;
+            }
+        }
+
+
+        /*
+         * Getting space width of the empty control talken:
+         * <the visible talken width> = <spaceWidth.get()> + <'letter-spacing' width>
+         */
 
         var spaceWidth = (function(){
             var pub_sw = {};
@@ -412,18 +530,34 @@
             return pub_sw;
         }());
 
-        var insertRecordingIndicator = function(idx){
+
+        /*
+         * Inline recording indicator
+         */
+
+        var insertRecordingIndicator = (function(){
+            var pub_ri = {};
 
             var indicator_character = ' ';
-            r2.util.jqueryInsert($textbox, createTalken(), idx);
+            var $ct = null;
+            var $vt = null;
+
+            pub_ri.insert = function(idx){
+                r2.util.jqueryInsert($textbox, createTalken(), idx);
+            };
+
+            pub_ri.dismiss = function(){
+                $ct.remove();
+                $vt.remove();
+            };
 
             function createTalken(){
                 var uid = r2.util.generateGuid();
                 var word = indicator_character;
 
-                var $vt = newViewTalken(uid, word);
+                $vt = newViewTalken(uid, word);
                 $overlay.append($vt);
-                var $ct = newCtrlTalken($vt, uid);
+                $ct = newCtrlTalken($vt, uid);
                 return $ct;
             }
 
@@ -465,8 +599,14 @@
 
                 return $ct;
             }
-        };
 
+            return pub_ri;
+        }());
+
+
+        /*
+         * Repositioning the view talkens
+         */
 
         var renderViewTalkens = function(){
             var arrayDiff = function(a, b) {
@@ -519,9 +659,15 @@
             return px*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth()/this_font_size;
         }
 
+
+        /*
+         * Utils extracting texts
+         */
+
         function getSelectedText() {
             getSelectedTextRange(carret.idx_bgn, carret.idx_end);
         }
+
         function getSelectedTextRange(bgn, end){
             var l = [];
             $textbox.children('span').slice(bgn, end).each(function() {
@@ -532,6 +678,7 @@
                 list: l
             };
         }
+
         function getAllText(){
             var l = [];
             $textbox.children('span').each(function() {
@@ -542,6 +689,7 @@
                 list: l
             };
         }
+
         function getCopiedText(){
             var l = [];
             if(copied_ctrl_talkens){
@@ -554,6 +702,11 @@
                 list: l
             };
         }
+
+
+        /*
+         * Key event utils
+         */
 
         var onKeyDown = function(e) {
             //console.log('onKeyDown');
@@ -697,7 +850,6 @@
             }
         };
 
-        // Events
         var onKeyPress = function(event) {
             if(
                 String.fromCharCode(event.which) === '.' ||
@@ -714,6 +866,11 @@
                 event.preventDefault();
             }
         };
+
+
+        /*
+         * Pop-up box for correcting transcription
+         */
 
         var popupTranscription = function(idx_bgn, idx_end, force_select_all){
             force_select_all = typeof force_select_all === 'undefined' ? false : force_select_all;
@@ -740,7 +897,7 @@
                         );
 
                         r2.localLog.event('cmd-edit-transcript-done', annotid_copy, {'text-after':text, 'text-before': popup_word});
-                        insertNewTalken(new_base_data, idx_bgn, false);
+                        insertNewTalken(new_base_data, idx_bgn);
                         renderViewTalkens();
                         $textbox.focus();
                         if(idx_bgn+1 < $textbox.children('span').length){
@@ -797,6 +954,11 @@
             }
         };
 
+
+        /*
+         * Getting screen position of tokens
+         */
+
         function getPopUpPos(idx_bgn, idx_end){
             var tb_bbox = $textbox[0].getBoundingClientRect();
             var l_bbox = $textbox.children('span')[idx_bgn].getBoundingClientRect();
@@ -814,6 +976,11 @@
                 };
             }
         }
+
+
+        /*
+         * Utils for getting and setting carret position
+         */
 
         var checkCarretPositionUpdate = function(event){
             if(is_recording_and_synthesizing){
@@ -876,6 +1043,11 @@
             return sel;
         };
 
+
+        /*
+         * Token manipulation
+         */
+
         var op = (function(){
             var pub_op = {};
 
@@ -898,7 +1070,7 @@
                 if(copied_ctrl_talkens){
                     copied_ctrl_talkens.each(
                         function(){
-                            insertNewTalken(this.talken_data, idx, false);
+                            insertNewTalken(this.talken_data, idx);
                             ++idx;
                         }
                     );

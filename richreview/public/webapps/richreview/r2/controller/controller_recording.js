@@ -269,7 +269,7 @@
                     r2.PieceAudio.prototype.NormalizePieceAudio(r2App.cur_recording_pieceaudios, refresh_all = true);
 
                     /* annot */
-                    r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob);
+                    r2App.cur_recording_annot.SetRecordingAudioFileUrl(result.url, result.blob, result.buffer);
                     r2.localLog.event('recordingStop', r2App.cur_recording_annot, {'url': result.url});
                     r2.localLog.baseBlobURL(result.url, r2App.cur_recording_annot, r2App.cur_recording_piece.GetAnnotId());
 

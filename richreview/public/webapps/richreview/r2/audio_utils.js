@@ -482,7 +482,7 @@
 
             var blob = new Blob([view], { type: 'audio/wav' });
             var url = (window.URL || window.webkitURL).createObjectURL(blob);
-            return {url: url, blob: blob};
+            return {url: url, blob: blob, buffer: buffer};
         };
         pub.encodeWAV = encodeWAV;
 

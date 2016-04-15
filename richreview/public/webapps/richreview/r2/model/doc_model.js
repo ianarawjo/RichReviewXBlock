@@ -2646,11 +2646,40 @@
     r2.Annot.prototype.GetAudioFileUrl = function(){
         return r2.util.normalizeUrl(this._audiofileurl);
     };
-    r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob){
+    r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob, buffer){
         //url = 'https://newspeak-tts.mybluemix.net/synthesize?text=The+greatest+teacher+is+experience.+It+is+only+through+first+hand+experience,+that+any+new+knowledge+can+get+fixed+in+the+mind.&voice=en-US_MichaelVoice';
         console.log("Annot URL set to ", url);
         this._audiofileurl = url;
         this._reacordingaudioblob = blob;
+
+        if(buffer){
+            var view = new DataView(buffer);
+            var l = [];
+            for(var i = 44; i < buffer.byteLength; i+=2){
+                var v = view.getInt16(i, true);
+                l.push(v);
+            }
+
+            this._duration = 1000*l.length/r2.audioRecorder.RECORDER_SAMPLE_RATE;
+
+            var samples_per_sec = 256;
+            var n_chunk = Math.floor(r2.audioRecorder.RECORDER_SAMPLE_RATE/samples_per_sec+0.5); // 32 power samples per sec
+            this._audio_dbs = [];
+            for(var i = 0, d = Math.floor(l.length/n_chunk); i < d; ++i){
+                this._audio_dbs.push(r2.util.rootMeanSquare(l, n_chunk*i, n_chunk*(i+1)));
+            }
+
+            var min = 0.0;
+            var max = 0.2;
+            this._audio_dbs.forEach(function(v){
+                min = Math.min(min, v);
+                max = Math.max(max, v);
+            });
+            for(var i = 0; i < this._audio_dbs.length; ++i){
+                this._audio_dbs[i] = (this._audio_dbs[i]-min)/(max-min);
+            }
+
+        }
     };
 
     r2.Annot.prototype.SampleAudioDbs = function(msec) {
