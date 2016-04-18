@@ -114,17 +114,22 @@
             insert_pos = getCarret().idx_anchor;
             insertRecordingIndicator.insert(insert_pos++);
 
-            r2.tooltipAudioWaveform.show($textbox.parent(), getPopUpPos(insert_pos-1, insert_pos));
-
             renderViewTalkens();
         };
 
+        pub.bgnCommentingAsync = function(){
+            r2.tooltipAudioWaveform.show($textbox.parent(), getPopUpPos(insert_pos-1, insert_pos));
+        };
+
         pub.endCommenting = function(){
+            r2.tooltipAudioWaveform.dismiss();
+        };
+
+        pub.doneCommentingAsync = function(){
             r2.localLog.event('end-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
 
             insertRecordingIndicator.dismiss();
             insert_pos-=1;
-            r2.tooltipAudioWaveform.dismiss();
 
             flushBaseDataBuf();
 
@@ -432,6 +437,9 @@
                 else{
                     word = talken_data.data.map(function(datum){return datum.word;}).join(' ').replace(/\s+/g, '\xa0').trim();
                 }
+                if (word === ''){
+                    word = '\xa0';
+                }
 
                 var $vt = newViewTalken(uid, word);
                 $overlay.append($vt);
@@ -448,16 +456,28 @@
                 $vt.addClass('ssui-viewtalken');
                 $vt.attr('uid', uid);
 
-                var px_w = 100;
-                var px_h = 100;
+
+                var CONST = {
+                    EM_PER_SEC: 6,
+                    WV_HGHT_MRGN: 0.5,
+                    SPAN_OPACITY_RANGE: {low: 0.2, upper: 0.8},
+                    PX_PER_SEC: 64
+                };
+
+                if (word === '\xa0'){
+                    CONST.EM_PER_SEC = 2; // shorten visual width of pauses
+                }
+
+                var data = talken_data.data;
+                var duration = data.reduce(function(accum, item){return accum+item.end-item.bgn;}, 0);
+                var px_w = 64;
+                var px_h = duration*CONST.PX_PER_SEC;
+                var t_step = duration/px_w;
+
 
                 var canv = document.createElement('canvas');
                 canv.width = px_w;
                 canv.height = px_h;
-
-                var $vt_canv = $(canv);
-                $vt_canv.addClass('ssui-viewtalken-canv');
-                $vt.append($vt_canv);
 
                 var $vt_span_wrapper = $(document.createElement('div'));
                 $vt_span_wrapper.addClass('ssui-waveform-span-wrapper-div');
@@ -466,16 +486,18 @@
                 var $vt_span = $(document.createElement('span'));
                 $vt_span.addClass('ssui-waveform-span');
                 $vt_span.text(word);
-                $vt_span.css('color', 'rgba(0, 0, 0, '+talken_data.data[0].conf+')');
+                var span_opacity =
+                    talken_data.data[0].conf*(CONST.SPAN_OPACITY_RANGE.upper-CONST.SPAN_OPACITY_RANGE.low)
+                    +CONST.SPAN_OPACITY_RANGE.low;
+                $vt_span.css('color', 'rgba(0, 0, 0, '+span_opacity+')');
                 $vt_span_wrapper.append($vt_span);
 
-                $vt.css('width', (talken_data.data[talken_data.data.length-1].end-talken_data.data[0].bgn)*6+'em');
+                var $vt_canv = $(canv);
+                $vt_canv.addClass('ssui-viewtalken-canv');
+                $vt.append($vt_canv);
+
+                $vt.css('width', duration*CONST.EM_PER_SEC+'em');
                 $vt.addClass('ssui-word');
-
-
-                var datum = talken_data.data[0];
-                var annot = r2App.annots[datum.annotid];
-                var t_step = (datum.end-datum.bgn)/px_w;
 
                 var ctx = canv.getContext('2d');
                 ctx.clearRect(0, 0, px_w, px_h);
@@ -483,14 +505,26 @@
                 var x = 0;
                 var y = px_h;
                 ctx.moveTo(x, y);
+
+                var t_token_progress = 0;
+                var datum_idx = 0;
+                var datum = data[datum_idx];
                 for(var i = 0; i < px_w; ++i){
+                    while(i*t_step-t_token_progress > datum.end-datum.bgn && datum_idx+1 < data.length){
+                        t_token_progress += datum.end-datum.bgn;
+                        datum_idx += 1;
+                        datum = data[datum_idx];
+                    }
                     x = i;
-                    y = px_h*(1.0-1.2*annot.SampleAudioDbs((datum.bgn+t_step*i)*1000));
-                    ctx.lineTo(x, y);
+                    var pwr = r2App.annots[datum.annotid].SampleAudioDbs((datum.bgn+i*t_step-t_token_progress)*1000);
+                    y = px_h*(1.0-(1.0+CONST.WV_HGHT_MRGN)*pwr);
+                    console.log(datum.bgn, t_token_progress);
+                    ctx.lineTo(x, y, pwr);
                 }
+
                 y = px_h;
                 ctx.lineTo(x, y);
-                ctx.fillStyle = 'rgba(33, 150, 243, 1.0)';
+                ctx.fillStyle = 'rgba(33, 150, 243, 0.85)';
                 ctx.closePath();
                 ctx.fill();
 

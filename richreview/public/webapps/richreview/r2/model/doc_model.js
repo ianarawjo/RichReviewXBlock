@@ -2157,6 +2157,9 @@
         this.done_captioning = false;
         this.simplespeech.bgnCommenting();
     };
+    r2.PieceSimpleSpeech.prototype.bgnCommentingAsync = function(recording_annot_id){
+        this.simplespeech.bgnCommentingAsync();
+    };
     r2.PieceSimpleSpeech.prototype.setCaptionTemporary = function(words){
         this.simplespeech.setCaptionTemporary(words, this.annotids[this.annotids.length-1]);
         this.resizeDom();
@@ -2168,16 +2171,19 @@
     r2.PieceSimpleSpeech.prototype.doneCaptioning = function(){
         this.Focus();
         this.done_captioning = true;
-        this.doneCommenting();
+        this.doneCommentingAsync();
         this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         this.done_recording = true;
-        this.doneCommenting();
+        this.simplespeech.endCommenting();
+        r2.radialMenu.bgnLoading('rm_'+r2.util.escapeDomId(this._annotid));
+        this.doneCommentingAsync();
     };
-    r2.PieceSimpleSpeech.prototype.doneCommenting = function() {
+    r2.PieceSimpleSpeech.prototype.doneCommentingAsync = function() {
         if(this.done_captioning && this.done_recording){
-            this.simplespeech.endCommenting();
+            r2.radialMenu.endLoading('rm_'+r2.util.escapeDomId(this._annotid));
+            this.simplespeech.doneCommentingAsync();
             this.simplespeech.synthesizeNewAnnot(this._annotid);
         }
     };

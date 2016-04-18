@@ -126,6 +126,8 @@
                     r2.audioRecorder.BgnRecording();
 
                     /* update system variables */
+                    if(r2App.cur_recording_piece.bgnCommentingAsync)
+                        r2App.cur_recording_piece.bgnCommentingAsync();
                     if(options.piece_to_insert){
                         r2.dom_model.cbRecordingBgn(options.piece_to_insert.GetAnnotId(), 'fa-stop');
                     }
@@ -273,9 +275,6 @@
                     r2.localLog.event('recordingStop', r2App.cur_recording_annot, {'url': result.url});
                     r2.localLog.baseBlobURL(result.url, r2App.cur_recording_annot, r2App.cur_recording_piece.GetAnnotId());
 
-                    if(r2App.cur_recording_piece.onEndRecording)
-                        r2App.cur_recording_piece.onEndRecording(result.url);
-
                     /* upload */
                     if(to_upload)
                         r2Sync.PushToUploadCmd(r2App.cur_recording_annot.ExportToCmd());
@@ -284,6 +283,9 @@
                     r2.dom.disableRecordingIndicators();
 
                     r2.dom_model.cbRecordingStop(r2App.cur_recording_piece.GetAnnotId());
+
+                    if(r2App.cur_recording_piece.onEndRecording)
+                        r2App.cur_recording_piece.onEndRecording(result.url);
 
                     /* release context */
                     r2App.cur_recording_annot = null;
