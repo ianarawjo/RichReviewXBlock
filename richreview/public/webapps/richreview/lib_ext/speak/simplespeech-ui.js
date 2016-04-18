@@ -1049,6 +1049,18 @@
                         r2App.invalidate_dynamic_scene = true;
                     }
                 }
+                var m = Math.min(old_focus, carret.idx_focus);
+                if(Math.abs(old_focus-carret.idx_focus) === 1 &&
+                        m < ctrl_talkens.length
+                ){
+                    r2.audioSynthesizer.run($textbox.children('span')[m].talken_data.data).then(
+                        function(result){
+                            var audio = new Audio(result.url);
+                            audio.play();
+                            return null;
+                        }
+                    );
+                }
             }
             return is_changed;
         };
