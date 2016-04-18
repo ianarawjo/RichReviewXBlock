@@ -1233,7 +1233,14 @@
 
                      // INSERT RECORDING
                     r2.localLog.event('cmd-audio-insert', annotId, {'input': 'key-enter'});
-                    r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
+                    r2.recordingCtrl.set(
+                        this._parent,
+                        { // option
+                            ui_type: r2App.RecordingUI.SIMPLE_SPEECH,
+                            caption_major: true,
+                            piece_to_insert: this
+                        }
+                    );
                 }
                 e.preventDefault();
             }
@@ -1802,6 +1809,20 @@
         this.dom_textbox.focus();
     };
     r2.PieceNewSpeak.prototype.DrawPieceDynamic = function(cur_annot_id, canvas_ctx, force) {
+        // Returns an array with all occurences of 'matchstr' in string array 'strarr'
+        // merged into the string immediately to the left and separated by 'separator'.
+        function mergeLeft(strarr, matchstr, separator) {
+            var i;
+            for (i = 0; i < strarr.length; i++) {
+                var s = strarr[i];
+                if (s === matchstr) {
+                    if (i > 0) strarr[i-1] += separator + matchstr; // mergeleft
+                    strarr.splice(i, 1); // remove matched element
+                    i--;
+                }
+            }
+        }
+
         // disable for now
         if (this._annotid != cur_annot_id || !r2.audioPlayer.isPlaying() || !this._last_tts_talkens) {
             if (this._dynamic_setup) this.EndDrawDynamic();
@@ -1819,19 +1840,6 @@
             return;
         } else if (!this._dynamic_setup) {
 
-            // Returns an array with all occurences of 'matchstr' in string array 'strarr'
-            // merged into the string immediately to the left and separated by 'separator'.
-            function mergeLeft(strarr, matchstr, separator) {
-                var i;
-                for (i = 0; i < strarr.length; i++) {
-                    var s = strarr[i];
-                    if (s === matchstr) {
-                        if (i > 0) strarr[i-1] += separator + matchstr; // mergeleft
-                        strarr.splice(i, 1); // remove matched element
-                        i--;
-                    }
-                }
-            }
             mergeLeft(wrds, '♦', ' ');
 
             if (wrds.length !== tks.length) {
@@ -2000,6 +2008,7 @@
         this.done_recording = true;
         this.done_captioning = true;
         this.annotids = [];
+        this.ui_type = r2App.RecordingUI.SIMPLE_SPEECH;
     };
     r2.PieceSimpleSpeech.prototype = Object.create(r2.Piece.prototype);
     r2.PieceSimpleSpeech.prototype.Destructor = function(){
@@ -2008,10 +2017,13 @@
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
         return this._annotid;
     };
-    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(anchor_pid, annotid, username, live_recording){
+    r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech = function(
+        anchor_pid, annotid, username, inner_html, live_recording, ui_type
+    ){
         this._annotid = annotid;
         this._username = username;
         this._waiting_for_watson = false;
+        this.ui_type = ui_type;
 
         var dom = this.CreateDom();
 
@@ -2075,7 +2087,9 @@
         this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
-        this.simplespeech = new simplespeech.ui(this.dom_textbox, dom_overlay, this._annotid, this.annotids);
+        this.simplespeech = new r2.transcriptionUI(
+            this.dom_textbox, dom_overlay, this._annotid, this.annotids, this.ui_type
+        );
 
         /* add event handlers*/
         this.simplespeech.on_input = function() {
@@ -2105,7 +2119,14 @@
         }.bind(this);
 
         this.simplespeech.insertRecording = function(){
-            r2.recordingCtrl.set(this._parent, r2App.RecordingUI.SIMPLE_SPEECH_INSERT, this);
+            r2.recordingCtrl.set(
+                this._parent,
+                { // option
+                    ui_type: r2App.RecordingUI.SIMPLE_SPEECH,
+                    caption_major: true,
+                    piece_to_insert: this
+                }
+            );
         }.bind(this);
 
         this.simplespeech.bgn_streaming = function(){
@@ -2208,6 +2229,7 @@
         this.Focus();
         this.done_captioning = true;
         this.doneCommenting();
+        this.resizeDom();
     };
     r2.PieceSimpleSpeech.prototype.onEndRecording = function(audioURL) {
         this.done_recording = true;
@@ -2684,11 +2706,40 @@
     r2.Annot.prototype.GetAudioFileUrl = function(){
         return r2.util.normalizeUrl(this._audiofileurl);
     };
-    r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob){
+    r2.Annot.prototype.SetRecordingAudioFileUrl = function(url, blob, buffer){
         //url = 'https://newspeak-tts.mybluemix.net/synthesize?text=The+greatest+teacher+is+experience.+It+is+only+through+first+hand+experience,+that+any+new+knowledge+can+get+fixed+in+the+mind.&voice=en-US_MichaelVoice';
         console.log("Annot URL set to ", url);
         this._audiofileurl = url;
         this._reacordingaudioblob = blob;
+
+        if(buffer){
+            var view = new DataView(buffer);
+            var l = [];
+            for(var i = 44; i < buffer.byteLength; i+=2){
+                var v = view.getInt16(i, true);
+                l.push(v);
+            }
+
+            this._duration = 1000*l.length/r2.audioRecorder.RECORDER_SAMPLE_RATE;
+
+            var samples_per_sec = 256;
+            var n_chunk = Math.floor(r2.audioRecorder.RECORDER_SAMPLE_RATE/samples_per_sec+0.5); // 32 power samples per sec
+            this._audio_dbs = [];
+            for(var i = 0, d = Math.floor(l.length/n_chunk); i < d; ++i){
+                this._audio_dbs.push(r2.util.rootMeanSquare(l, n_chunk*i, n_chunk*(i+1)));
+            }
+
+            var min = 0.0;
+            var max = 0.2;
+            this._audio_dbs.forEach(function(v){
+                min = Math.min(min, v);
+                max = Math.max(max, v);
+            });
+            for(var i = 0; i < this._audio_dbs.length; ++i){
+                this._audio_dbs[i] = (this._audio_dbs[i]-min)/(max-min);
+            }
+
+        }
     };
 
     r2.Annot.prototype.SampleAudioDbs = function(msec) {
@@ -2699,10 +2750,10 @@
         return v0+v1;
     };
     r2.Annot.prototype.UpdateDbs = function(dbs){
-        var dbsPerSec = r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE/r2.audioRecorder.RECORDER_BUFFER_LEN/1000;
-        var nDbs = Math.floor((r2App.cur_time-this._bgn_time) * dbsPerSec);
+        this._duration = r2App.cur_time-this._bgn_time;
 
-        this._duration = nDbs/dbsPerSec;
+        var dbsPerSec = r2.audioRecorder.RECORDER_POWER_SAMPLE_PER_SEC;
+        var nDbs = Math.floor((r2App.cur_time-this._bgn_time) * dbsPerSec);
 
         for(var i = this._audio_dbs.length; i < nDbs; ++i) {
             this._audio_dbs.push((r2.audioRecorder.RECORDER_SAMPLE_SCALE*dbs).toFixed(3));

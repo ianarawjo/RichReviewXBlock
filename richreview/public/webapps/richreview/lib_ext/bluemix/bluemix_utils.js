@@ -186,13 +186,18 @@ var bluemix_stt = (function(bluemix_stt) {
 
         pub.run = function(msg){
             if(msg.results && msg.results.length){
+                var is_final = msg.results[0].final;
                 var best_alternative = msg.results[0].alternatives[0];
                 for(var i = 0; i < best_alternative.timestamps.length; ++i){
                     if(best_alternative.timestamps[i][0]=='%HESITATION'){
                         best_alternative.timestamps[i][0] = '...';
                     }
+                    if(is_final){
+                        // push word-confidence
+                        best_alternative.timestamps[i].push(best_alternative.word_confidence[i][1]);
+                    }
                 }
-                if(msg.results[0].final){
+                if(is_final){
                     callbacks.onFinal(best_alternative.timestamps, msg.results[0].alternatives);
                 }
                 else{

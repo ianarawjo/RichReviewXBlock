@@ -25,7 +25,7 @@ var r2Ctrl = {};
 
             mode = InputMode.DESKTOP;
             $('#btn-input-set-mode-desktop').toggleClass('btn-primary', true);
-            r2.mouse.rightClickContextMenu.disable();
+            r2.mouse.rightClickContextMenu.enable();
             r2.mouse.setEventHandlers();
         };
         pub.setModeTabletTouch = function(){
@@ -404,8 +404,9 @@ var r2Ctrl = {};
                 if(r2.input.isTap(pos_dn, new_pen_pt)){
                     if(mode === PenMode.MANIPULATION){
                         if(!r2App.pieceSelector.isNull()){
-                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
-                            r2.log.Log_Simple("Recording_Bgn_PenTap");
+                            var options = {ui_type: r2.speechUi.mode};
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), options);
+                            r2.log.Log_Simple("Recording_Bgn_PenTap_"+JSON.stringify(options));
                         }
                     }
                     else if(mode === PenMode.NORMAL){
@@ -870,8 +871,9 @@ var r2Ctrl = {};
                         break;
                     case CONST.KEY_ENTER: // enter
                         if(!r2App.pieceSelector.isNull()){
-                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
-                            r2.log.Log_Simple("Recording_Bgn_Enter_"+r2.speechUi.mode);
+                            var options = {ui_type: r2.speechUi.mode};
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), options);
+                            r2.log.Log_Simple("Recording_Bgn_Enter_"+JSON.stringify(options));
                         }
                         break;
                     default:
@@ -888,8 +890,9 @@ var r2Ctrl = {};
                         r2.log.Log_AudioStop('enter', r2.audioPlayer.getCurAudioFileId(), r2.audioPlayer.getPlaybackTime());
                         r2.rich_audio.stop();
                         if(!r2App.pieceSelector.isNull()){
-                            r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
-                            r2.log.Log_Simple("Recording_Bgn_Enter_"+r2.speechUi.mode);
+                            var options = {ui_type: r2.speechUi.mode};
+                            r2.recordingCtrl.set(r2App.pieceSelector.get(), options);
+                            r2.log.Log_Simple("Recording_Bgn_Enter_"+JSON.stringify(options));
                         }
                         break;
                     default:
@@ -1004,8 +1007,9 @@ var r2Ctrl = {};
                 }
                 else{
                     if(!r2App.pieceSelector.isNull()){
-                        r2.recordingCtrl.set(r2App.pieceSelector.get(), r2.speechUi.mode);
-                        r2.log.Log_Simple("Recording_Bgn_OnScrBtn_"+r2.speechUi.mode);
+                        var options = {ui_type: r2.speechUi.mode};
+                        r2.recordingCtrl.set(r2App.pieceSelector.get(), options);
+                        r2.log.Log_Simple("Recording_Bgn_OnScrBtn_"+JSON.stringify(options));
                     }
                 }
                 r2.mouse.mode = r2.MouseModeEnum.HOVER; // should set mouse mode here, since we are calling stopPropagation().

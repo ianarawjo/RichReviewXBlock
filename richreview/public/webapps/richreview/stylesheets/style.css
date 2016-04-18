@@ -353,44 +353,79 @@ a:active {
 
 .ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-span {
   display: -webkit-inline-box;
-  font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
   margin: 0;
   padding: 0;
+  position: relative;
+
+  font-size: 0.8em; /* variant to FONT_SIZE_SCALE  */
+
+}
+.ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-canv {
+  display: -webkit-inline-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+  vertical-align: top;
 }
 
+.ssui-overlay > .ssui-viewtalken > .ssui-waveform-span-wrapper-div {
+  display: -webkit-inline-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+
+  width: auto;
+  padding-top: -1em;
+  height: auto;
+  margin-left: -50%;
+  z-index: 8;
+  vertical-align: super;
+}
+
+.ssui-overlay > .ssui-viewtalken > .ssui-waveform-span-wrapper-div > .ssui-waveform-span {
+  display: -webkit-inline-box;
+  margin: 0;
+  padding: 0;
+  position: relative;
+
+  width: 100%;
+  margin-left: -100%;
+  padding-top: -100%;
+  font-size: 0.6em; /* variant to FONT_SIZE_SCALE  */
+}
 .ssui-overlay >  .ssui-viewtalken {
   background-color: rgb(220, 220, 220);
-  border: solid 0.1em rgb(220, 220, 220);
   color: black;
 }
+.ssui-overlay >  .ssui-viewtalken.fresh-recording {
+  background-color: rgb(189, 200, 210);
+  color: black;
+}
+.ssui-overlay > .ssui-viewtalken.ssui-word {
+  border-radius: 0.1em;
+  padding-top: 0.1em;
+  padding-left: 0.1em;
+  padding-right: 0.1em;
+}
+
+
 .ssui-overlay > .ssui-viewtalken.ssui-pause {
   border-radius: 0.2em;
 }
-.ssui-overlay > .ssui-viewtalken.temp{
-  background-color: rgb(220, 220, 220);
-  border: solid 0.1em rgb(240, 240, 240);
-  color: gray;
-}
-
-.ssui-overlay > .ssui-viewtalken.old{
-  background-color: rgb(255, 255, 255);
-  border: solid 0.1em rgb(240, 240, 240);
-  color: gray;
-}
-
 .ssui-overlay > .ssui-viewtalken.replay_highlight {
   background-color: lightsteelblue;
-  border: solid 0.1em lightsteelblue;
   color: black;
 }
-
 .ssui-overlay > .ssui-viewtalken.ssui-recording-indicator {
   background-color: rgba(205, 92, 92, 0.85);
   color: transparent;
   border: solid 0.1em rgb(205, 92, 92);
-  border-radius: 0.75em;
+  border-radius: 1em;
+  min-width: 0.80em;
 }
-
 .blink_me {
   animation: blinker 1.5s linear infinite;
 }
@@ -1180,6 +1215,29 @@ div.simplespeech_tooltip > div.arrow_up {
   border-bottom: 7px solid cornflowerblue;
   margin: auto;
 }
+
+
+div.tooltip_audio_waveform {
+  position: absolute;
+  z-index: 20;
+}
+
+div.tooltip_audio_waveform canvas{
+  padding: 3px 0;
+  border: solid rgba(205, 92, 92, 0.85) 1px;
+  border-radius: 4px;
+  background: white;
+}
+
+div.tooltip_audio_waveform div.arrow_up {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid rgba(205, 92, 92, 0.85);
+  margin: auto;
+}
+
 
 div.boxb {
   position: absolute;

@@ -40,7 +40,7 @@ function exportWAV(){
         {
             command: 'exportWAV',
             blob: new Blob([encoded.dataView], { type: 'audio/wav' }),
-            buffer: new Uint8Array(encoded.buffer)
+            buffer: encoded.buffer
         }
     );
 }
