@@ -1284,11 +1284,18 @@
             this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
             $(this.dom).css("pointer-events", 'auto');
             $(this.dom_textbox).toggleClass('editing', true);
+
+            // Restore cursor position from blur
+            r2.speak.restoreSelection(this.dom_textbox, this.blur_caret);
+
             r2.localLog.event('focus', annotId, {'text':_tb.text()});
         }.bind(this));
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
+            // save cursor pos
+            this.blur_caret = r2.speak.saveSelection(this.dom_textbox);
+
             // remove cursor complete from the textbox,
             // otherwise it will interfere with mouse interaction for other visaul entities
             window.getSelection().removeAllRanges();
@@ -1338,72 +1345,124 @@
 
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
-            this._last_tts_talkens = null;
-            var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+            //this._last_tts_talkens = null;
+            //var edited_talkens = this.speak_ctrl.getCompiledTalkens();
 
-                if (!finalAudioURL) {
-                    console.warn('Error processing audio. Check console for details.');
+            this.speak_ctrl.renderTTSAudioPatchy(this.GetAnnotId(), '').then(function(eandt) {
+                console.log(' @ patchSynth @ doc_model: ', eandt);
+                var edited_talkens = eandt[0];
+                var tts_talkens = eandt[1];
+                var annotId = this.GetAnnotId();
+
+                if (tts_talkens.length > 0) // Set annot audio to finalized version
+                    r2App.annots[annotId].SetRecordingAudioFileUrl(tts_talkens[0].audio.url, null);
+
+                // Handle common errors
+                if (!tts_talkens || tts_talkens.length === 0) {
+                    console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
                     return;
                 }
-
-                var annotId = this.GetAnnotId();
-                r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
-                r2.localLog.editedBlobURL(finalAudioURL, annotId);
-                r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
-
-                // Get timestamps for TTS audio with HTK
-                this.speak_ctrl.generateTalkensFromHTK(finalAudioURL).then((function(tts_talkens) {
-
-                    // Handle common errors
-                    if (!tts_talkens) {
-                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
-                        return;
+                else if (!edited_talkens || edited_talkens.length === 0) {
+                    console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
+                    return;
+                }
+                else if (edited_talkens.length !== tts_talkens.length) {
+                    console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
+                    if (tts_talkens.length > edited_talkens.length) {
+                        console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
+                        return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
                     }
-                    else if (!edited_talkens) {
-                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
-                        return;
-                    }
-                    else if (edited_talkens.length !== tts_talkens.length) {
-                        console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
-                        if (tts_talkens.length > edited_talkens.length) {
-                            console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
-                            return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
-                        }
-                    }
+                }
 
-                    // 'Smooth' any missing timestamps so that they don't skip on playback:
-                    r2.audiosynth.smoothMissingTimestamps(tts_talkens);
+                // Convert to format of talkens expected by r2.gestureSynthesizer
+                var gesynth_tks = [];
+                for (var i = 0; i < tts_talkens.length; i++) {
+                    var tts_tk = tts_talkens[i];
+                    var src_tk = edited_talkens[i];
+                    gesynth_tks.push({
+                       base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
+                       base_bgn: src_tk.bgn,
+                       base_end: src_tk.end,
+                       new_bgn: tts_tk.bgn,
+                       new_end: tts_tk.end,
+                       word: src_tk.word,
+                       pause_after: tts_tk.pauseAfter,
+                       pause_before: tts_tk.pauseBefore
+                    });
+                }
+                this._last_tts_talkens = gesynth_tks;
 
-                    // Convert to format of talkens expected by r2.gestureSynthesizer
-                    var gesynth_tks = [];
-                    for (var i = 0; i < tts_talkens.length; i++) {
-                        var tts_tk = tts_talkens[i];
-                        var src_tk = edited_talkens[i];
-                        gesynth_tks.push({
-                           base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
-                           base_bgn: src_tk.bgn,
-                           base_end: src_tk.end,
-                           new_bgn: tts_tk.bgn,
-                           new_end: tts_tk.end,
-                           word: src_tk.word,
-                           pause_after: tts_tk.pauseAfter,
-                           pause_before: tts_tk.pauseBefore
-                        });
-                    }
-                    this._last_tts_talkens = gesynth_tks;
+                // Resynthesize gestures for this annotation for new TTS audio...
+                r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+                console.warn('gesynth ----> ', gesynth_tks);
+                r2.gestureSynthesizer.run(annotId, gesynth_tks);
 
-                    // Resynthesize gestures for this annotation for new TTS audio...
-                    r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
-                    console.warn('gesynth ----> ',gesynth_tks);
-                    r2.gestureSynthesizer.run(annotId, gesynth_tks);
+            }.bind(this));
 
-                }).bind(this));
-
-            }).bind(this)).catch(function(err) {
-                // error
-
-            });
+            // this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+            //
+            //     if (!finalAudioURL) {
+            //         console.warn('Error processing audio. Check console for details.');
+            //         return;
+            //     }
+            //
+            //     var annotId = this.GetAnnotId();
+            //     r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
+            //     r2.localLog.editedBlobURL(finalAudioURL, annotId);
+            //     r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
+            //
+            //     // Get timestamps for TTS audio with HTK
+            //     this.speak_ctrl.generateTalkensFromHTK(finalAudioURL).then((function(tts_talkens) {
+            //
+            //         // Handle common errors
+            //         if (!tts_talkens) {
+            //             console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
+            //             return;
+            //         }
+            //         else if (!edited_talkens) {
+            //             console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
+            //             return;
+            //         }
+            //         else if (edited_talkens.length !== tts_talkens.length) {
+            //             console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
+            //             if (tts_talkens.length > edited_talkens.length) {
+            //                 console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
+            //                 return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
+            //             }
+            //         }
+            //
+            //         // 'Smooth' any missing timestamps so that they don't skip on playback:
+            //         r2.audiosynth.smoothMissingTimestamps(tts_talkens);
+            //
+            //         // Convert to format of talkens expected by r2.gestureSynthesizer
+            //         var gesynth_tks = [];
+            //         for (var i = 0; i < tts_talkens.length; i++) {
+            //             var tts_tk = tts_talkens[i];
+            //             var src_tk = edited_talkens[i];
+            //             gesynth_tks.push({
+            //                base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
+            //                base_bgn: src_tk.bgn,
+            //                base_end: src_tk.end,
+            //                new_bgn: tts_tk.bgn,
+            //                new_end: tts_tk.end,
+            //                word: src_tk.word,
+            //                pause_after: tts_tk.pauseAfter,
+            //                pause_before: tts_tk.pauseBefore
+            //             });
+            //         }
+            //         this._last_tts_talkens = gesynth_tks;
+            //
+            //         // Resynthesize gestures for this annotation for new TTS audio...
+            //         r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+            //         console.warn('gesynth ----> ',gesynth_tks);
+            //         r2.gestureSynthesizer.run(annotId, gesynth_tks);
+            //
+            //     }).bind(this));
+            //
+            // }).bind(this)).catch(function(err) {
+            //     // error
+            //
+            // });
 
             //var streamingTTSAudioURL = audioRenderObj.streamURL;
             //this._cbAbortTTSDownload = audioRenderObj.abort;
@@ -1681,6 +1740,7 @@
         // Save the cursor position, flatten the div, and then restore it.
         if ($(this.dom_textbox).text().length > 0) {
             var cur = r2.speak.saveSelection(this.dom_textbox);
+            this.blur_idx = cur;
             $(this.dom_textbox).text($(this.dom_textbox).text()); // strange but true
             r2.speak.restoreSelection(this.dom_textbox, cur); // hope this works!
             this.insert_idx = r2.speak.saveSelection(this.dom_textbox).start; // simplified range...

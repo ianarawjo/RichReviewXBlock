@@ -23,7 +23,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
      */
 
     r2.speak = function () {
-        var _this = this;
 
         var pub_speak = {};
 
@@ -32,7 +31,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         var saveSelection, restoreSelection;
         if (window.getSelection && document.createRange) {
             saveSelection = function saveSelection(containerEl) {
-                var range = window.getSelection().getRangeAt(0);
+                var sel = window.getSelection();
+                if (sel.rangeCount === 0) return { start: 0, end: 0 };
+                var range = sel.getRangeAt(0);
                 var preSelectionRange = range.cloneRange();
                 preSelectionRange.selectNodeContents(containerEl);
                 preSelectionRange.setEnd(range.startContainer, range.startOffset);
@@ -242,7 +243,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 _createClass(AudioResource, [{
                     key: "url",
                     get: function get() {
-                        return r2App.annots[this.annotId].GetAudioFileUrl();
+                        if (this.annotId.indexOf('blob:') > -1) return this.annotId; // backwards compatability
+                        else return r2App.annots[this.annotId].GetAudioFileUrl();
                     }
                 }]);
 
@@ -271,6 +273,9 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             if (!url) reject("Audio.synthesize: Null url.");else resolve(url);
                         });
                     });
+                },
+                patchSynthesize: function patchSynthesize(talkens, prevTalkens, prevTTSTalkens) {
+                    return r2.audiosynth.patchSynthesize(talkens, prevTalkens, prevTTSTalkens);
                 },
                 patch: function patch(talkens) {
                     return r2.audiosynth.patch(talkens).then(function (sobj) {
@@ -699,6 +704,14 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             /**
              * Renders TTS audio.
              */
+            pub.renderTTSAudioPatchy = function (annotId) {
+                var options = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
+
+                r2.speak.SetCurrentAnnotId(annotId);
+                return _render('anon-patchy', options).catch(function (err) {
+                    console.error(' @ renderTTSAudioPatchy: ', err);
+                }.bind(pub));
+            };
             pub.renderAudioAnon = function (annotId) {
                 var options = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
 
@@ -706,7 +719,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null);
                 return _render(pub.anonAudioRenderType, options).catch(function (err) {
                     //r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null); // Revert audio URL to streamed version.
-                }.bind(_this));
+                }.bind(pub));
             };
 
             var _render = function _render(mode, options) {
@@ -721,7 +734,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 } else if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
-                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk' && mode !== 'patch') {
+                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk' && mode !== 'patch' && mode !== 'anon-patchy') {
                     console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }
@@ -749,6 +762,20 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     return Audio.stitch(talkens).then(after_stitching).catch(function (err) {
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
+                    });
+                } else if (mode === 'anon-patchy') {
+                    var _this = pub;
+                    return Audio.patchSynthesize(talkens, pub.prevEditedTalkens, pub.prevTTSTalkens).then(function (eandt) {
+                        console.log('### Synthesized and received ', eandt);
+                        var edited_talkens = eandt[0];
+                        var tts_talkens = eandt[1];
+                        console.log('reached inner ');
+                        _this.prevTTSTalkens = Talken.clone(tts_talkens);
+                        _this.prevEditedTalkens = Talken.clone(edited_talkens);
+                        _stitching = false;
+                        return new Promise(function (resolve, reject) {
+                            resolve([edited_talkens, tts_talkens]);
+                        });
                     });
                 } else if (mode === 'anon') {
                     return Audio.synthesize(talkens, options).then(after_stitching).catch(function (err) {
@@ -1038,6 +1065,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 pub.lastTTSAudioXHR = null;
             }
         };
+        pub.getTTSTalkensFromWatson = function (ssml, voice, transcript) {
+            return getTTSAudioFromWatson(ssml, voice).then(function (turl) {
+                return r2.speak.Talken.generateFromHTK(turl, transcript);
+            }).then(function (tts_talkens) {
+                smoothMissingTimestamps(tts_talkens);
+                return new Promise(function (resolve, reject) {
+                    resolve(tts_talkens);
+                });
+            });
+        };
+        var getTTSTalkensFromWatson = pub.getTTSTalkensFromWatson;
 
         /**
          * Stitches timestamps together into a single audio file.
@@ -1163,6 +1201,316 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             }).catch(function (err) {
                 console.log('Error @ synthesize: ', err);
             });
+        };
+
+        // This will perform magic.
+        pub.patchSynthesize = function (talkens, prevTalkens, prevTTSTalkens) {
+            console.log('####### Reached inner PS with args: ', talkens, prevTalkens, prevTTSTalkens);
+
+            if (!prevTalkens || !prevTTSTalkens) {
+                var ssml = toSSML(talkens);
+                var transcript = toTranscript(talkens);
+                var talkensCopy = r2.speak.Talken.clone(talkens);
+                return getTTSTalkensFromWatson(ssml, 'en-US_MichaelVoice', transcript).then(function (tts_talkens) {
+                    return new Promise(function (resolve, reject) {
+                        resolve([talkensCopy, tts_talkens]);
+                    });
+                });
+            }
+
+            talkens = r2.speak.Talken.clone(talkens);
+            if (prevTalkens) prevTalkens = r2.speak.Talken.clone(prevTalkens);
+            if (prevTTSTalkens) prevTTSTalkens = r2.speak.Talken.clone(prevTTSTalkens);
+
+            console.log('####### clone inner PS with args: ', talkens, prevTalkens, prevTTSTalkens);
+
+            function contains(word, chararr) {
+                var _iteratorNormalCompletion4 = true;
+                var _didIteratorError4 = false;
+                var _iteratorError4 = undefined;
+
+                try {
+                    for (var _iterator4 = chararr[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                        var o = _step4.value;
+
+                        if (word.indexOf(o) > -1) return true;
+                    }
+                } catch (err) {
+                    _didIteratorError4 = true;
+                    _iteratorError4 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion4 && _iterator4.return) {
+                            _iterator4.return();
+                        }
+                    } finally {
+                        if (_didIteratorError4) {
+                            throw _iteratorError4;
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            function splitResponsibly(tks) {
+                var idxs = [0];
+                var i = 0;
+                var PAUSE_SPLIT_THRESHOLD = 500;
+                var delimiters = ['.', '?', '!'];
+                var _iteratorNormalCompletion5 = true;
+                var _didIteratorError5 = false;
+                var _iteratorError5 = undefined;
+
+                try {
+                    for (var _iterator5 = tks[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                        var t = _step5.value;
+
+                        if (contains(t.word, delimiters) || t.pauseAfter >= PAUSE_SPLIT_THRESHOLD) {
+                            idxs.push(i + 1);
+                        } else if (t.pauseBefore >= PAUSE_SPLIT_THRESHOLD) {
+                            idxs.push(i);
+                        }
+                        i++;
+                    }
+                } catch (err) {
+                    _didIteratorError5 = true;
+                    _iteratorError5 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion5 && _iterator5.return) {
+                            _iterator5.return();
+                        }
+                    } finally {
+                        if (_didIteratorError5) {
+                            throw _iteratorError5;
+                        }
+                    }
+                }
+
+                console.log('Splitting ', tks, ' with idxs ', idxs);
+
+                var b = -1;
+                var split_tks = [];
+                var _iteratorNormalCompletion6 = true;
+                var _didIteratorError6 = false;
+                var _iteratorError6 = undefined;
+
+                try {
+                    for (var _iterator6 = idxs[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                        var _i = _step6.value;
+
+                        if (b > -1) {
+                            split_tks.push(tks.slice(b, _i));
+                            console.log(' >>> split from ', b, ' to ', _i);
+                        }
+                        b = _i;
+                    }
+                } catch (err) {
+                    _didIteratorError6 = true;
+                    _iteratorError6 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion6 && _iterator6.return) {
+                            _iterator6.return();
+                        }
+                    } finally {
+                        if (_didIteratorError6) {
+                            throw _iteratorError6;
+                        }
+                    }
+                }
+
+                if (b > -1 && b < tks.length) {
+                    split_tks.push(tks.slice(b));
+                    console.log(' >>> split from ', b, ' to end');
+                }
+
+                return split_tks;
+            }
+            function mirrorSplit(template_sqs, arr) {
+                var i = 0;
+                var m = [];
+                var _iteratorNormalCompletion7 = true;
+                var _didIteratorError7 = false;
+                var _iteratorError7 = undefined;
+
+                try {
+                    for (var _iterator7 = template_sqs[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                        var t = _step7.value;
+
+                        m.push(arr.slice(i, i + t.length));
+                        i += t.length;
+                    }
+                } catch (err) {
+                    _didIteratorError7 = true;
+                    _iteratorError7 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion7 && _iterator7.return) {
+                            _iterator7.return();
+                        }
+                    } finally {
+                        if (_didIteratorError7) {
+                            throw _iteratorError7;
+                        }
+                    }
+                }
+
+                if (i < template_sqs.length) m.push(arr.slice(i));
+                return m;
+            }
+
+            function talkenSequencesAreEqual(a, b) {
+                console.log(' >> talkenSequencesAreEqual called with ', a, b);
+                if (a.length !== b.length) return false;
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].word.toLowerCase() !== b[i].word.toLowerCase()) return false;
+                }
+                console.log(' >>> ...These sequences are equal.');
+                return true;
+            }
+
+            function mergeAdjacent(arr, comparefunc, mergefunc) {
+                for (var i = 0; i < arr.length - 1; i++) {
+                    if (comparefunc(arr[i], arr[i + 1])) {
+                        arr.splice(i, 2, mergefunc(arr[i], arr[i + 1]));
+                        i--;
+                    }
+                }
+                return arr;
+            }
+
+            var tks_sequences = splitResponsibly(talkens);
+            var prev_tks_sequences = splitResponsibly(prevTalkens);
+            var TTS_sequences = mirrorSplit(prev_tks_sequences, prevTTSTalkens);
+
+            console.log('####### tks_seq, prev_tks_seq, tts_seq: ', tks_sequences, prev_tks_sequences, TTS_sequences);
+
+            // S^2 comparison...
+            var patchy_sequence = [];
+            tks_sequences.forEach(function (s) {
+                var i = 0;
+                var noseq = true;
+                var _iteratorNormalCompletion8 = true;
+                var _didIteratorError8 = false;
+                var _iteratorError8 = undefined;
+
+                try {
+                    for (var _iterator8 = prev_tks_sequences[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+                        var p = _step8.value;
+
+                        if (talkenSequencesAreEqual(s, p)) {
+                            patchy_sequence.push([true, TTS_sequences[i]]);
+                            noseq = false;
+                            break;
+                        }
+                        i++;
+                    }
+                } catch (err) {
+                    _didIteratorError8 = true;
+                    _iteratorError8 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion8 && _iterator8.return) {
+                            _iterator8.return();
+                        }
+                    } finally {
+                        if (_didIteratorError8) {
+                            throw _iteratorError8;
+                        }
+                    }
+                }
+
+                if (noseq) patchy_sequence.push([false, s]);
+            });
+
+            // Merge adjacent sequences in advance to reduce the number of async calls.
+            mergeAdjacent(patchy_sequence, function (curr, next) {
+                return curr[0] === next[0];
+            }, function (a, b) {
+                return [a[0], a[1].concat(b[1])];
+            });
+
+            console.log('####### patchy_sequence: ', patchy_sequence);
+
+            // patchy_sequence is now in the form:
+            // -- [tts0, tts1, a, b, tts2] --
+            // where tts_i stands for sequences which we already downloaded.
+            // For these sequences, the audio should be extracted into a single snippet for stitching.
+            // For new sequences, we will daisy-chain download requests to Watson.
+            // ===================================
+            // The output of the below chain of promises should be an array
+            // of final TTS talken sequences. This will be flattened and then mapped (lol)
+            // to an array of snippets for stitching. The flattened TTS talken array will
+            // then be reconstructed into sequential timestamps corresponding to the
+            // stitched audio and its URL.
+            var composed_seq = patchy_sequence.reduce(function (prev, item_to_convert) {
+                return prev.then(function (prev_tts_tks) {
+
+                    console.log(' >>> Reducing patchy_sequence item: ', item_to_convert);
+
+                    if (item_to_convert[0]) return new Promise(function (resolve, reject) {
+                        resolve(prev_tts_tks.concat(item_to_convert[1]));
+                    });else return new Promise(function (resolve, reject) {
+                        var ssml = toSSML(item_to_convert[1]);
+                        var transcript = toTranscript(item_to_convert[1]);
+                        getTTSTalkensFromWatson(ssml, 'en-US_MichaelVoice', transcript).then(function (new_tts_tks) {
+                            resolve(prev_tts_tks.concat(new_tts_tks));
+                        });
+                    });
+                });
+            }, new Promise(function (resolve, reject) {
+                resolve([]);
+            }));
+
+            return composed_seq.then(function (final_tts_tks) {
+
+                console.log(' >>> Stitching final tts talkens... ', final_tts_tks);
+
+                return new Promise(function (resolve, reject) {
+                    stitch(final_tts_tks).then(function (sobj) {
+
+                        var tts_tks = sobj.stitched_talkens;
+
+                        // Reconstruct talken seq to use stitched audio.
+                        var ts = [];
+                        var _iteratorNormalCompletion9 = true;
+                        var _didIteratorError9 = false;
+                        var _iteratorError9 = undefined;
+
+                        try {
+                            for (var _iterator9 = tts_tks[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+                                var tk = _step9.value;
+
+                                ts.push([tk.word, tk.bgn, tk.end]);
+                            }
+                        } catch (err) {
+                            _didIteratorError9 = true;
+                            _iteratorError9 = err;
+                        } finally {
+                            try {
+                                if (!_iteratorNormalCompletion9 && _iterator9.return) {
+                                    _iterator9.return();
+                                }
+                            } finally {
+                                if (_didIteratorError9) {
+                                    throw _iteratorError9;
+                                }
+                            }
+                        }
+
+                        console.log(' >>> Generating final stitched tts talkens...', ts, sobj);
+
+                        // Generate stitched talken sequence and return to outer Promise.
+                        resolve(r2.speak.Talken.generate(ts, sobj.url));
+                    });
+                });
+            }).then(function (stitched_tts_tks) {
+                return new Promise(function (resolve, reject) {
+                    resolve([talkens, stitched_tts_tks]);
+                });
+            }); // Returns the stitched talken sequence (sequential timestamps that point to 1 audio URL)
         };
 
         /**

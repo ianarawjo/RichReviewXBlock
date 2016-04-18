@@ -24,7 +24,9 @@
         var saveSelection, restoreSelection;
         if (window.getSelection && document.createRange) {
             saveSelection = function(containerEl) {
-                var range = window.getSelection().getRangeAt(0);
+                var sel = window.getSelection();
+                if (sel.rangeCount === 0) return { start:0, end:0 };
+                var range = sel.getRangeAt(0);
                 var preSelectionRange = range.cloneRange();
                 preSelectionRange.selectNodeContents(containerEl);
                 preSelectionRange.setEnd(range.startContainer, range.startOffset);
@@ -175,7 +177,10 @@
                     this.annotId = annotId; // TODO: Cloud storage.
                 }
                 get url() {
-                    return r2App.annots[this.annotId].GetAudioFileUrl();
+                    if (this.annotId.indexOf('blob:') > -1)
+                        return this.annotId; // backwards compatability
+                    else
+                        return r2App.annots[this.annotId].GetAudioFileUrl();
                 }
             };
             var resources = [];
@@ -203,6 +208,9 @@
                             else resolve(url);
                         });
                     });
+                },
+                patchSynthesize : function(talkens, prevTalkens, prevTTSTalkens) {
+                    return r2.audiosynth.patchSynthesize(talkens, prevTalkens, prevTTSTalkens);
                 },
                 patch : function(talkens) {
                     return r2.audiosynth.patch(talkens).then(function(sobj) {
@@ -603,12 +611,18 @@
             /**
              * Renders TTS audio.
              */
+            pub.renderTTSAudioPatchy = (annotId, options='') => {
+                r2.speak.SetCurrentAnnotId(annotId);
+                return _render('anon-patchy', options).catch(function(err) {
+                    console.error(' @ renderTTSAudioPatchy: ', err);
+                }.bind(pub));
+            };
             pub.renderAudioAnon = (annotId, options='') => {
                 r2.speak.SetCurrentAnnotId(annotId);
                 r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null);
                 return _render(pub.anonAudioRenderType, options).catch(function(err) {
                     //r2App.annots[annotId].SetRecordingAudioFileUrl(Audio.getStreamingTTSAudioURL(edited), null); // Revert audio URL to streamed version.
-                }.bind(this));
+                }.bind(pub));
             };
 
             var _render = (mode, options) => {
@@ -625,7 +639,7 @@
                 else if (!edited || edited.length === 0) {
                     console.warn("Error @ r2.speak.render: No compiled talkens found. Call compile() before play(), or insert a transcript.");
                     return null;
-                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk' && mode !== 'patch') {
+                } else if (mode !== 'natural' && mode !== 'anon' && mode !== 'anon+htk' && mode !== 'patch' && mode !== 'anon-patchy') {
                     console.warn("Error @ r2.speak.render: Unrecognized mode.");
                     return null;
                 }
@@ -654,6 +668,21 @@
                         console.warn("Error @ r2.speak.render: Audio stitch failed.", err);
                         _stitching = false;
                     });
+                }
+                else if (mode === 'anon-patchy') {
+                    var _this = pub;
+                    return Audio.patchSynthesize(talkens, pub.prevEditedTalkens, pub.prevTTSTalkens).then(((eandt) => {
+                        console.log('### Synthesized and received ', eandt);
+                        var edited_talkens = eandt[0];
+                        var tts_talkens = eandt[1];
+                        console.log('reached inner ');
+                        _this.prevTTSTalkens = Talken.clone(tts_talkens);
+                        _this.prevEditedTalkens = Talken.clone(edited_talkens);
+                        _stitching = false;
+                        return new Promise(function(resolve, reject) {
+                            resolve([edited_talkens, tts_talkens]);
+                        });
+                    }));
                 }
                 else if (mode === 'anon') {
                     return Audio.synthesize(talkens, options).then(after_stitching).catch(function(err) {
@@ -959,6 +988,18 @@
                 pub.lastTTSAudioXHR = null;
             }
         };
+        pub.getTTSTalkensFromWatson = (ssml, voice, transcript) => {
+            return getTTSAudioFromWatson(ssml, voice)
+                    .then((turl) => r2.speak.Talken.generateFromHTK(turl, transcript))
+                    .then((tts_talkens) => {
+                        smoothMissingTimestamps(tts_talkens);
+                        return new Promise(function(resolve, reject) {
+                            resolve(tts_talkens);
+                        });
+                    }
+            );
+        };
+        var getTTSTalkensFromWatson = pub.getTTSTalkensFromWatson;
 
         /**
          * Stitches timestamps together into a single audio file.
@@ -1060,6 +1101,190 @@
             }).catch(function(err) {
                 console.log('Error @ synthesize: ', err);
             });
+        };
+
+
+        // This will perform magic.
+        pub.patchSynthesize = (talkens, prevTalkens, prevTTSTalkens) => {
+            console.log('####### Reached inner PS with args: ', talkens, prevTalkens, prevTTSTalkens);
+
+            if (!prevTalkens || !prevTTSTalkens) {
+                var ssml = toSSML(talkens);
+                var transcript = toTranscript(talkens);
+                var talkensCopy = r2.speak.Talken.clone(talkens);
+                return getTTSTalkensFromWatson(ssml, 'en-US_MichaelVoice', transcript).then((tts_talkens) => {
+                    return new Promise(function(resolve, reject) {
+                        resolve([talkensCopy, tts_talkens]);
+                    });
+                });
+            }
+
+            talkens = r2.speak.Talken.clone(talkens);
+            if (prevTalkens) prevTalkens = r2.speak.Talken.clone(prevTalkens);
+            if (prevTTSTalkens) prevTTSTalkens = r2.speak.Talken.clone(prevTTSTalkens);
+
+            console.log('####### clone inner PS with args: ', talkens, prevTalkens, prevTTSTalkens);
+
+            function contains(word, chararr) {
+                for (let o of chararr) {
+                    if (word.indexOf(o) > -1) return true;
+                }
+                return false;
+            }
+
+            function splitResponsibly(tks) {
+                var idxs = [0];
+                var i = 0;
+                var PAUSE_SPLIT_THRESHOLD = 500;
+                var delimiters = ['.','?','!'];
+                for (let t of tks) {
+                    if (contains(t.word, delimiters) || t.pauseAfter >= PAUSE_SPLIT_THRESHOLD) {
+                        idxs.push(i+1);
+                    } else if (t.pauseBefore >= PAUSE_SPLIT_THRESHOLD) {
+                        idxs.push(i);
+                    }
+                    i++;
+                }
+
+                console.log('Splitting ', tks, ' with idxs ', idxs);
+
+                var b = -1;
+                var split_tks = [];
+                for (let i of idxs) {
+                    if (b > -1) {
+                        split_tks.push(tks.slice(b, i));
+                        console.log(' >>> split from ', b, ' to ', i);
+                    }
+                    b = i;
+                }
+                if (b > -1 && b < tks.length) {
+                    split_tks.push(tks.slice(b));
+                    console.log(' >>> split from ', b, ' to end');
+                }
+
+                return split_tks;
+            }
+            function mirrorSplit(template_sqs, arr) {
+                var i = 0;
+                var m = [];
+                for (let t of template_sqs) {
+                    m.push(arr.slice(i, i + t.length));
+                    i += t.length;
+                }
+                if (i < template_sqs.length)
+                    m.push(arr.slice(i));
+                return m;
+            }
+
+            function talkenSequencesAreEqual(a, b) {
+                console.log(' >> talkenSequencesAreEqual called with ', a, b);
+                if (a.length !== b.length) return false;
+                for (let i = 0; i < a.length; i++) {
+                    if (a[i].word.toLowerCase() !== b[i].word.toLowerCase())
+                        return false;
+                }
+                console.log(' >>> ...These sequences are equal.');
+                return true;
+            }
+
+            function mergeAdjacent(arr, comparefunc, mergefunc) {
+                for (let i = 0; i < arr.length-1; i++) {
+                    if (comparefunc(arr[i], arr[i+1])) {
+                        arr.splice(i, 2, mergefunc(arr[i], arr[i+1]));
+                        i--;
+                    }
+                }
+                return arr;
+            }
+
+            var tks_sequences = splitResponsibly(talkens);
+            var prev_tks_sequences = splitResponsibly(prevTalkens);
+            var TTS_sequences = mirrorSplit(prev_tks_sequences, prevTTSTalkens);
+
+            console.log('####### tks_seq, prev_tks_seq, tts_seq: ', tks_sequences, prev_tks_sequences, TTS_sequences);
+
+            // S^2 comparison...
+            var patchy_sequence = [];
+            tks_sequences.forEach((s) => {
+                let i = 0;
+                let noseq = true;
+                for (let p of prev_tks_sequences) {
+                    if (talkenSequencesAreEqual(s, p)) {
+                        patchy_sequence.push([true, TTS_sequences[i]]);
+                        noseq = false;
+                        break;
+                    }
+                    i++;
+                }
+                if (noseq)
+                    patchy_sequence.push([false, s]);
+            });
+
+            // Merge adjacent sequences in advance to reduce the number of async calls.
+            mergeAdjacent(patchy_sequence,
+                (curr, next) => curr[0] === next[0],
+                (a, b) => [a[0], a[1].concat(b[1])]);
+
+            console.log('####### patchy_sequence: ', patchy_sequence);
+
+            // patchy_sequence is now in the form:
+            // -- [tts0, tts1, a, b, tts2] --
+            // where tts_i stands for sequences which we already downloaded.
+            // For these sequences, the audio should be extracted into a single snippet for stitching.
+            // For new sequences, we will daisy-chain download requests to Watson.
+            // ===================================
+            // The output of the below chain of promises should be an array
+            // of final TTS talken sequences. This will be flattened and then mapped (lol)
+            // to an array of snippets for stitching. The flattened TTS talken array will
+            // then be reconstructed into sequential timestamps corresponding to the
+            // stitched audio and its URL.
+            var composed_seq = patchy_sequence.reduce((prev, item_to_convert) => {
+                return prev.then((prev_tts_tks) => {
+
+                    console.log(' >>> Reducing patchy_sequence item: ', item_to_convert);
+
+                    if (item_to_convert[0])
+                        return new Promise(function(resolve, reject) {
+                            resolve(prev_tts_tks.concat(item_to_convert[1]));
+                        });
+                    else return new Promise(function(resolve, reject) {
+                        var ssml = toSSML(item_to_convert[1]);
+                        var transcript = toTranscript(item_to_convert[1]);
+                        getTTSTalkensFromWatson(ssml, 'en-US_MichaelVoice', transcript).then(function(new_tts_tks) {
+                            resolve(prev_tts_tks.concat(new_tts_tks));
+                        });
+                    });
+                });
+            }, new Promise(function(resolve, reject) {
+                resolve([]);
+            }));
+
+            return composed_seq.then(function(final_tts_tks) {
+
+                console.log(' >>> Stitching final tts talkens... ', final_tts_tks);
+
+                return new Promise(function(resolve, reject) {
+                    stitch(final_tts_tks).then(function(sobj) {
+
+                        var tts_tks = sobj.stitched_talkens;
+
+                        // Reconstruct talken seq to use stitched audio.
+                        var ts = [];
+                        for (let tk of tts_tks) {
+                            ts.push([tk.word, tk.bgn, tk.end]);
+                        }
+
+                        console.log(' >>> Generating final stitched tts talkens...', ts, sobj);
+
+                        // Generate stitched talken sequence and return to outer Promise.
+                        resolve(r2.speak.Talken.generate(ts, sobj.url));
+                    });
+                });
+            }).then(function(stitched_tts_tks) {
+                return new Promise(function(resolve, reject) {
+                    resolve([talkens, stitched_tts_tks]);
+                });
+            }); // Returns the stitched talken sequence (sequential timestamps that point to 1 audio URL)
         };
 
         /**
