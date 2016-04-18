@@ -952,6 +952,13 @@
                         if(idx_bgn+1 < $textbox.children('span').length){
                             setCarret(idx_bgn+2);
                             getCarret();
+                            r2.audioSynthesizer.run($textbox.children('span')[idx_bgn+1].talken_data.data).then(
+                                function(result){
+                                    var audio = new Audio(result.url);
+                                    audio.play();
+                                    return null;
+                                }
+                            );
                             if(!popupTranscription(carret.idx_bgn, carret.idx_end, true)){
                                 event.preventDefault();
                             }
@@ -1049,11 +1056,13 @@
                         r2App.invalidate_dynamic_scene = true;
                     }
                 }
-                var m = Math.min(old_focus, carret.idx_focus);
-                if(Math.abs(old_focus-carret.idx_focus) === 1 &&
-                        m < ctrl_talkens.length
+                var m_idx = Math.min(old_focus, carret.idx_focus);
+                if(
+                    Math.abs(old_focus-carret.idx_focus) === 1 &&
+                    m_idx < ctrl_talkens.length &&
+                    r2App.mode === r2App.AppModeEnum.IDLE
                 ){
-                    r2.audioSynthesizer.run($textbox.children('span')[m].talken_data.data).then(
+                    r2.audioSynthesizer.run($textbox.children('span')[m_idx].talken_data.data).then(
                         function(result){
                             var audio = new Audio(result.url);
                             audio.play();
