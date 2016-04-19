@@ -461,7 +461,7 @@
                     EM_PER_SEC: 6,
                     WV_HGHT_MRGN: 0.5,
                     SPAN_OPACITY_RANGE: {low: 0.2, upper: 0.8},
-                    PX_PER_SEC: 64
+                    PX_PER_SEC: 128
                 };
 
                 if (word === '\xa0'){
@@ -470,8 +470,8 @@
 
                 var data = talken_data.data;
                 var duration = data.reduce(function(accum, item){return accum+item.end-item.bgn;}, 0);
-                var px_w = 64;
-                var px_h = duration*CONST.PX_PER_SEC;
+                var px_w = duration*CONST.PX_PER_SEC;
+                var px_h = 64;
                 var t_step = duration/px_w;
 
 
@@ -1056,19 +1056,22 @@
                         r2App.invalidate_dynamic_scene = true;
                     }
                 }
-                var m_idx = Math.min(old_focus, carret.idx_focus);
-                if(
-                    Math.abs(old_focus-carret.idx_focus) === 1 &&
-                    m_idx < ctrl_talkens.length &&
-                    r2App.mode === r2App.AppModeEnum.IDLE
-                ){
-                    r2.audioSynthesizer.run($textbox.children('span')[m_idx].talken_data.data).then(
-                        function(result){
-                            var audio = new Audio(result.url);
-                            audio.play();
-                            return null;
-                        }
-                    );
+                if(carret.idx_focus !== carret.idx_anchor){ // non-collapsed selection
+                    var m_idx = carret.idx_focus;
+                    if(carret.idx_anchor < carret.idx_focus)
+                        m_idx -= 1;
+                    if(
+                        0 <= m_idx && m_idx < ctrl_talkens.length &&
+                        r2App.mode === r2App.AppModeEnum.IDLE
+                    ){
+                        r2.audioSynthesizer.run($textbox.children('span')[m_idx].talken_data.data).then(
+                            function(result){
+                                var audio = new Audio(result.url);
+                                audio.play();
+                                return null;
+                            }
+                        );
+                    }
                 }
             }
             return is_changed;
