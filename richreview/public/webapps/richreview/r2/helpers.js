@@ -870,12 +870,21 @@
             }
         };
 
+        pub.goToFirstPage = function(){
+            return goToPage(0);
+        };
+
         pub.goToPrevPage = function(){
             return goToPage(groups[cur_groupn].cur_pagen - 1);
         };
 
         pub.goToNextPage = function(){
             return goToPage(groups[cur_groupn].cur_pagen + 1);
+        };
+
+        pub.goToLastPage = function(){
+            var group = groups[cur_groupn];
+            return goToPage(group.page_range[1] - group.page_range[0]);
         };
 
         var getBookletData = function(){
@@ -968,6 +977,8 @@
             $("#page_nav_count").text("of " + page_count);
             $("#page_nav_prev").toggleClass("disabled", cur_page == 0);
             $("#page_nav_next").toggleClass("disabled", cur_page == page_count-1);
+            $("#page_nav_first").toggleClass("disabled", cur_page == 0);
+            $("#page_nav_last").toggleClass("disabled", cur_page == page_count-1);
         }
 
         function showTitles(){
@@ -1647,8 +1658,8 @@
             // ToDo prevent layout thrashing
 
             dashboard_height = getDomheight(dashboard);
-            $(view).height(app_container_size.y-getDomheight(dashboard));
             $(browse_comments).width(getDomWidth(browse_row)-getDomWidth(dashboard_users));
+            $(view).height(app_container_size.y-getDomheight(dashboard));
 
             $(content).width(page_size.x + scale*(page_margins.left + page_margins.rght));
             $(content).height(page_size.y);

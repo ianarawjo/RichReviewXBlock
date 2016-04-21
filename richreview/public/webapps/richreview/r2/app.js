@@ -300,6 +300,7 @@
 
         function getDocMetaData(){
             r2.modalWindowLoading.showModalWindow();
+            r2.modalWindowLoading.hideModalWindow();
             r2.modalWindowLoading.bgnDownloadingMetafile();
             return r2.util.getUrlData(
                 r2.util.normalizeUrl(r2.ctx.pdfjs_url),

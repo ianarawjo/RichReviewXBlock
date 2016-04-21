@@ -1,13 +1,6 @@
-/*body {
-  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
-  margin:0;
-  padding:0;
-  overflow: hidden;
-  position:fixed;
-  top:0;
-  bottom:0;
-  width:100%;
-}*/
+body{
+  -ms-content-zooming: none;
+}
 
 #r2_app_container{
   overflow: hidden;
@@ -368,7 +361,7 @@ a:active {
 
 }
 .ssui-overlay > .ssui-viewtalken > .ssui-viewtalken-canv {
-  display: -webkit-inline-box;
+  display: inline-block;
   margin: 0;
   padding: 0;
   position: relative;
@@ -379,36 +372,30 @@ a:active {
 }
 
 .ssui-overlay > .ssui-viewtalken > .ssui-waveform-span-wrapper-div {
-  display: -webkit-inline-box;
-  margin: 0;
-  padding: 0;
-  position: relative;
-
-  width: auto;
-  padding-top: -1em;
-  height: auto;
-  margin-left: -50%;
-  z-index: 8;
-  vertical-align: super;
-}
-
-.ssui-overlay > .ssui-viewtalken > .ssui-waveform-span-wrapper-div > .ssui-waveform-span {
-  display: -webkit-inline-box;
+  display: block;
   margin: 0;
   padding: 0;
   position: relative;
 
   width: 100%;
-  margin-left: -100%;
-  padding-top: -100%;
-  font-size: 0.6em; /* variant to FONT_SIZE_SCALE  */
+  padding-top: -1em;
+  height: 0;
+  z-index: 8;
+}
+
+.ssui-overlay > .ssui-viewtalken > .ssui-waveform-span-wrapper-div > .ssui-waveform-span {
+  margin: 0;
+  padding: 0;
+
+  font-size: 0.6em;
+  vertical-align: -webkit-baseline-middle;
 }
 .ssui-overlay >  .ssui-viewtalken {
-  background-color: rgb(220, 220, 220);
+  background-color: rgb(235, 235, 235);
   color: black;
 }
 .ssui-overlay >  .ssui-viewtalken.fresh-recording {
-  background-color: rgb(189, 200, 210);
+  background-color: rgb(204, 215, 225);
   color: black;
 }
 .ssui-overlay > .ssui-viewtalken.ssui-word {
