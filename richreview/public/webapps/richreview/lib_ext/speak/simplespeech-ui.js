@@ -43,7 +43,6 @@
         pub.bgn_streaming = null;
         pub.end_streaming = null;
 
-
         /*
          * Initializer
          */
