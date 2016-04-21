@@ -1609,6 +1609,12 @@
                     temp_texts = temp_texts.trim();
             }
 
+            var lastchar = temp_texts.charAt(temp_texts.length-1);
+            if (lastchar === '.')
+                temp_texts += ' ';
+            else if (lastchar === ' ' && post_text.length > 0 && post_text.charAt(0) === ' ')
+                temp_texts = temp_texts.trim();
+
             console.log(' >>>> temp_texts is ', temp_texts, ' words is ', words);
             var m = 0;
             temp_texts.trim().split(/\s+/g).forEach(function(w) {
