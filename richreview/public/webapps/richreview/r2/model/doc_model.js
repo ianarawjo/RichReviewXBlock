@@ -1145,6 +1145,7 @@
         this._annotid = annotid;
         this._username = username;
         this.RENDER_AUDIO_IMMEDIATELY = true;
+        this.LIVE_CAPTIONING = false;
 
         var dom = this.CreateDom();
 
@@ -1222,7 +1223,7 @@
 
             if (e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
                 // Insert voice recording
-                if (r2App.mode === r2App.AppModeEnum.RECORDING) {
+                if (r2App.mode === r2App.AppModeEnum.RECORDING || this.recording_mode === true) {
 
                 }
                 else{
@@ -1291,11 +1292,19 @@
             this.dom_textbox.style.boxShadow = "0 0 0.2em "+color+" inset, 0 0 0.2em "+color;
             $(this.dom).css("pointer-events", 'auto');
             $(this.dom_textbox).toggleClass('editing', true);
+
+            // Restore cursor position from blur
+            if (this.blur_caret)
+                r2.speak.restoreSelection(this.dom_textbox, this.blur_caret);
+
             r2.localLog.event('focus', annotId, {'text':_tb.text()});
         }.bind(this));
         r2.keyboard.pieceEventListener.setTextbox(this.dom_textbox);
 
         this.dom_textbox.addEventListener('blur', function(event){
+            // save cursor pos
+            this.blur_caret = r2.speak.saveSelection(this.dom_textbox);
+
             // remove cursor complete from the textbox,
             // otherwise it will interfere with mouse interaction for other visaul entities
             window.getSelection().removeAllRanges();
@@ -1345,72 +1354,124 @@
 
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
-            this._last_tts_talkens = null;
-            var edited_talkens = this.speak_ctrl.getCompiledTalkens();
-            this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+            //this._last_tts_talkens = null;
+            //var edited_talkens = this.speak_ctrl.getCompiledTalkens();
 
-                if (!finalAudioURL) {
-                    console.warn('Error processing audio. Check console for details.');
+            this.speak_ctrl.renderTTSAudioPatchy(this.GetAnnotId(), '').then(function(eandt) {
+                console.log(' @ patchSynth @ doc_model: ', eandt);
+                var edited_talkens = eandt[0];
+                var tts_talkens = eandt[1];
+                var annotId = this.GetAnnotId();
+
+                if (tts_talkens.length > 0) // Set annot audio to finalized version
+                    r2App.annots[annotId].SetRecordingAudioFileUrl(tts_talkens[0].audio.url, null);
+
+                // Handle common errors
+                if (!tts_talkens || tts_talkens.length === 0) {
+                    console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
                     return;
                 }
-
-                var annotId = this.GetAnnotId();
-                r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
-                r2.localLog.editedBlobURL(finalAudioURL, annotId);
-                r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
-
-                // Get timestamps for TTS audio with HTK
-                this.speak_ctrl.generateTalkensFromHTK(finalAudioURL).then((function(tts_talkens) {
-
-                    // Handle common errors
-                    if (!tts_talkens) {
-                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
-                        return;
+                else if (!edited_talkens || edited_talkens.length === 0) {
+                    console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
+                    return;
+                }
+                else if (edited_talkens.length !== tts_talkens.length) {
+                    console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
+                    if (tts_talkens.length > edited_talkens.length) {
+                        console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
+                        return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
                     }
-                    else if (!edited_talkens) {
-                        console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
-                        return;
-                    }
-                    else if (edited_talkens.length !== tts_talkens.length) {
-                        console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
-                        if (tts_talkens.length > edited_talkens.length) {
-                            console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
-                            return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
-                        }
-                    }
+                }
 
-                    // 'Smooth' any missing timestamps so that they don't skip on playback:
-                    r2.audiosynth.smoothMissingTimestamps(tts_talkens);
+                // Convert to format of talkens expected by r2.gestureSynthesizer
+                var gesynth_tks = [];
+                for (var i = 0; i < tts_talkens.length; i++) {
+                    var tts_tk = tts_talkens[i];
+                    var src_tk = edited_talkens[i];
+                    gesynth_tks.push({
+                       base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
+                       base_bgn: src_tk.bgn,
+                       base_end: src_tk.end,
+                       new_bgn: tts_tk.bgn,
+                       new_end: tts_tk.end,
+                       word: src_tk.word,
+                       pause_after: tts_tk.pauseAfter,
+                       pause_before: tts_tk.pauseBefore
+                    });
+                }
+                this._last_tts_talkens = gesynth_tks;
 
-                    // Convert to format of talkens expected by r2.gestureSynthesizer
-                    var gesynth_tks = [];
-                    for (var i = 0; i < tts_talkens.length; i++) {
-                        var tts_tk = tts_talkens[i];
-                        var src_tk = edited_talkens[i];
-                        gesynth_tks.push({
-                           base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
-                           base_bgn: src_tk.bgn,
-                           base_end: src_tk.end,
-                           new_bgn: tts_tk.bgn,
-                           new_end: tts_tk.end,
-                           word: src_tk.word,
-                           pause_after: tts_tk.pauseAfter,
-                           pause_before: tts_tk.pauseBefore
-                        });
-                    }
-                    this._last_tts_talkens = gesynth_tks;
+                // Resynthesize gestures for this annotation for new TTS audio...
+                r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+                console.warn('gesynth ----> ', gesynth_tks);
+                r2.gestureSynthesizer.run(annotId, gesynth_tks);
 
-                    // Resynthesize gestures for this annotation for new TTS audio...
-                    r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
-                    console.warn('gesynth ----> ',gesynth_tks);
-                    r2.gestureSynthesizer.run(annotId, gesynth_tks);
+            }.bind(this));
 
-                }).bind(this));
-
-            }).bind(this)).catch(function(err) {
-                // error
-
-            });
+            // this.speak_ctrl.renderAudioAnon(this.GetAnnotId(), '').then((function(finalAudioURL) {
+            //
+            //     if (!finalAudioURL) {
+            //         console.warn('Error processing audio. Check console for details.');
+            //         return;
+            //     }
+            //
+            //     var annotId = this.GetAnnotId();
+            //     r2.localLog.event('rendered-audio', annotId, {'url':finalAudioURL});
+            //     r2.localLog.editedBlobURL(finalAudioURL, annotId);
+            //     r2App.annots[annotId].SetRecordingAudioFileUrl(finalAudioURL, null); // Set annot audio to finalized version
+            //
+            //     // Get timestamps for TTS audio with HTK
+            //     this.speak_ctrl.generateTalkensFromHTK(finalAudioURL).then((function(tts_talkens) {
+            //
+            //         // Handle common errors
+            //         if (!tts_talkens) {
+            //             console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned no talkens.");
+            //             return;
+            //         }
+            //         else if (!edited_talkens) {
+            //             console.error("Error @ r2.PieceNewSpeak.renderAudio: HTK returned talkens, but we're not sure where the edited talkens went!");
+            //             return;
+            //         }
+            //         else if (edited_talkens.length !== tts_talkens.length) {
+            //             console.warn("Warning @ r2.PieceNewSpeak.renderAudio: Length of HTK talkens != length of original talkens.");
+            //             if (tts_talkens.length > edited_talkens.length) {
+            //                 console.error("Error @ r2.PieceNewSpeak.renderAudio: # of tts talkens EXCEEDS # of edited talkens.");
+            //                 return; // If # of tts talkens < edited, then continue, since it's better than doing nothing.
+            //             }
+            //         }
+            //
+            //         // 'Smooth' any missing timestamps so that they don't skip on playback:
+            //         r2.audiosynth.smoothMissingTimestamps(tts_talkens);
+            //
+            //         // Convert to format of talkens expected by r2.gestureSynthesizer
+            //         var gesynth_tks = [];
+            //         for (var i = 0; i < tts_talkens.length; i++) {
+            //             var tts_tk = tts_talkens[i];
+            //             var src_tk = edited_talkens[i];
+            //             gesynth_tks.push({
+            //                base_annotid: (src_tk.audio && src_tk.audio.annotId && (tts_tk.bgn !== tts_tk.end) ? src_tk.audio.annotId : null),
+            //                base_bgn: src_tk.bgn,
+            //                base_end: src_tk.end,
+            //                new_bgn: tts_tk.bgn,
+            //                new_end: tts_tk.end,
+            //                word: src_tk.word,
+            //                pause_after: tts_tk.pauseAfter,
+            //                pause_before: tts_tk.pauseBefore
+            //             });
+            //         }
+            //         this._last_tts_talkens = gesynth_tks;
+            //
+            //         // Resynthesize gestures for this annotation for new TTS audio...
+            //         r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+            //         console.warn('gesynth ----> ',gesynth_tks);
+            //         r2.gestureSynthesizer.run(annotId, gesynth_tks);
+            //
+            //     }).bind(this));
+            //
+            // }).bind(this)).catch(function(err) {
+            //     // error
+            //
+            // });
 
             //var streamingTTSAudioURL = audioRenderObj.streamURL;
             //this._cbAbortTTSDownload = audioRenderObj.abort;
@@ -1461,16 +1522,158 @@
         this.dom_textbox.innerHTML = inner_html;
         this.resizeDom();
     };
+
     r2.PieceNewSpeak.prototype.setCaptionTemporary = function(words){
+        if (this.LIVE_CAPTIONING)
+            this.setCaptionTemporaryLive(words);
+        else {
+            // do nothing with the temporary data
+            r2.localLog.event('setCaptionTemporary', this._annotid, {'completeText':$(this.dom_textbox).text(),'rawTranscriptResults':words});
+        }
+    };
+    r2.PieceNewSpeak.prototype.setCaptionFinal = function(words, alternatives){
+        if (this.LIVE_CAPTIONING)
+            this.setCaptionFinalLive(words, alternatives);
+        else {
+
+            var txt = $(this.dom_textbox).text();
+            var i;
+            var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
+            var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
+            function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+
+            var pre_text = this._prev_pre ? this._prev_pre : (this.insert_idx > -1 ? $(this.dom_textbox).text().substring(0, this.insert_idx) : $(this.dom_textbox).text());
+            var post_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(this.insert_idx) : '';
+            pre_text = pre_text.replace('●', '');
+            post_text = post_text.replace('●', '');
+            if (!this._prev_pre)
+                this._prev_pre = pre_text;
+
+            var bckup_words = [];
+            words.forEach(function(w) { bckup_words.push(w); });
+            console.log(' >>>> begin setCaptionFinal with words: ', bckup_words);
+
+            words[0][0] = capitalize(words[0][0]); // capitalize first word of transcription
+
+            var temp_texts = '';
+            for(i = 0; i < words.length; ++i){
+                var w = words[i];
+                var $span = $(document.createElement('span'));
+
+                if (i < words.length-1) {
+                    var pause_len = 1000.0 * (words[i+1][1] - w[2]);
+                    if (pause_len >= SENTENCE_PAUSE_THRESHOLD_MS) {
+                        w[0] += '.'; // add period and capitalize next word...
+                        words[i+1][0] = capitalize(words[i+1][0]);
+                    } else if (pause_len > PAUSE_THRESHOLD_MS) {
+                        w[0] += ' ♦';
+                    }
+                } else {
+                    w[0] += '.';
+                }
+
+                $span.text(w[0]+' ');
+                temp_texts += $span.text();
+            }
+
+            temp_texts = temp_texts.trim();
+
+            // Fixes for inner insertion:
+            // - uncapitalize first capital if prev word not capitalized, and
+            // - remove period at end of results if next word starts lowercase, and
+            // - if next char is a period, remove space at end of temp_texts, and
+            // - repair space at end of pre if one doesn't exist
+            if (this.insert_idx > -1) {
+                var pre = pre_text.trim();
+                var tt = temp_texts.trim();
+                var post = post_text.trim();
+                if (pre.length > 0) {
+                    if (pre.charAt(pre.length-1).indexOf('.') === -1) { // if last char is not sentence-ending punctuation...
+                        temp_texts = temp_texts.charAt(0).toLowerCase() + temp_texts.substring(1); // uncapitalized the first inserted word
+                        tt = temp_texts.trim();
+                        if (pre_text.charAt(pre_text.length-1) !== ' ') {
+                            pre_text += ' '; // add space to end of pre_text
+                        }
+                    } else if (pre_text.charAt(pre_text.length-1) === '.') {
+                        pre_text += ' ';
+                    }
+                }
+                if (post.length > 0 && post.charAt(0) === post.charAt(0).toLowerCase()) { // if first char of next sentence is lowercase...
+                    if (tt.charAt(tt.length-1).indexOf('.') > -1) { // ...and if last char is sentence-ending punctuation, then
+                        temp_texts = tt.substring(0, tt.length-1) + ' '; // remove the punctuation
+                    }
+                }
+                if (post.length > 0 && post.charAt(0) === '.')
+                    temp_texts = temp_texts.trim();
+            }
+
+            var lastchar = temp_texts.charAt(temp_texts.length-1);
+            if (lastchar === '.')
+                temp_texts += ' ';
+            else if (lastchar === ' ' && post_text.length > 0 && post_text.charAt(0) === ' ')
+                temp_texts = temp_texts.trim();
+
+            console.log(' >>>> temp_texts is ', temp_texts, ' words is ', words);
+            var m = 0;
+            temp_texts.trim().split(/\s+/g).forEach(function(w) {
+                if (w.indexOf('♦') === -1) {
+                    words[m][0] = w; // repair words to match fixed transcript
+                    m++;
+                }
+            });
+
+            this._prev_pre = pre_text + temp_texts;
+            this._last_text = pre_text + temp_texts + post_text;
+            this._last_text.replace('●', '');
+            this.insert_idx = pre_text.length + temp_texts.length;
+
+            r2.localLog.event('setCaptionFinal', this._annotid, {'finalText':temp_texts,'completeText':$(this.dom_textbox).text(),'transcriptResultsWithPunct':words,'rawTranscriptResults':bckup_words, 'rawTranscriptAlts':alternatives});
+
+            if (!this._last_words)
+                this._last_words = words;
+            else {
+                var lw = this._last_words;
+                words.forEach(function(wrd) {
+                    lw.push(wrd);
+                });
+            }
+
+            if (this._last_audio_url) { // Microphone audio finished processing before Watson did, so we insert voice now --
+
+                $(this.dom_textbox).text(pre_text + temp_texts + post_text);
+                this.insertVoice(this.insert_word_idx_before_rec, words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+                r2.localLog.event('appendVoice', this.annotids[this.annotids.length-1], {'words':words, 'url':this._last_audio_url});
+
+                this._last_words = null;
+                this._last_audio_url = null;
+                this._waiting_for_watson = false;
+                this._prev_pre = null;
+                $(this.dom_textbox).children('.nsui-spinner').remove();
+
+                $(this.dom_textbox).focus(); // return user to selection
+                r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+
+                if (this.RENDER_AUDIO_IMMEDIATELY)
+                    this.renderAudio();
+            }
+
+            this._temporary_n = 0;
+            if(this.updateSizeWithTextInput()){
+                r2App.invalidate_size = true;
+                r2App.invalidate_page_layout = true;
+            }
+        }
+    };
+
+    r2.PieceNewSpeak.prototype.setCaptionTemporaryLive = function(words) {
         var i;
         function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
 
         $(this.dom_textbox).text(this.text_while_rec); // erase changes
-        //for(i = 0; i < this._temporary_n; ++i){
-        //    $(this.dom_textbox).find(':last-child').remove();
-        //}
 
         var bckup_words = [];
         words.forEach(function(w) { bckup_words.push(w); });
@@ -1551,7 +1754,7 @@
             r2App.invalidate_page_layout = true;
         }
     };
-    r2.PieceNewSpeak.prototype.setCaptionFinal = function(words, alternatives){
+    r2.PieceNewSpeak.prototype.setCaptionFinalLive = function(words, alternatives){
 
         var i;
         var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
@@ -1684,10 +1887,15 @@
         this.text_before_rec = $(this.dom_textbox).text();
         this.text_while_rec = this.text_before_rec;
         this.insert_word_idx_before_rec = 0;
+        this.insert_idx = 0;
+        this.recording_mode = true;
+        this._prev_pre = null;
 
         // Save the cursor position, flatten the div, and then restore it.
         if ($(this.dom_textbox).text().length > 0) {
             var cur = r2.speak.saveSelection(this.dom_textbox);
+            this.blur_idx = cur;
+            this.insert_range = cur;
             $(this.dom_textbox).text($(this.dom_textbox).text()); // strange but true
             r2.speak.restoreSelection(this.dom_textbox, cur); // hope this works!
             this.insert_idx = r2.speak.saveSelection(this.dom_textbox).start; // simplified range...
@@ -1695,19 +1903,59 @@
             console.log('Recorded cursor range: ', this.insert_range);
 
             r2.localLog.event('cmd-insertion', this._annotid, {'input': 'key-enter', 'cursor_pos': this.insert_range});
+
         } else this.insert_idx = -1;
+
+        // Insert blinking 'live recording' indicator.
+        if (!this.LIVE_CAPTIONING) {
+
+            var insertSpanAtCaretIdx = function($span, idx, $textdiv) {
+                var txt = $textdiv.text();
+                $textdiv.text(txt.substring(0, idx))
+                $textdiv.append($span);
+                $textdiv[0].innerHTML += txt.substring(idx);
+            };
+
+            if (this.insert_idx > -1)
+                this._prev_pre = $(this.dom_textbox).text().substring(0, this.insert_idx);
+            else
+                this._prev_pre = '';
+
+            var $rec_span = $(document.createElement('span'));
+            $rec_span.text('●');
+            $rec_span.addClass('nsui-blinkred');
+            insertSpanAtCaretIdx($rec_span, this.insert_idx, $(this.dom_textbox));
+
+            if (this.insert_idx > -1)
+                r2.speak.restoreSelection(this.dom_textbox, this.insert_range);
+        }
     };
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
+        this.recording_mode = false;
+
+        if (!this.LIVE_CAPTIONING) {
+            var ui_spinner = $('<img class="nsui-spinner">');
+            ui_spinner.attr('src', 'img/ui-load-rolling.gif');
+            ui_spinner.attr('width', $(this.dom_textbox).children('.nsui-blinkred').width()*1.3);
+            ui_spinner.attr('height', $(this.dom_textbox).children('.nsui-blinkred').width()*1.3);
+            $(this.dom_textbox).children('.nsui-blinkred').after(ui_spinner);
+            $(this.dom_textbox).children('.nsui-blinkred').remove();
+            //$(this.dom_textbox).text($(this.dom_textbox).text().replace('●', ''));
+            r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+        }
 
         if (this._last_words) {
 
-            this._last_audio_url = audioURL;
-
+            if (!this.LIVE_CAPTIONING) {
+                if (this._last_text) $(this.dom_textbox).text(this._last_text);
+                $(this.dom_textbox).children('.nsui-spinner').remove();
+            }
             this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
             r2.localLog.event('insertVoice', this.annotids[this.annotids.length-1], {'words':this._last_words, 'url':audioURL});
 
             this._last_words = null;
+            this._last_audio_url = null;
             this._waiting_for_watson = false;
 
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
@@ -1722,6 +1970,10 @@
             // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
             this._last_audio_url = audioURL;
             this._waiting_for_watson = true;
+            setTimeout(function() {
+                this._waiting_for_watson = false; // wait 2secs then cancel
+                $(this.dom_textbox).children('.nsui-spinner').remove();
+            }.bind(this), 2000);
 
         }
 

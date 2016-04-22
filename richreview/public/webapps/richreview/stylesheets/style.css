@@ -305,6 +305,13 @@ a:active {
   white-space: pre;
   white-space: pre-wrap;
 }
+.r2_piece_newspeak > .nsui-blinkred {
+    background-color: rgba(205, 92, 92, 0.85);
+    color: transparent;
+    border: solid 0em rgb(205, 92, 92);
+    min-width: 1em;
+    animation: blinker 1.5s linear infinite;
+}
 .r2_piece_simplespeech {
   border: 0;
   overflow: auto;
