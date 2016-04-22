@@ -1207,11 +1207,107 @@
         // Debug
         var annotId = this._annotid;
         var _tb = $(this.dom_textbox);
+        var _last_tts_talkens = this._last_tts_talkens;
         function getSelectionJSON() {
             var sel = r2.speak.saveSelection(_tb[0]);
             var range = [sel.start, sel.end];
             return {'selectionText':(sel.start === sel.end ? '' : _tb.text().substring(sel.start, sel.end)), 'selectionRange':range};
         }
+        var getCursorTTSTalkenOffset = function() {
+            var sel = r2.speak.saveSelection(_tb[0]);
+            if (!this._last_tts_talkens) return 0;
+
+            var tks = [];
+            for (var k = 0; k < this._last_tts_talkens.length; k++) {
+                if (this._last_tts_talkens[k].word.indexOf('♦') === -1)
+                    tks.push(this._last_tts_talkens[k]);
+            }
+
+            var stripped_txt = _tb.text().trim().replace(/\♦/g, '');
+            var words = stripped_txt.split(/\s+/g);
+            var sel_word_idx = _tb.text().substring(0, sel.start).trim().replace(/\♦/g, '').split(/\s+/g).length - 1;
+            if (sel_word_idx >= words.length) sel_word_idx = words.length-1;
+            else if (sel_word_idx < 0) sel_word_idx = 0;
+
+            if (this._last_sel_word_idx && sel_word_idx === this._last_sel_word_idx) return this._last_tts_talken_offset;
+            var scope_range = 0; // the number of words to consider around the selected word
+
+            // Non-local version.
+            // 1. Finds the closest word to the cursor position.
+            // 2. Splits the text by whitespace.
+            // 3. Finds all instances of the selected word in the previous tts talken rendering.
+            // 4. Gradually narrows the possibilities by widening the search scope one talken at a time.
+            // 5. Finds the unique matching (if possible) and rectifies its position.
+
+            function matches(a, b, replaceFunc) {
+                if (a.length !== b.length) return false;
+                if (typeof replaceFunc !== 'undefined') {
+                    a.map(function(e) { return replaceFunc(e); });
+                    b.map(function(e) { return replaceFunc(e); });
+                }
+                for(var i = 0; i < a.length; i++) {
+                    if (a[i] !== b[i]) return false;
+                }
+                return true;
+            }
+
+            function scoped_words(idx, range) {
+                if (range === 0) return [words[idx]];
+                return words.slice(Math.max(idx - range, 0), Math.min(idx + range + 1, words.length));
+            }
+            function scoped_tks(idx, range) {
+                if (range === 0) return [tks[idx]];
+                return tks.slice(Math.max(idx - range, 0), Math.min(idx + range + 1, tks.length));
+            }
+
+            var candidate_tks_idxs = Array.apply(null, {length: tks.length}).map(Number.call, Number); // range from [0... tks.length]
+            var next_candidate_tks_idxs = [];
+            var n = 10;
+
+            console.log(' -- finding match from center word ', words[sel_word_idx]);
+
+            while (n > 0 && candidate_tks_idxs.length > 1) { // While there are alternative candidates... (or cutoff after 10 iterations)
+
+                var x = 0;
+                var sws = scoped_words(sel_word_idx, scope_range);
+                console.log(' -- finding match with scoped words ', sws);
+                for (; x < candidate_tks_idxs.length; x++) { // bread-first expansion is quicker
+                    var j = candidate_tks_idxs[x];
+
+                    if (matches(sws, scoped_tks(j, scope_range).map(function(elem) { return elem.word; }))) { // expand search radius
+                        next_candidate_tks_idxs.push(j);
+                    }
+                }
+
+                candidate_tks_idxs = next_candidate_tks_idxs;
+                next_candidate_tks_idxs = [];
+                scope_range++;
+                n--;
+
+                console.log(' -- FOUND candidates ', candidate_tks_idxs);
+            }
+
+            var oset = candidate_tks_idxs.length === 1 ? candidate_tks_idxs[0] : -1; // unique or nothing; don't try to guess the playhead if unsure
+            this._last_sel_word_idx = sel_word_idx;
+            this._last_tts_talken_offset = oset; // this is for speed. We don't want to have to search everytime the user presses the arrow key.
+            return oset;
+        }.bind(this);
+
+        var highlightGestureAtCursorPos = function() {
+            if (!this._last_tts_talkens || r2App.mode !== r2App.AppModeEnum.IDLE) return;
+            var idx = getCursorTTSTalkenOffset();
+            if (idx > -1 && idx < this._last_tts_talkens.length) {
+                var playhead_pos = (this._last_tts_talkens[idx].new_bgn + this._last_tts_talkens[idx].new_end) / 2.0;
+                console.log('Playhead set to ', playhead_pos, ' from offset ', idx);
+                r2.rich_audio.jump(annotId, playhead_pos);
+                r2App.invalidate_dynamic_scene = true;
+            }
+        }.bind(this);
+
+        var isArrowKey = function(code) {
+            return (code === r2.keyboard.CONST.KEY_LEFT || code === r2.keyboard.CONST.KEY_RGHT ||
+                code === r2.keyboard.CONST.KEY_DN || code === r2.keyboard.CONST.KEY_UP);
+        };
 
         this.dom_textbox.addEventListener('keydown', function(e) {
             //if (e.keyCode === 13) {
@@ -1259,6 +1355,11 @@
                         r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
                     else if (e.keyCode === r2.keyboard.CONST.KEY_V)
                         r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                } else {
+
+                    // Highlight gesture at cursor position.
+                    if(isArrowKey(e.keyCode)) // move the playhead
+                        highlightGestureAtCursorPos();
                 }
             }
 
@@ -1266,7 +1367,12 @@
 
         this.dom_textbox.addEventListener('keyup', function(e) {
             r2.localLog.event('keyup', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
-        }.bind(this.speak_ctrl));
+
+            // Highlight gesture at cursor position.
+            if(isArrowKey(e.keyCode)) // move the playhead
+                highlightGestureAtCursorPos();
+
+        }.bind(this));
 
         this.dom_textbox.addEventListener('selectstart', function(e) {
             r2.localLog.event('selectstart', annotId, getSelectionJSON());
@@ -1276,7 +1382,11 @@
         });
         this.dom_textbox.addEventListener('mouseup', function(e) {
             r2.localLog.event('mouseup', annotId, getSelectionJSON());
-        });
+
+            // Highlight gesture at cursor position.
+            highlightGestureAtCursorPos();
+
+        }.bind(this));
 
         this.dom_textbox.addEventListener('input', function() {
             this.__contentschanged = true;
@@ -1349,6 +1459,28 @@
     r2.PieceNewSpeak.prototype.isWaitingForWatson = function() {
         return this._waiting_for_watson;
     };
+    r2.PieceNewSpeak.prototype.renderAndPlay = function() {
+        var annot_id = this.GetAnnotId();
+        r2.radialMenu.bgnLoading('rm_' + r2.util.escapeDomId(annot_id)); // show the 'compiling' sign
+        this.afterAudioRender = function(audio_url) {
+            var annot_id = this.GetAnnotId();
+            r2.radialMenu.endLoading('rm_' + r2.util.escapeDomId(annot_id));
+            r2.rich_audio.play(
+                annot_id,
+                -1,
+                function() {
+                    r2.radialMenu.bgnLoading('rm_' + r2.util.escapeDomId(annot_id));
+                },
+                function() {
+                    r2.radialMenu.endLoading('rm_' + r2.util.escapeDomId(annot_id));
+                }
+            );
+        }.bind(this);
+
+
+        if (!this.speak_ctrl.needsRender()) this.afterAudioRender();
+        else if (!this._is_rendering) this.renderAudio();
+    };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
 
@@ -1356,15 +1488,19 @@
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             //this._last_tts_talkens = null;
             //var edited_talkens = this.speak_ctrl.getCompiledTalkens();
+            this._is_rendering = true;
 
-            this.speak_ctrl.renderTTSAudioPatchy(this.GetAnnotId(), '').then(function(eandt) {
+            return this.speak_ctrl.renderTTSAudioPatchy(this.GetAnnotId(), '').then(function(eandt) {
                 console.log(' @ patchSynth @ doc_model: ', eandt);
                 var edited_talkens = eandt[0];
                 var tts_talkens = eandt[1];
                 var annotId = this.GetAnnotId();
 
-                if (tts_talkens.length > 0) // Set annot audio to finalized version
+                if (tts_talkens.length > 0) { // Set annot audio to finalized version
                     r2App.annots[annotId].SetRecordingAudioFileUrl(tts_talkens[0].audio.url, null);
+                    this._last_tts_audio_url = tts_talkens[0].audio.url;
+                }
+                else this._last_tts_audio_url = null;
 
                 // Handle common errors
                 if (!tts_talkens || tts_talkens.length === 0) {
@@ -1405,6 +1541,16 @@
                 r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
                 console.warn('gesynth ----> ', gesynth_tks);
                 r2.gestureSynthesizer.run(annotId, gesynth_tks);
+
+                this._is_rendering = false;
+                if (this.afterAudioRender) {
+                    this.afterAudioRender(this._last_tts_audio_url);
+                    this.afterAudioRender = null;
+                }
+
+                return new Promise(function(resolve, reject) {
+                    resolve(this._last_tts_audio_url);
+                }.bind(this));
 
             }.bind(this));
 
@@ -1479,6 +1625,9 @@
             //console.log("TTS streaming audio URL: ", streamingTTSAudioURL);
             //r2App.annots[this.GetAnnotId()].SetRecordingAudioFileUrl(streamingTTSAudioURL, null); // While TTS audio is downloading, use streaming audio if user presses play.
         }
+        else return new Promise(function(resolve, reject) {
+            resolve(null);
+        });
     };
 
     r2.PieceNewSpeak.prototype.updateSizeWithTextInput = function(){

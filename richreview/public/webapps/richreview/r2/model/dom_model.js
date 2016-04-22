@@ -493,6 +493,9 @@
                                             }.bind(this)
                                         );
                                     }
+                                    else if (typeof piece.speak_ctrl !== 'undefined') {
+                                        piece.renderAndPlay();
+                                    }
                                     else{
                                         r2.rich_audio.play(
                                             annot_id,
