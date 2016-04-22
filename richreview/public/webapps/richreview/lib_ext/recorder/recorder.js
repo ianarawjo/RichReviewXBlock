@@ -5,7 +5,17 @@
 
     var Recorder = function(media_stream_source, cfg){
         var recording = false;
+        var recording_residual = false;
+        var recording_captured = 0;
+        var recording_first_stream = false;
+        var recording_t_cmd = 0;
+        var recording_t_buf = 0;
+        var recording_stop_resp_channel_buf = false;
+        var recording_stop_resp_chunk_buf = false;
+        var recording_stop_cb = null;
+
         var callbacks = {
+            onGetChunkBuf: null
         };
 
         this.context = media_stream_source.context;
@@ -26,29 +36,72 @@
         });
 
         this.node.onaudioprocess = function(event){
-            if (!recording) return;
+            if (recording){
+                var channel_buffer = event.inputBuffer.getChannelData(0);
 
-            var channel_buffer = event.inputBuffer.getChannelData(0);
+                if(recording_first_stream){
+                    recording_t_buf = (new Date()).getTime();
+                    recording_first_stream = false;
+                    var d = r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE*(recording_t_buf-recording_t_cmd)/1000;
+                    channel_buffer = channel_buffer.slice(-d);
+                }
 
-            worker.postMessage({
-                command: 'recordChannelBuffer',
-                channel_buffer: channel_buffer
-            });
-            if(callbacks.onExportChunk) {
+                recording_captured += channel_buffer.length;
+
                 worker.postMessage({
-                    command: 'exportChunk',
-                    channel_buffer: channel_buffer
+                    command: 'recordChannelBuffer',
+                    channel_buffer: channel_buffer,
+                    residual: recording_residual
                 });
+                if(callbacks.onGetChunkBuf) {
+                    worker.postMessage({
+                        command: 'getChunkBuf',
+                        channel_buffer: channel_buffer,
+                        residual: recording_residual
+                    });
+                }
+            }
+            else if(recording_residual){
+                var channel_buffer = event.inputBuffer.getChannelData(0);
+
+                recording_t_buf = (new Date()).getTime();
+                var d = r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE*(recording_t_buf-recording_t_cmd)/1000;
+                channel_buffer = channel_buffer.slice(d);
+
+                recording_captured += channel_buffer.length;
+
+                worker.postMessage({
+                    command: 'recordChannelBuffer',
+                    channel_buffer: channel_buffer,
+                    residual: recording_residual
+                });
+                if(callbacks.onGetChunkBuf) {
+                    worker.postMessage({
+                        command: 'getChunkBuf',
+                        channel_buffer: channel_buffer,
+                        residual: recording_residual
+                    });
+                }
+                recording_residual = false;
             }
         };
 
         worker.onmessage = function(e){
             switch(e.data.command){
-                case 'exportWAV':
+                case 'exportWavResp':
                     callbacks.onExportWav(e.data.blob, e.data.buffer);
                     break;
-                case 'exportChunk':
-                    callbacks.onExportChunk(e.data.chunk_buffer);
+                case 'recordChannelBufferResp':
+                    if(e.data.is_residual)
+                        recording_stop_resp_channel_buf = true;
+                    stopAsync();
+                    break;
+                case 'getChunkBufResp':
+                    if(e.data.is_residual){
+                        recording_stop_resp_chunk_buf = true;
+                    }
+                    callbacks.onGetChunkBuf(e.data.chunk_buffer);
+                    stopAsync();
                     break;
                 case 'getDbs':
                     callbacks.onGetDbs(e.data.dbs);
@@ -114,7 +167,7 @@
         r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE = this.config.sample_rate_src;
         r2.audioRecorder.RECORDER_SAMPLE_RATE = this.config.sample_rate_dst;
 
-        this.exportWAV = function(cb, type){
+        this.exportWAV = function(cb){
             callbacks.onExportWav = cb || this.config.callback;
             if (!callbacks.onExportWav) throw new Error('Recorder callback set failed: onExportWav');
             worker.postMessage({
@@ -149,17 +202,39 @@
             };
         };
 
-        this.setOnExportChunkCallback = function(onExportChunkCallback){
-            callbacks.onExportChunk = onExportChunkCallback;
+        this.setOnGetChunkBufCallback = function(onGetChunkBufCallback){
+            callbacks.onGetChunkBuf = onGetChunkBufCallback;
         };
 
         this.record = function(){
             recording = true;
+            recording_t_cmd = (new Date()).getTime();
+            recording_first_stream = true;
+            recording_captured = 0;
+
+            recording_residual = false;
+            recording_stop_cb = null;
         };
 
-        this.stop = function(){
+        this.stop = function(cb){
             recording = false;
+            recording_t_cmd = (new Date()).getTime();
+            recording_residual = true;
+            recording_stop_cb = cb;
+            recording_stop_resp_chunk_buf = false;
+            recording_stop_resp_channel_buf = false;
         };
+
+        function stopAsync(){
+            if(callbacks.onGetChunkBuf === null){
+                recording_stop_resp_chunk_buf = true;
+            }
+            if(recording_stop_resp_chunk_buf && recording_stop_resp_channel_buf){
+                if(recording_stop_cb){
+                    recording_stop_cb();
+                }
+            }
+        }
 
     };
 

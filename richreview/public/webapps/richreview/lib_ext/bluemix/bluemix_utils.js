@@ -5,7 +5,9 @@
 var bluemix_stt = (function(bluemix_stt) {
     'use strict';
 
-    var AUTH_URL = 'https://richreview.net/bluemix_stt_auth';
+    var DEFAULT_AUTH_URL = 'https://richreview.net/bluemix_stt_auth';
+
+    var auth_url = DEFAULT_AUTH_URL;
 
     /**
      * Initialize the publish/subscribe system utils is going to use.
@@ -16,6 +18,10 @@ var bluemix_stt = (function(bluemix_stt) {
         $.unsubscribe = o.off.bind(o);
         $.publish     = o.trigger.bind(o);
     })();
+
+    bluemix_stt.setAuthUrl = function(url){
+        auth_url = url;
+    };
 
     /**
      * Based on alediaferia's SO response
@@ -55,11 +61,12 @@ var bluemix_stt = (function(bluemix_stt) {
         return new Promise(function(resolve, reject) {
             var xhr = new XMLHttpRequest();
             if ("withCredentials" in xhr) { // "withCredentials" only exists on XMLHTTPRequest2 objects.
-                xhr.open("GET", AUTH_URL, true);
+                xhr.open("GET", auth_url, true);
                 xhr.withCredentials = true;
                 xhr.responseType = 'text';
             }
             xhr.onreadystatechange = function(){
+                console.log(xhr);
                 if(xhr.readyState == 4){
                     if(xhr.status == 200) {
                         resolve(xhr.responseText);
@@ -149,7 +156,7 @@ var bluemix_stt = (function(bluemix_stt) {
                 // The user might want to upload a file through the socket instead of transmitting microphone information.
                 return;
             }
-            mic.setOnAudioCallback(
+            mic.getRecorder().setOnGetChunkBufCallback(
                 function (blob) {
                     if (socket.readyState < 2) {
                         socket.send(blob);

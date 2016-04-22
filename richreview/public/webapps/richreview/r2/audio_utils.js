@@ -307,12 +307,12 @@
         pub.EndRecording = function(){
             return new Promise(function(resolve, reject){
                 // stop the recording
-                recorder && recorder.stop();
-
-                // and create a WAV file download link using audio data blob
-                recorder && recorder.exportWAV(function(blob, buffer) {
-                    var url = (window.URL || window.webkitURL).createObjectURL(blob);
-                    resolve({url: url, blob: blob, buffer: buffer});
+                recorder && recorder.stop(function(){
+                    // and create a WAV file download link using audio data blob
+                    recorder && recorder.exportWAV(function(blob, buffer) {
+                        var url = (window.URL || window.webkitURL).createObjectURL(blob);
+                        resolve({url: url, blob: blob, buffer: buffer});
+                    });
                 });
             });
         };
@@ -393,10 +393,6 @@
             var click = document.createEvent("Event");
             click.initEvent("click", true, true);
             link.dispatchEvent(click);
-        };
-
-        pub.setOnAudioCallback = function(onAudioCallback){
-            recorder.setOnExportChunkCallback(onAudioCallback);
         };
 
         pub.getRecorder = function(){
