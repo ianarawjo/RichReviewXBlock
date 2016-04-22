@@ -399,6 +399,7 @@
             r2.booklet.initBooklet();
             r2.cheatSheet.Init();
             r2.speechUi.init();
+            bluemix_stt.setAuthUrl(r2App.server_url+'bluemix_stt_auth');
 
             if(r2.ctx["comment"] != ''){
                 var searchresult = r2App.doc.SearchPieceByAnnotId(r2.ctx["comment"]);
