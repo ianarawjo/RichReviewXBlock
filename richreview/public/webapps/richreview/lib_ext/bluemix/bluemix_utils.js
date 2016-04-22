@@ -61,7 +61,7 @@ var bluemix_stt = (function(bluemix_stt) {
         return new Promise(function(resolve, reject) {
             var xhr = new XMLHttpRequest();
             if ("withCredentials" in xhr) { // "withCredentials" only exists on XMLHTTPRequest2 objects.
-                xhr.open("GET", auth_url, true);
+                xhr.open("GET", DEFAULT_AUTH_URL, true);
                 xhr.withCredentials = true;
                 xhr.responseType = 'text';
             }

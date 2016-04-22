@@ -1685,6 +1685,8 @@
             this.setCaptionFinalLive(words, alternatives);
         else {
 
+            if (!words || words.length === 0) return;
+
             var txt = $(this.dom_textbox).text();
             var i;
             var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
@@ -2060,9 +2062,23 @@
 
             var insertSpanAtCaretIdx = function($span, idx, $textdiv) {
                 var txt = $textdiv.text();
-                $textdiv.text(txt.substring(0, idx))
+                $textdiv.text(txt.substring(0, idx));
                 $textdiv.append($span);
                 $textdiv[0].innerHTML += txt.substring(idx);
+            };
+
+            var getPopUpPos = function(textbox, span) {
+                var tb_bbox = textbox.getBoundingClientRect();
+                var l_bbox = span.getBoundingClientRect();
+                console.log(l_bbox);
+                return {
+                    x: (span.offsetLeft + l_bbox.width/2.0)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                    y: (span.offsetTop + l_bbox.height)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                };
+                return {
+                    x: (l_bbox.left-tb_bbox.left)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em',
+                    y: (l_bbox.top+l_bbox.height-tb_bbox.top)*r2Const.FONT_SIZE_SCALE/r2.dom.getCanvasWidth() + 'em'
+                };
             };
 
             if (this.insert_idx > -1)
@@ -2075,6 +2091,12 @@
             $rec_span.addClass('nsui-blinkred');
             insertSpanAtCaretIdx($rec_span, this.insert_idx, $(this.dom_textbox));
 
+            // Show live waveform popup
+            setTimeout(function() {
+                r2.tooltipAudioWaveform.show($(this.dom_textbox).parent(),
+                                             getPopUpPos(this.dom_textbox, $('.nsui-blinkred')[0]));
+            }.bind(this), 0);
+
             if (this.insert_idx > -1)
                 r2.speak.restoreSelection(this.dom_textbox, this.insert_range);
         }
@@ -2082,6 +2104,7 @@
     r2.PieceNewSpeak.prototype.onEndRecording = function(audioURL) {
         console.log("onEndRecording with words", this, this._last_words, "url", audioURL);
         this.recording_mode = false;
+        r2.tooltipAudioWaveform.dismiss();
 
         if (!this.LIVE_CAPTIONING) {
             var ui_spinner = $('<img class="nsui-spinner">');
