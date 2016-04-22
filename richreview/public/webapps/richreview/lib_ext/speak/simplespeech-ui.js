@@ -82,7 +82,6 @@
         pub.setCaptionTemporary = function(words, base_annotid){;};
 
         pub.setCaptionFinal = function(words, base_annotid){
-            console.log(words);
             words.forEach(function(data){
                 var next_base_data = {
                     word: data[0],
@@ -518,7 +517,6 @@
                     x = i;
                     var pwr = r2App.annots[datum.annotid].SampleAudioDbs((datum.bgn+i*t_step-t_token_progress)*1000);
                     y = px_h*(1.0-(1.0+CONST.WV_HGHT_MRGN)*pwr);
-                    console.log(datum.bgn, t_token_progress);
                     ctx.lineTo(x, y, pwr);
                 }
 

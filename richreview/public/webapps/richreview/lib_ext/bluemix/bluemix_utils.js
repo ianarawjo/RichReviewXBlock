@@ -60,6 +60,7 @@ var bluemix_stt = (function(bluemix_stt) {
                 xhr.responseType = 'text';
             }
             xhr.onreadystatechange = function(){
+                console.log(xhr);
                 if(xhr.readyState == 4){
                     if(xhr.status == 200) {
                         resolve(xhr.responseText);
@@ -149,7 +150,7 @@ var bluemix_stt = (function(bluemix_stt) {
                 // The user might want to upload a file through the socket instead of transmitting microphone information.
                 return;
             }
-            mic.setOnAudioCallback(
+            mic.getRecorder().setOnGetChunkBufCallback(
                 function (blob) {
                     if (socket.readyState < 2) {
                         socket.send(blob);

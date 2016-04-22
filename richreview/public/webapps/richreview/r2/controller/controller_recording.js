@@ -55,6 +55,7 @@
                     ).then(
                         function(authToken) {
                             if(authToken){ // auth successful
+                                console.log('Got Bluemix token', authToken);
                                 r2App.bluemix_tts_auth_context = {
                                     token: authToken,
                                     model: 'en-US_BroadbandModel', // audio sampled at >= 16 KHz
@@ -63,6 +64,7 @@
                                 return done();
                             }
                             else{ // auth failed
+                                console.log('Getting Bluemix auth failed:', authToken);
                                 return null;
                             }
                         }
