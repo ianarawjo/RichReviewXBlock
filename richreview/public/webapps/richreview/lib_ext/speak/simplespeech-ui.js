@@ -412,9 +412,9 @@
 
                 $ct[0].talken_data = talken_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
-                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+                var w = $ct[0].$vt[0].getBoundingClientRect().width;
                 $ct.css('letter-spacing',
-                    (transferPx2EmNumeric($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
+                    (transferPx2EmNumeric(w, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
                 $ct.attr('uid', uid);
 
                 return $ct;
@@ -494,8 +494,8 @@
                 $vt_canv.addClass('ssui-viewtalken-canv');
                 $vt.append($vt_canv);
 
-                $vt.css('width', duration*CONST.EM_PER_SEC+'em');
-                $vt.addClass('ssui-word');
+                $vt.css('width', Math.max(waveWeaverWordWidth.get(word), duration*CONST.EM_PER_SEC)+'em');
+                $vt.addClass('ssui-waveform');
 
                 var ctx = canv.getContext('2d');
                 ctx.clearRect(0, 0, px_w, px_h);
@@ -536,9 +536,9 @@
 
                 $ct[0].talken_data = talken_data;
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
-                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
+                var w = $ct[0].$vt[0].getBoundingClientRect().width;
                 $ct.css('letter-spacing',
-                    (transferPx2EmNumeric($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
+                    (transferPx2EmNumeric(w, r2Const.SIMPLESPEECH_FONT_SIZE)-spaceWidth.get()+CTRL_TKN_MARGIN)+'em');
                 $ct.attr('uid', uid);
 
                 return $ct;
@@ -573,6 +573,31 @@
             }
 
             return pub_sw;
+        }());
+
+        var waveWeaverWordWidth = (function(){
+            var pub_ww = {};
+
+            pub_ww.get = function(word){
+                var $vt = $(document.createElement('div'));
+                $vt.addClass('ssui-viewtalken');
+
+                var $vt_span_wrapper = $(document.createElement('div'));
+                $vt_span_wrapper.addClass('ssui-waveform-span-wrapper-div');
+                $vt.append($vt_span_wrapper);
+
+                var $vt_span = $(document.createElement('span'));
+                $vt_span.addClass('ssui-waveform-span');
+                $vt_span.text(word);
+                $vt_span_wrapper.append($vt_span);
+
+                $overlay.append($vt);
+                var w = transferPx2EmNumeric($vt[0].getBoundingClientRect().width, r2Const.SIMPLESPEECH_FONT_SIZE);
+                $vt.remove();
+                return w;
+            };
+
+            return pub_ww;
         }());
 
 
@@ -638,8 +663,8 @@
                     }]
                 };
                 $ct[0].$vt = $vt; // cache the view_talken corresponding to this ctrl_talken
-                $ct[0].$vt_rect = $vt[0].getBoundingClientRect();
-                $ct.css('letter-spacing', transferPx2Em($ct[0].$vt_rect.width, r2Const.SIMPLESPEECH_FONT_SIZE));
+                var w = $ct[0].$vt[0].getBoundingClientRect().width;
+                $ct.css('letter-spacing', transferPx2Em(w, r2Const.SIMPLESPEECH_FONT_SIZE));
                 $ct.attr('uid', uid);
 
                 return $ct;
@@ -665,8 +690,9 @@
 
                 var ct_rect = $ctrl_talken[0].getBoundingClientRect();
                 var eb_rect = $edit_box[0].getBoundingClientRect();
+                var w = $vt[0].getBoundingClientRect().width;
 
-                var dx = (ct_rect.width-$ctrl_talken[0].$vt_rect.width)*0.5;
+                var dx = (ct_rect.width-w)*0.5;
                 $vt.css('left', transferPx2Em(ct_rect.left - eb_rect.left + dx, 1.0));
                 $vt.css('top', transferPx2Em(ct_rect.top - eb_rect.top, 1.0));
             };
