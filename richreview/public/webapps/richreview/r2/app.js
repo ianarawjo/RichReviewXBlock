@@ -412,6 +412,8 @@
             r2.log.Log_Simple('DoneLoading');
 
             r2.pageNumBox.init();
+
+            r2.localUploader.init();
         }
 
         /** init system */

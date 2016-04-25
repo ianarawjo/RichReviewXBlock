@@ -483,7 +483,8 @@
         pub.encodeWAV = encodeWAV;
 
         var chopTalkenSample = function(talken){
-            var sample = url2sample[talken.audio_url].samples;
+            var url = r2App.annots[talken.annotid].GetAudioFileUrl();
+            var sample = url2sample[url].samples;
             var idx_bgn = Math.min(sample.length-1, Math.round(byte_per_sec*talken.bgn));
             idx_bgn = idx_bgn + idx_bgn%2;
             var idx_end = Math.min(sample.length, Math.round(byte_per_sec*talken.end));
@@ -496,7 +497,8 @@
 
         var loadAllWavToBuf = function(talkens){
             talkens.forEach(function(talken){
-                url2sample[talken.audio_url] = null;
+                var url = r2App.annots[talken.annotid].GetAudioFileUrl();
+                url2sample[url] = null;
             });
             var promises = Object.keys(url2sample).map(function(audio_url){
                 return wavUrlToSample(audio_url);

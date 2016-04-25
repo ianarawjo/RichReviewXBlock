@@ -60,9 +60,17 @@
         </div>
 
         <div style="float:right;margin: 0 12px;">
-            <div>
+            <div style="float:left;margin-right: 2px" >
                 <button onclick="r2.localLog.download()" class="btn btn-sm btn-primary btn-dashboard" aria-label="play">
                     <i class="fa fa-download"></i></button>
+            </div>
+            <div id="r2-local-uploader-group" class="btn-group" style="float:left">
+                <button type="button" class="btn btn-sm btn-primary btn-dashboard dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fa fa-upload"></i>
+                </button>
+                <div class="dropdown-menu pull-right" style="width: 150px;">
+                    <input id="r2-local-uploader-file-input" type="file" name="files[]" multiple />
+                </div>
             </div>
         </div>
 

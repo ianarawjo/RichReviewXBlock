@@ -108,10 +108,10 @@
         var run = function(anchor_piece, funcCreatePiece, options){
             /* create Annot */
             var annotid = new Date(r2App.cur_time).toISOString();
+            var args_new_annot = [annotid, anchor_piece.GetId(), r2App.cur_time, r2App.cur_time, [], r2.userGroup.cur_user.name, ""];
+
             r2App.cur_recording_annot = new r2.Annot();
-            r2App.cur_recording_annot.SetAnnot(
-                annotid, anchor_piece.GetId(), r2App.cur_time, r2App.cur_time, [], r2.userGroup.cur_user.name, ""
-            );
+            r2.Annot.prototype.SetAnnot.apply(r2App.cur_recording_annot, args_new_annot);
             r2App.annots[annotid] = r2App.cur_recording_annot;
 
             r2.localLog.event('recordingBgn', annotid);
@@ -193,25 +193,44 @@
                     var time_simple_speech = r2App.cur_time+128;
                     var piece_annot_id = new Date(time_simple_speech).toISOString();
                     var piece_annot = new r2.Annot();
-                    piece_annot.SetAnnot(
-                        piece_annot_id, anchor_piece.GetId(), time_simple_speech, time_simple_speech, [], r2.userGroup.cur_user.name, ""
-                    );
+                    var args_new_annot = [piece_annot_id, anchor_piece.GetId(), time_simple_speech, time_simple_speech, [], r2.userGroup.cur_user.name, ""];
+
+                    r2.Annot.prototype.SetAnnot.apply(piece_annot, args_new_annot);
                     r2App.annots[piece_annot_id] = piece_annot;
 
                     piece_simple_speech = new NewPieceType();
-                    piece_simple_speech.SetPiece(
+
+                    var args_set_piece = [
                         r2.pieceHashId.voice(piece_annot_id, 0),
                         piece_annot.GetBgnTime(),
                         anchor_piece.GetNewPieceSize(),
                         anchor_piece.GetTTData()
+                    ];
+                    piece_simple_speech.SetPiece.apply(
+                        piece_simple_speech, args_set_piece
                     );
-                    setPieceFunc.bind(piece_simple_speech)(
+
+                    var args_set_piece_func = [
                         anchor_piece.GetId(),
                         piece_annot_id,
                         r2.userGroup.cur_user.name,
                         '',
                         true, // live_recording
                         options.ui_type
+                    ];
+                    setPieceFunc.apply(
+                        piece_simple_speech, args_set_piece_func
+                    );
+                    r2.localLog.event('createPiece',
+                        piece_annot_id,
+                        {
+                            type: options.ui_type,
+                            piece_annot_id: piece_annot_id, // for annot
+                            args_new_annot: args_new_annot, // for annot
+                            anchor_piece_id: anchor_piece.GetId(), // for piece
+                            args_set_piece: args_set_piece, // for piece
+                            args_set_piece_func: args_set_piece_func // for piece
+                        }
                     );
 
                     anchor_piece.AddChildAtFront(piece_simple_speech);

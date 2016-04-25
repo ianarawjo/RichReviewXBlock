@@ -594,4 +594,171 @@
 
         return pub;
     }());
+
+    r2.localUploader = (function(){
+        var pub_lu = {};
+
+        var $files_input = null;
+
+        pub_lu.init = function(){
+            $files_input = $('#r2-local-uploader-file-input');
+            $files_input[0].addEventListener('change', filesInputChange, false);
+        };
+
+        function filesInputChange(event) {
+            var files = event.target.files; // FileList object
+
+            try{
+                var promises = [];
+                for (var i = 0, f; f = files[i]; i++) {
+                    if(f.type === 'audio/wav'){
+                        console.log(f.name, f.type);
+                        promises.push(readWav(f));
+                    }
+                    else if(f.type === 'application/json'){
+                        console.log(f.name, f.type);
+                        promises.push(readJson(f));
+                    }
+                    else{
+                        throw 'File type should to be .wav or .json: ' + f.name + ', ' + f.type;
+                    }
+                }
+
+                return Promise.all(promises).then(
+                    separateMetaAndWav
+                ).then(
+                    structureDataByAnnot
+                ).catch(
+                    function(err){
+                        throw err;
+                    }
+                );
+            }
+            catch (err){
+                console.error(err);
+            }
+        }
+
+        function readJson(f){
+            return new Promise(function(resolve, reject){
+                var reader = new FileReader();
+                reader.onload = function(e){
+                    resolve({
+                        name: f.name,
+                        type: f.type,
+                        json: JSON.parse(e.target.result)
+                    });
+                };
+                reader.readAsText(f);
+            });
+        }
+
+        function readWav(f){
+            return new Promise(function(resolve, reject){
+                var reader = new FileReader();
+                reader.onload = function(e){
+                    var blob = new Blob([e.target.result], { type: 'audio/wav' });
+                    var url = (window.URL || window.webkitURL).createObjectURL(blob);
+                    resolve({
+                        name: f.name,
+                        type: f.type,
+                        blob: blob,
+                        url: url
+                    });
+                };
+                reader.readAsArrayBuffer(f);
+            });
+        }
+
+        function separateMetaAndWav(rtn){
+            var data = {
+                meta: [],
+                wav: {}
+            };
+
+            rtn.forEach(function(datum){
+                if(datum.type === 'audio/wav'){
+                    data.wav[datum.name.replace(/\.wav$/, '')] = datum; // remove extension
+                }
+                else if(datum.type === 'application/json'){
+                    data.meta.push(datum)
+                }
+            });
+
+            if(data.meta.length === 1){
+                data.meta = data.meta[0];
+                return Promise.resolve(data);
+            }
+            else{
+                throw 'Needs only 1 .json file, but has ' + data.meta.length + ' files: ' + data.meta
+            }
+        }
+
+        function structureDataByAnnot(data){
+            data.meta.json.forEach(function(datum, i){
+                if(datum.type === 'createPiece'){
+                    // annot
+                    var annot = new r2.Annot();
+                    r2.Annot.prototype.SetAnnot.apply(annot, datum.data.args_new_annot);
+                    r2App.annots[annot.GetId()] = annot;
+                    console.log(datum.type, datum.data.piece_annot_id, datum.annotid);
+                    annot.ClearTypes();
+
+                    // piece
+                    var NewPieceType = null;
+                    var setPieceFunc = null;
+                    if(datum.data.type === r2App.RecordingUI.SIMPLE_SPEECH ||
+                        datum.data.type === r2App.RecordingUI.WAVE_WEAVER){
+                        NewPieceType = r2.PieceSimpleSpeech;
+                        setPieceFunc = r2.PieceSimpleSpeech.prototype.SetPieceSimpleSpeech;
+                    }
+
+                    if(NewPieceType){
+                        var piece_simple_speech = new NewPieceType();
+                        piece_simple_speech.SetPiece.apply(
+                            piece_simple_speech, datum.data.args_set_piece
+                        );
+                        setPieceFunc.apply(
+                            piece_simple_speech, datum.data.args_set_piece_func
+                        );
+                        var anchor_piece = r2App.doc.SearchPiece(datum.data.anchor_piece_id);
+                        if(anchor_piece){
+                            anchor_piece.piece.AddChildAtFront(piece_simple_speech);
+                        }
+                        else{
+                            throw 'Cannot find anchor_piece: ' + datum.data.anchor_piece_id
+                        }
+                    }
+                    console.log(i, datum.type, datum.annotid);
+                }
+                else if(datum.type === 'baseBlobURL'){
+                    var annot = new r2.Annot();
+                    Object.keys(datum.data.base_annot).forEach(function(key){
+                        annot[key] = datum.data.base_annot[key];
+                    });
+                    annot.ClearTypes();
+
+                    var audio_filename = datum.data.blob_url.slice(datum.data.blob_url.lastIndexOf('/')+1);
+                    annot.SetRecordingAudioFileUrl(
+                        data.wav[audio_filename].url, data.wav[audio_filename].blob
+                    );
+                    r2App.annots[annot.GetId()] = annot;
+                    console.log(i, datum.data.blob_url, data.wav[audio_filename].url);
+                }
+                else if(datum.type === 'simplespeech-endCommenting'){
+                    var piece = r2App.doc.SearchPieceByAnnotId(datum.annotid);
+                    if(piece){
+                        piece.piece.SetData(datum.data.data);
+                        console.log(i, datum.data.data)
+                    }
+                    else{
+                        throw 'Cannot find piece for annot: ' + datum.annotid
+                    }
+                }
+            });
+            return Promise.resolve(null);
+        }
+
+        return pub_lu;
+    }());
 }(window.r2 = window.r2 || {}));

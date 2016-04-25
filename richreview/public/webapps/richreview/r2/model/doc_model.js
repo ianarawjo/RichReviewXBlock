@@ -209,6 +209,14 @@
         }
         return null;
     };
+    r2.Doc.prototype.SearchPiece = function(piece_id){
+        var i, page;
+        for(i = 0; page = this._pages[i]; ++i){
+            var rtn = page.SearchPiece(piece_id);
+            if(rtn){return {page_n:i, piece:rtn};}
+        }
+        return null;
+    };
 
 
     /*
@@ -2381,6 +2389,20 @@
         });
         this._dynamic_setup = false;
     };
+    r2.PieceNewSpeak.prototype.SearchPieceByAnnotId = function(annotid){
+        var result = r2.Obj.prototype.SearchPieceByAnnotId.apply(this, [annotid]);
+        if(result){
+            return result;
+        }
+        else{
+            if(this._annotid == annotid){ // ToDo check it returns the first piece
+                return this;
+            }
+            else{
+                return null;
+            }
+        }
+    };
 
 
     /*
@@ -2469,10 +2491,6 @@
         this.dom_textbox.classList.toggle('text_selectable', true);
         this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
         this.dom_tr.appendChild(this.dom_textbox);
-
-
-        // Create edit controller
-        this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
         this.simplespeech = new r2.transcriptionUI(
@@ -2637,6 +2655,23 @@
     };
     r2.PieceSimpleSpeech.prototype.Focus = function(){
         this.dom_textbox.focus();
+    };
+    r2.PieceSimpleSpeech.prototype.SearchPieceByAnnotId = function(annotid){
+        var result = r2.Obj.prototype.SearchPieceByAnnotId.apply(this, [annotid]);
+        if(result){
+            return result;
+        }
+        else{
+            if(this._annotid == annotid){ // ToDo check it returns the first piece
+                return this;
+            }
+            else{
+                return null;
+            }
+        }
+    };
+    r2.PieceSimpleSpeech.prototype.SetData = function(data){
+        this.simplespeech.SetData(data);
     };
 
 
@@ -3152,6 +3187,11 @@
         for(var i = this._audio_dbs.length; i < nDbs; ++i) {
             this._audio_dbs.push((r2.audioRecorder.RECORDER_SAMPLE_SCALE*dbs).toFixed(3));
         }
+    };
+    r2.Annot.prototype.ClearTypes = function(){
+        this._spotlights.forEach(function(splight){
+            console.log(splight instanceof r2.Spotlight);
+        });
     };
 
 
