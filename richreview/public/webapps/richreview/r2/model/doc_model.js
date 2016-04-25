@@ -1807,17 +1807,20 @@
                 });
             }
 
-            if (this._last_audio_url) { // Microphone audio finished processing before Watson did, so we insert voice now --
+            if (this._waiting_for_watson) { // Microphone audio finished processing before Watson did, so we insert voice now --
+
+                clearTimeout(this._waiting_for_watson_timeout);
+                $(this.dom_textbox).children('.nsui-spinner').remove();
 
                 $(this.dom_textbox).text(pre_text + temp_texts + post_text);
                 this.insertVoice(this.insert_word_idx_before_rec, words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
                 r2.localLog.event('appendVoice', this.annotids[this.annotids.length-1], {'words':words, 'url':this._last_audio_url});
 
+                this._last_text = null;
                 this._last_words = null;
                 this._last_audio_url = null;
                 this._waiting_for_watson = false;
                 this._prev_pre = null;
-                $(this.dom_textbox).children('.nsui-spinner').remove();
 
                 $(this.dom_textbox).focus(); // return user to selection
                 r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
@@ -1826,6 +1829,7 @@
                 r2App.invalidate_page_layout = true;
 
                 if (this.RENDER_AUDIO_IMMEDIATELY) {
+                    console.warn('*RENDERING AUDIO*');
                     this.afterAudioRender = null;
                     this.renderAudio();
                 }
@@ -2069,6 +2073,8 @@
         this.recording_mode = true;
         this._prev_pre = null;
 
+        this.updateSpeakCtrl();
+
         // Save the cursor position, flatten the div, and then restore it.
         if ($(this.dom_textbox).text().length > 0) {
             var cur = r2.speak.saveSelection(this.dom_textbox);
@@ -2144,7 +2150,7 @@
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
         }
 
-        if (this._last_words) {
+        var afterRecording = function() {
 
             if (!this.LIVE_CAPTIONING) {
                 if (this._last_text) $(this.dom_textbox).text(this._last_text);
@@ -2156,6 +2162,8 @@
             this._last_words = null;
             this._last_audio_url = null;
             this._waiting_for_watson = false;
+            this._waiting_for_watson_timeout = null;
+            this._prev_pre = null;
 
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
             $(this.dom_textbox).focus();
@@ -2164,22 +2172,22 @@
             r2App.invalidate_page_layout = true;
 
             if (this.RENDER_AUDIO_IMMEDIATELY) {
+                console.warn('*RENDERING AUDIO*');
                 this.afterAudioRender = null;
                 this.renderAudio();
             }
-        }
-        else {
 
-            // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
-            // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
-            this._last_audio_url = audioURL;
-            this._waiting_for_watson = true;
-            setTimeout(function() {
-                this._waiting_for_watson = false; // wait 2secs then cancel
-                $(this.dom_textbox).children('.nsui-spinner').remove();
-            }.bind(this), 2000);
+        }.bind(this);
 
-        }
+        // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
+        // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
+        var waittime = this._prev_pre ? 2000 : 5000; // wait 5 seconds if we haven't received anything from Watson yet.
+        this._last_audio_url = audioURL;
+        this._waiting_for_watson = true;
+        this._waiting_for_watson_timeout = setTimeout(function() {
+            this._waiting_for_watson = false; // wait 2secs then cancel
+            afterRecording();
+        }.bind(this), waittime);
 
         // DEBUG
         //r2.localLog.download();
@@ -2187,7 +2195,9 @@
     r2.PieceNewSpeak.prototype.insertVoice = function(idx, words, annotId) {
         if (words.length === 0) return;
         console.warn('insertVoice with idx', idx, words);
-        if (idx > 0) this.speak_ctrl.flatten(); // edited becomes base
+        if (idx > 0) {
+            this.speak_ctrl.flatten(); // edited becomes base
+        }
         this.speak_ctrl.insertVoice(idx, words, annotId); // for now
         this.updateSpeakCtrl();
         this.renderAudio();
