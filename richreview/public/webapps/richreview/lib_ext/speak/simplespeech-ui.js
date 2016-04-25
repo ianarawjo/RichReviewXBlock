@@ -195,18 +195,20 @@
         };
 
         pub.SetData = function(data){
+            $textbox.empty();
             data.forEach(function(datum){
                 insertNewTalken(datum, $textbox.children().length, false); // is_fresh = false;
             });
             renderViewTalkens();
+            talkenRenderer.invalidate();
             pub.synthesizeNewAnnot(annotid_copy);
+            r2App.invalidate_size = true;
         };
 
 
         /*
          * Putting commas and capitalize words
          */
-
         var punctuationUtil = (function(){
             var pub_pu = {};
 

@@ -3199,9 +3199,17 @@
         }
     };
     r2.Annot.prototype.ClearTypes = function(){
-        this._spotlights.forEach(function(splight){
-            console.log(splight instanceof r2.Spotlight);
-        });
+        for(var i = 0; i < this._spotlights.length; ++i){
+            if(this._spotlights[i] instanceof r2.Spotlight === false){
+                var new_splight = new r2.Spotlight();
+                Object.keys(this._spotlights[i]).forEach(function(key){
+                    new_splight[key] = this._spotlights[i][key];
+                }.bind(this));
+                this._spotlights[i] = new_splight;
+                new_splight.ClearTypes();
+            }
+            console.log(this._spotlights[i] instanceof r2.Spotlight);
+        }
     };
 
 
@@ -3655,6 +3663,19 @@
         rtn.t_bgn = t_bgn;
         rtn.t_end = t_end;
         return rtn;
+    };
+
+    r2.Spotlight.prototype.ClearTypes = function(){
+        for(var i = 0; i < this.segments.length; ++i){
+            if(this.segments[i] instanceof r2.Spotlight.Segment === false){
+                var new_segment = new r2.Spotlight.Segment();
+                Object.keys(this.segments[i]).forEach(function(key){
+                    new_segment[key] = this.segments[i][key];
+                }.bind(this));
+                this.segments[i] = new_segment;
+            }
+            console.log(this.segments[i] instanceof r2.Spotlight.Segment);
+        }
     };
 
     /*

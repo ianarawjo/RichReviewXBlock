@@ -418,6 +418,13 @@
 
         /** init system */
         function initSystem() {
+
+            r2.localLog.event('initSystem', 'null', {
+                docid: r2App.url_queries.get('docid'),
+                access_code: r2App.url_queries.get('access_code'),
+                groupid: r2App.url_queries.get('groupid')
+            });
+
             // render ticks
             window.requestAnimFrame = (function () {
                 return window.requestAnimationFrame ||
@@ -449,6 +456,9 @@
                         r2App.cur_focused_piece_keyboard != null &&
                         r2App.cur_focused_piece_keyboard.WasChanged();
                 var now_uploading = r2Sync.NowUploading() || r2App.annotStaticInkMgr.checkCmdToUploadExist();
+                if(!r2.localLog.wasDownloaded()){
+                    return "Check log-data download.";
+                }
                 if (now_typing || now_uploading || r2App.annot_private_spotlight.changed) {
                     if (now_typing)
                         $(r2App.cur_focused_piece_keyboard.dom_textbox).blur();
