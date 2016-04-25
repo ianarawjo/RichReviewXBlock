@@ -2173,12 +2173,13 @@
 
         // We're waiting on the transcript, so just store the URL for when setCaptionFinal is called.
         // console.warn("r2.PieceSimpleSpeech: onEndRecording: Could not find transcript.");
+        var waittime = this._prev_pre ? 2000 : 5000; // wait 5 seconds if we haven't received anything from Watson yet.
         this._last_audio_url = audioURL;
         this._waiting_for_watson = true;
         this._waiting_for_watson_timeout = setTimeout(function() {
             this._waiting_for_watson = false; // wait 2secs then cancel
             afterRecording();
-        }.bind(this), 2000);
+        }.bind(this), waittime);
 
         // DEBUG
         //r2.localLog.download();
