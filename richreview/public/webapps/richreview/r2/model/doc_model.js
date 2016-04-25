@@ -1460,7 +1460,10 @@
         return this._waiting_for_watson;
     };
     r2.PieceNewSpeak.prototype.renderAndPlay = function() {
+
         var annot_id = this.GetAnnotId();
+        r2.localLog.event('ctrl-play', annot_id, {'text':$(this.dom_textbox).text()});
+
         r2.radialMenu.bgnLoading('rm_' + r2.util.escapeDomId(annot_id)); // show the 'compiling' sign
         this.afterAudioRender = function(audio_url) {
             var annot_id = this.GetAnnotId();
@@ -1478,7 +1481,7 @@
         }.bind(this);
 
 
-        if (!this.speak_ctrl.needsRender()) this.afterAudioRender();
+        if (!this.speak_ctrl.needsRender() && !this._is_rendering) this.afterAudioRender();
         else if (!this._is_rendering) this.renderAudio();
     };
     r2.PieceNewSpeak.prototype.renderAudio = function() {
@@ -1806,8 +1809,10 @@
                 $(this.dom_textbox).focus(); // return user to selection
                 r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
 
-                if (this.RENDER_AUDIO_IMMEDIATELY)
+                if (this.RENDER_AUDIO_IMMEDIATELY) {
+                    this.afterAudioRender = null;
                     this.renderAudio();
+                }
             }
 
             this._temporary_n = 0;
@@ -2022,8 +2027,10 @@
             $(this.dom_textbox).focus(); // return user to selection
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
 
-            if (this.RENDER_AUDIO_IMMEDIATELY)
+            if (this.RENDER_AUDIO_IMMEDIATELY) {
+                this.afterAudioRender = null;
                 this.renderAudio();
+            }
         }
 
         this._temporary_n = 0;
@@ -2092,7 +2099,7 @@
             insertSpanAtCaretIdx($rec_span, this.insert_idx, $(this.dom_textbox));
 
             // Show live waveform popup
-            setTimeout(function() {
+            setTimeout(function() { // give DOM chance to update offsets...
                 r2.tooltipAudioWaveform.show($(this.dom_textbox).parent(),
                                              getPopUpPos(this.dom_textbox, $('.nsui-blinkred')[0]));
             }.bind(this), 0);
@@ -2133,8 +2140,13 @@
             r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
             $(this.dom_textbox).focus();
 
-            if (this.RENDER_AUDIO_IMMEDIATELY)
+            r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
+
+            if (this.RENDER_AUDIO_IMMEDIATELY) {
+                this.afterAudioRender = null;
                 this.renderAudio();
+            }
         }
         else {
 

@@ -478,7 +478,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 var talkens = Talken.generate(ts, annotId);
 
                 // Check that idx is valid
-                if (index > base.length || index < 0) {
+                if (index > base.length) {
+                    console.warn("Warning @ voiceInsert: Index " + index + " extends past bounds of array.");
+                    index = base.length;
+                } else if (index < 0) {
                     console.log("Error @ voiceInsert: Invalid index " + index + ".");
                     return false;
                 } else if (talkens.length === 0) {
