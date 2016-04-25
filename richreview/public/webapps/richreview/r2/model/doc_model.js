@@ -1495,6 +1495,14 @@
 
             return this.speak_ctrl.renderTTSAudioPatchy(this.GetAnnotId(), '').then(function(eandt) {
                 console.log(' @ patchSynth @ doc_model: ', eandt);
+
+                if (typeof eandt === 'undefined') {
+                    console.error('Error @ patchSynth @ doc_model: response is undefined.');
+                    return new Promise(function(resolve, reject) {
+                        resolve(undefined);
+                    });
+                }
+
                 var edited_talkens = eandt[0];
                 var tts_talkens = eandt[1];
                 var annotId = this.GetAnnotId();
@@ -1805,6 +1813,9 @@
 
                 $(this.dom_textbox).focus(); // return user to selection
                 r2.speak.restoreSelection(this.dom_textbox, {'start':this.insert_idx, 'end':this.insert_idx});
+
+                r2App.invalidate_size = true;
+                r2App.invalidate_page_layout = true;
 
                 if (this.RENDER_AUDIO_IMMEDIATELY) {
                     this.afterAudioRender = null;
