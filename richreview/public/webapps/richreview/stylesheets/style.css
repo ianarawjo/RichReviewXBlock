@@ -405,6 +405,10 @@ a:active {
   padding-right: 0.1em;
 }
 
+.ssui-overlay > .ssui-viewtalken.ssui-waveform {
+  border-radius: 0.1em;
+  padding-top: 0.1em;
+}
 
 .ssui-overlay > .ssui-viewtalken.ssui-pause {
   border-radius: 0.2em;

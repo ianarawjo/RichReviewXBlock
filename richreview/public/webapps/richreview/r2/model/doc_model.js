@@ -1694,9 +1694,6 @@
             var i;
             var SENTENCE_PAUSE_THRESHOLD_MS = 1000;
             var PAUSE_THRESHOLD_MS = 30; // ignore pauses 30 ms and less.
-            function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
-                return string.charAt(0).toUpperCase() + string.slice(1);
-            }
 
             var pre_text = this._prev_pre ? this._prev_pre : (this.insert_idx > -1 ? $(this.dom_textbox).text().substring(0, this.insert_idx) : $(this.dom_textbox).text());
             var post_text = this.insert_idx > -1 ? $(this.dom_textbox).text().substring(this.insert_idx) : '';
@@ -1820,6 +1817,10 @@
                 r2App.invalidate_size = true;
                 r2App.invalidate_page_layout = true;
             }
+        }
+
+        function capitalize(string) { // Thanks to Steve Harrison @ http://stackoverflow.com/a/1026087
+            return string.charAt(0).toUpperCase() + string.slice(1);
         }
     };
 
