@@ -745,7 +745,7 @@
                     r2App.annots[annot.GetId()] = annot;
                     console.log(i, datum.data.blob_url, data.wav[audio_filename].url);
                 }
-                else if(datum.type === 'simplespeech-endCommenting'){
+                else if(datum.type === 'simplespeech-piece-LogData'){
                     var piece = r2App.doc.SearchPieceByAnnotId(datum.annotid);
                     if(piece){
                         piece.piece.SetData(datum.data.data);

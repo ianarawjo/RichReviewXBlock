@@ -139,14 +139,18 @@
 
             r2App.is_recording_or_transcribing = false;
 
+            r2.localLog.event(
+                'simplespeech-endCommenting', annotid_copy, {'data': pub.getTalkenData()}
+            );
+        };
+
+        pub.getTalkenData = function(){
             // save the transcription data for backup
             var td = [];
             $textbox.children('span').each(function(idx){
                 td.push($(this)[0].talken_data);
             });
-            r2.localLog.event(
-                'simplespeech-endCommenting', annotid_copy, {'data': td}
-            );
+            return td;
         };
 
         pub.drawDynamic = function(duration){
@@ -197,12 +201,14 @@
         pub.SetData = function(data){
             $textbox.empty();
             data.forEach(function(datum){
+                console.log(datum);
                 insertNewTalken(datum, $textbox.children().length, false); // is_fresh = false;
             });
             renderViewTalkens();
             talkenRenderer.invalidate();
             pub.synthesizeNewAnnot(annotid_copy);
             r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
         };
 
 
@@ -408,7 +414,7 @@
                 var $vt_span = $(document.createElement('span'));
                 $vt_span.addClass('ssui-viewtalken-span');
                 $vt_span.text(word);
-                var opacity = talken_data.data[0].conf*0.75+0.25;
+                var opacity = talken_data.data[0].conf;
                 $vt_span.css('color', 'rgba(0, 0, 0, '+opacity+')');
                 $vt.append($vt_span);
 

@@ -495,6 +495,7 @@
         var q = [];
         var edited_urls = [];
         var base_urls = [];
+        var target_pieces = [];
         var was_downloaded = false;
 
         pub.text = function(text, annotid){
@@ -515,6 +516,10 @@
         pub.event = function(eventType, annotId, json) {
             if (typeof json === 'undefined') json = {};
             push(getTemplate(eventType, annotId, json));
+        };
+
+        pub.addTargetPiece = function(piece){
+            target_pieces.push(piece);
         };
 
         pub.editedBlobURL = function(blob_url, annotid){
@@ -538,6 +543,11 @@
         * - So, the data.json will include metadata of the wav files that store <annotid>s for tracking each of the files.
         */
         pub.download = function(){
+            target_pieces.forEach(function(piece){
+                if(piece.LogData){
+                    piece.LogData();
+                }
+            });
 
             // create blob of q
             var blob = new Blob([JSON.stringify(q, null, 2)], {type: "text/plain;charset=utf-8"});
@@ -2012,7 +2022,7 @@
                         )
                     );
                 });
-                console.log(gesture_id, streak_talken_idxs);
+                //console.log(gesture_id, streak_talken_idxs);
             });
 
 
