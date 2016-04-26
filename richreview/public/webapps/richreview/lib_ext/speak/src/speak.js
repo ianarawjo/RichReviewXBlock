@@ -1031,7 +1031,7 @@
                 });
                 c += t.end-t.bgn;
                 if (t.pauseAfter > 0) {
-                    var pausesnip = {'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':Math.max(t.pauseAfter / 1000.0, 1.0)};
+                    var pausesnip = {'url':'static_audio/pauseResource.wav', 't_bgn':0, 't_end':Math.min(t.pauseAfter / 1000.0, 1.0)};
                     c += pausesnip.t_end;
                     snippets.push(pausesnip);
                 }
