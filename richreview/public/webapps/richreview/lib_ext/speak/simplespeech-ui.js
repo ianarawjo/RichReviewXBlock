@@ -124,7 +124,7 @@
         };
 
         pub.doneCommentingAsync = function(){
-            r2.localLog.event('end-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+            r2.localLog.event('simplespeech-doneCommentingAsync', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
 
             insertRecordingIndicator.dismiss();
             insert_pos-=1;
@@ -138,6 +138,15 @@
             });
 
             r2App.is_recording_or_transcribing = false;
+
+            // save the transcription data for backup
+            var td = [];
+            $textbox.children('span').each(function(idx){
+                td.push($(this)[0].talken_data);
+            });
+            r2.localLog.event(
+                'simplespeech-endCommenting', annotid_copy, {'data': td}
+            );
         };
 
         pub.drawDynamic = function(duration){
@@ -185,11 +194,21 @@
             );
         };
 
+        pub.SetData = function(data){
+            $textbox.empty();
+            data.forEach(function(datum){
+                insertNewTalken(datum, $textbox.children().length, false); // is_fresh = false;
+            });
+            renderViewTalkens();
+            talkenRenderer.invalidate();
+            pub.synthesizeNewAnnot(annotid_copy);
+            r2App.invalidate_size = true;
+        };
+
 
         /*
          * Putting commas and capitalize words
          */
-
         var punctuationUtil = (function(){
             var pub_pu = {};
 

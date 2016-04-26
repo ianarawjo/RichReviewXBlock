@@ -495,6 +495,7 @@
         var q = [];
         var edited_urls = [];
         var base_urls = [];
+        var was_downloaded = false;
 
         pub.text = function(text, annotid){
             var data = text;
@@ -549,7 +550,12 @@
             downloadFiles(base_urls);
             edited_urls = [];
             base_urls = [];
+            was_downloaded = true;
         };
+
+        pub.wasDownloaded = function(){
+            return was_downloaded;
+        }
 
         function downloadFiles(url_arr) {
             url_arr.forEach(function(url) {

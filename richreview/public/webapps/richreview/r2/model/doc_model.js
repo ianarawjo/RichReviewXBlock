@@ -209,6 +209,14 @@
         }
         return null;
     };
+    r2.Doc.prototype.SearchPiece = function(piece_id){
+        var i, page;
+        for(i = 0; page = this._pages[i]; ++i){
+            var rtn = page.SearchPiece(piece_id);
+            if(rtn){return {page_n:i, piece:rtn};}
+        }
+        return null;
+    };
 
 
     /*
@@ -2393,6 +2401,20 @@
         });
         this._dynamic_setup = false;
     };
+    r2.PieceNewSpeak.prototype.SearchPieceByAnnotId = function(annotid){
+        var result = r2.Obj.prototype.SearchPieceByAnnotId.apply(this, [annotid]);
+        if(result){
+            return result;
+        }
+        else{
+            if(this._annotid == annotid){ // ToDo check it returns the first piece
+                return this;
+            }
+            else{
+                return null;
+            }
+        }
+    };
 
 
     /*
@@ -2481,10 +2503,6 @@
         this.dom_textbox.classList.toggle('text_selectable', true);
         this.dom_textbox.style.color = r2.userGroup.GetUser(this._username).color_piecekeyboard_text;
         this.dom_tr.appendChild(this.dom_textbox);
-
-
-        // Create edit controller
-        this.speak_ctrl = new r2.speak.controller();
 
         // SimpleSpeech UI wrapper
         this.simplespeech = new r2.transcriptionUI(
@@ -2649,6 +2667,23 @@
     };
     r2.PieceSimpleSpeech.prototype.Focus = function(){
         this.dom_textbox.focus();
+    };
+    r2.PieceSimpleSpeech.prototype.SearchPieceByAnnotId = function(annotid){
+        var result = r2.Obj.prototype.SearchPieceByAnnotId.apply(this, [annotid]);
+        if(result){
+            return result;
+        }
+        else{
+            if(this._annotid == annotid){ // ToDo check it returns the first piece
+                return this;
+            }
+            else{
+                return null;
+            }
+        }
+    };
+    r2.PieceSimpleSpeech.prototype.SetData = function(data){
+        this.simplespeech.SetData(data);
     };
 
 
@@ -3165,6 +3200,19 @@
             this._audio_dbs.push((r2.audioRecorder.RECORDER_SAMPLE_SCALE*dbs).toFixed(3));
         }
     };
+    r2.Annot.prototype.ClearTypes = function(){
+        for(var i = 0; i < this._spotlights.length; ++i){
+            if(this._spotlights[i] instanceof r2.Spotlight === false){
+                var new_splight = new r2.Spotlight();
+                Object.keys(this._spotlights[i]).forEach(function(key){
+                    new_splight[key] = this._spotlights[i][key];
+                }.bind(this));
+                this._spotlights[i] = new_splight;
+                new_splight.ClearTypes();
+            }
+            console.log(this._spotlights[i] instanceof r2.Spotlight);
+        }
+    };
 
 
     /* abstract annot that contains private spotlights */
@@ -3617,6 +3665,19 @@
         rtn.t_bgn = t_bgn;
         rtn.t_end = t_end;
         return rtn;
+    };
+
+    r2.Spotlight.prototype.ClearTypes = function(){
+        for(var i = 0; i < this.segments.length; ++i){
+            if(this.segments[i] instanceof r2.Spotlight.Segment === false){
+                var new_segment = new r2.Spotlight.Segment();
+                Object.keys(this.segments[i]).forEach(function(key){
+                    new_segment[key] = this.segments[i][key];
+                }.bind(this));
+                this.segments[i] = new_segment;
+            }
+            console.log(this.segments[i] instanceof r2.Spotlight.Segment);
+        }
     };
 
     /*
