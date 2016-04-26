@@ -1813,7 +1813,7 @@
                 $(this.dom_textbox).children('.nsui-spinner').remove();
 
                 $(this.dom_textbox).text(pre_text + temp_texts + post_text);
-                this.insertVoice(this.insert_word_idx_before_rec, words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+                this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
                 r2.localLog.event('appendVoice', this.annotids[this.annotids.length-1], {'words':words, 'url':this._last_audio_url});
 
                 this._last_text = null;
@@ -2152,6 +2152,8 @@
 
         var afterRecording = function() {
 
+            console.log(' @ afterRecording callback // ');
+
             if (!this.LIVE_CAPTIONING) {
                 if (this._last_text) $(this.dom_textbox).text(this._last_text);
                 $(this.dom_textbox).children('.nsui-spinner').remove();
@@ -2193,7 +2195,7 @@
         //r2.localLog.download();
     };
     r2.PieceNewSpeak.prototype.insertVoice = function(idx, words, annotId) {
-        if (words.length === 0) return;
+        if (!words || words.length === 0) return;
         console.warn('insertVoice with idx', idx, words);
         if (idx > 0) {
             this.speak_ctrl.flatten(); // edited becomes base
