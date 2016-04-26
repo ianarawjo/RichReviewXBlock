@@ -2462,6 +2462,8 @@
 
         this.resizeDom();
 
+        r2.localLog.addTargetPiece(this);
+
         return dom;
     };
     r2.PieceSimpleSpeech.prototype.GetAnnotId = function(){
@@ -2684,6 +2686,13 @@
     };
     r2.PieceSimpleSpeech.prototype.SetData = function(data){
         this.simplespeech.SetData(data);
+    };
+    r2.PieceSimpleSpeech.prototype.LogData = function(){
+        r2.localLog.event(
+            'simplespeech-piece-LogData',
+            this._annotid,
+            {'data': this.simplespeech.getTalkenData()}
+        );
     };
 
 
