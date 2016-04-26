@@ -25,7 +25,7 @@ var r2Ctrl = {};
 
             mode = InputMode.DESKTOP;
             $('#btn-input-set-mode-desktop').toggleClass('btn-primary', true);
-            r2.mouse.rightClickContextMenu.enable();
+            r2.mouse.rightClickContextMenu.disable();
             r2.mouse.setEventHandlers();
         };
         pub.setModeTabletTouch = function(){

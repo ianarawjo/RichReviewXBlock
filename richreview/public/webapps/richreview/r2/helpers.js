@@ -2012,7 +2012,7 @@
                         )
                     );
                 });
-                console.log(gesture_id, streak_talken_idxs);
+                //console.log(gesture_id, streak_talken_idxs);
             });
 
 

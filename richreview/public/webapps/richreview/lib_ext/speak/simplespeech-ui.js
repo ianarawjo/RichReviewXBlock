@@ -197,12 +197,14 @@
         pub.SetData = function(data){
             $textbox.empty();
             data.forEach(function(datum){
+                console.log(datum);
                 insertNewTalken(datum, $textbox.children().length, false); // is_fresh = false;
             });
             renderViewTalkens();
             talkenRenderer.invalidate();
             pub.synthesizeNewAnnot(annotid_copy);
             r2App.invalidate_size = true;
+            r2App.invalidate_page_layout = true;
         };
 
 

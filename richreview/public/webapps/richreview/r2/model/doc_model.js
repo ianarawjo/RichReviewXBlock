@@ -3208,7 +3208,6 @@
                 this._spotlights[i] = new_splight;
                 new_splight.ClearTypes();
             }
-            console.log(this._spotlights[i] instanceof r2.Spotlight);
         }
     };
 
@@ -3674,7 +3673,6 @@
                 }.bind(this));
                 this.segments[i] = new_segment;
             }
-            console.log(this.segments[i] instanceof r2.Spotlight.Segment);
         }
     };
 
