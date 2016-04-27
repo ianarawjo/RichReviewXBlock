@@ -2145,7 +2145,7 @@
 
         var $arrow_up = $(document.createElement('div'));
         $arrow_up.addClass('arrow_up');
-        $tooltip.append($arrow_up);
+        //$tooltip.append($arrow_up);
 
         var canv = document.createElement('canvas');
         $(canv).addClass('arrow_up');
@@ -2158,9 +2158,10 @@
 
         pub_ta.show = function($parent, pos){
             is_display = true;
+            $parent = $('#recording_indicator');
             $parent.append($tooltip);
-            $tooltip.css('left', pos.x);
-            $tooltip.css('top', pos.y);
+            //$tooltip.css('left', pos.x);
+            //$tooltip.css('top', pos.y);
             centerDiv();
         };
 

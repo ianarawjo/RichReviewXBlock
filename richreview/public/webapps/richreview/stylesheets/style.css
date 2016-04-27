@@ -391,11 +391,11 @@ a:active {
   vertical-align: -webkit-baseline-middle;
 }
 .ssui-overlay >  .ssui-viewtalken {
-  background-color: rgb(235, 235, 235);
+  background-color: rgb(245, 245, 245);
   color: black;
 }
 .ssui-overlay >  .ssui-viewtalken.fresh-recording {
-  background-color: rgb(204, 215, 225);
+  background-color: rgb(214, 225, 235);
   color: black;
 }
 .ssui-overlay > .ssui-viewtalken.ssui-word {
