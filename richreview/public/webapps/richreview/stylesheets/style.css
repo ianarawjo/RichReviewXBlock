@@ -722,7 +722,6 @@ a:active {
   position: absolute;
   left: 25px;
   top: 25px;
-  width: 35px;
   height: 54px;
   font-size: 54px;
   color: rgba(205, 92, 92, 0.85);
@@ -733,7 +732,8 @@ a:active {
 #recording_indicator_stack{
   width: 35px;
   height: 54px;
-  display: block;
+  display: inline-block;
+  vertical-align: text-top;
 }
 
 #recording_indicator_stack i {
@@ -1216,8 +1216,7 @@ div.simplespeech_tooltip > div.arrow_up {
 
 
 div.tooltip_audio_waveform {
-  position: absolute;
-  z-index: 20;
+  display: inline-block;
 }
 
 div.tooltip_audio_waveform canvas{
@@ -1225,6 +1224,8 @@ div.tooltip_audio_waveform canvas{
   border: solid rgba(205, 92, 92, 0.85) 1px;
   border-radius: 4px;
   background: white;
+  width: 150px;
+  height: 50px;
 }
 
 div.tooltip_audio_waveform div.arrow_up {
