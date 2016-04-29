@@ -1454,6 +1454,12 @@
     };
     r2.PieceNewSpeak.prototype.updateSpeakCtrl = function() {
 
+        // var txt = $(this.dom_textbox).text();
+        // txt = txt.replace(/\s[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' '); // delete any stray punctuation
+        // var cur = r2.speak.saveSelection(this.dom_textbox);
+        // $(this.dom_textbox).text(txt); // delete in-line to avoid future problems
+        // r2.speak.restoreSelection(this.dom_textbox, cur);
+
         // Update audio model w/ new edits (if any)
         this.speak_ctrl.update($(this.dom_textbox).text());
 
@@ -2237,14 +2243,14 @@
             return;
         }
 
-        var wrds_without_pauses = $(this.dom_textbox).text().replace(/♦/g, '').trim().split(/\s+/g);
-        var wrds = $(this.dom_textbox).text().trim().split(/\s+/g);
+        var wrds_without_pauses = $(this.dom_textbox).text().replace(/♦/g, '').replace(/\s[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').trim().split(/\s+/g);
+        var wrds = $(this.dom_textbox).text().trim().replace(/\s[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').split(/\s+/g);
         var tks = $.extend(true, [], this._last_tts_talkens);
         if (wrds_without_pauses.length !== tks.length) {
             if (this._dynamic_setup) {
                 this.EndDrawDynamic();
             }
-            console.log('# words != # talkens.', wrds.length, tks.length);
+            console.log('# words != # talkens.', wrds.length, tks.length, wrds, tks);
             return;
         } else if (!this._dynamic_setup) {
 

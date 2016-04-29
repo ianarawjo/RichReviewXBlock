@@ -483,6 +483,10 @@
                         else
                             wrds.splice(w+1, 0, '♦');
                         w++;
+                    } else if (wrds[w].trim().length === 1 && wrds[w].replace(/[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]/g,"").length === 0) { // single-punctuation mark error
+                        console.log(' ### removed isolated ' + wrds[w] + ' during repair ###');
+                        wrds.splice(w, 1); // remove the isolated punctuation mark from consideration
+                        w--;
                     }
                 }
                 console.log('wrds: ', wrds);
