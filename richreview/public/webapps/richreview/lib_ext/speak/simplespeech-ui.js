@@ -414,7 +414,7 @@
                 var $vt_span = $(document.createElement('span'));
                 $vt_span.addClass('ssui-viewtalken-span');
                 $vt_span.text(word);
-                var opacity = talken_data.data[0].conf;
+                var opacity = talken_data.data[0].conf*0.75 + 0.25;
                 $vt_span.css('color', 'rgba(0, 0, 0, '+opacity+')');
                 $vt.append($vt_span);
 
@@ -483,7 +483,7 @@
                 var CONST = {
                     EM_PER_SEC: 6,
                     WV_HGHT_MRGN: 0.5,
-                    SPAN_OPACITY_RANGE: {low: 0.2, upper: 0.8},
+                    SPAN_OPACITY_RANGE: {low: 0.0, upper: 0.75},
                     PX_PER_SEC: 128
                 };
 
