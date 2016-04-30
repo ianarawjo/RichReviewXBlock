@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -25,6 +25,14 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     r2.speak = function () {
 
         var pub_speak = {};
+
+        pub_speak.removePauseMarkers = function (txt) {
+            return txt.replace(/♦/g, '');
+        };
+        pub_speak.removeStrayPunctuation = function (txt) {
+            // replace all isolated punctuation marks; replace all punctuation attached to a pause marker with the marker (' ♦,' => ' ♦')
+            return txt.replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').replace(/\s♦[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g, ' ♦');
+        };
 
         // Really special thanks to Tim @ SO:
         // http://stackoverflow.com/a/13950376
@@ -124,22 +132,22 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             }
 
             _createClass(Talken, [{
-                key: "replaceWord",
+                key: 'replaceWord',
                 value: function replaceWord(txt) {
                     this.word = txt;
                 }
             }, {
-                key: "setPauseAfter",
+                key: 'setPauseAfter',
                 value: function setPauseAfter(ms) {
                     this._pauseAfter = ms;
                 }
             }, {
-                key: "setPauseBefore",
+                key: 'setPauseBefore',
                 value: function setPauseBefore(ms) {
                     this._pauseBefore = ms;
                 }
             }, {
-                key: "clone",
+                key: 'clone',
                 value: function clone() {
                     var t = new Talken(this.word, this.bgn, this.end, this.audio);
                     if (this.pauseBefore > 0) t.setPauseBefore(this.pauseBefore);
@@ -147,17 +155,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     return t;
                 }
             }, {
-                key: "pauseBefore",
+                key: 'pauseBefore',
                 get: function get() {
                     return this._pauseBefore || 0;
                 }
             }, {
-                key: "pauseAfter",
+                key: 'pauseAfter',
                 get: function get() {
                     return this._pauseAfter || 0;
                 }
             }], [{
-                key: "generate",
+                key: 'generate',
                 value: function generate(timestamps, audioURL) {
                     var talkens = [];
                     var audio = Audio.for(audioURL);
@@ -206,7 +214,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     return talkens;
                 }
             }, {
-                key: "generateFromHTK",
+                key: 'generateFromHTK',
                 value: function generateFromHTK(audioURL, perfect_transcript) {
                     return Praat.calcTimestamps(audioURL, perfect_transcript).then(function (ts) {
                         return new Promise(function (resolve, reject) {
@@ -215,7 +223,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     });
                 }
             }, {
-                key: "clone",
+                key: 'clone',
                 value: function clone(t) {
                     if (t instanceof Talken) return t.clone();else if (t instanceof Array) return t.map(function (tn) {
                         return tn.clone();
@@ -241,7 +249,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 }
 
                 _createClass(AudioResource, [{
-                    key: "url",
+                    key: 'url',
                     get: function get() {
                         if (this.annotId.indexOf('blob:') > -1) return this.annotId; // backwards compatability
                         else return r2App.annots[this.annotId].GetAudioFileUrl();
@@ -318,7 +326,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 
             _createClass(EditOp, null, [{
-                key: "generate",
+                key: 'generate',
                 value: function generate(diff) {
 
                     // Split html by tags
@@ -566,7 +574,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 console.log('edited: ', edited);
 
                 // Repair punctuation, pause markers, + capitalization
-                var wrds = new_transcript.trim().split(/\s+/);
+                var wrds = r2.speak.removeStrayPunctuation(new_transcript.trim()).split(/\s+/);
                 for (var w = 0; w < wrds.length; w++) {
                     // isolate pause markers from attachments to any words
                     if (wrds[w] === '♦') continue;
@@ -575,7 +583,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                         wrds[w] = wrds[w].replace('♦', '');
                         if (space_char_i < wrds[w].length / 2) wrds.splice(w, 0, '♦');else wrds.splice(w + 1, 0, '♦');
                         w++;
-                    } else if (wrds[w].trim().length === 1 && wrds[w].replace(/[.,-\/♦#!?$%\^&\*;:{}=\-_`~'()]/g, "").length === 0) {
+                    } else if (wrds[w].trim().length === 1 && wrds[w].replace(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g, "").length === 0) {
                         // single-punctuation mark error
                         console.log(' ### removed isolated ' + wrds[w] + ' during repair ###');
                         wrds.splice(w, 1); // remove the isolated punctuation mark from consideration

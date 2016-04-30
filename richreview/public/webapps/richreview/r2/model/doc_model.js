@@ -2243,8 +2243,10 @@
             return;
         }
 
-        var wrds_without_pauses = $(this.dom_textbox).text().replace(/♦/g, '').replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').trim().split(/\s+/g);
-        var wrds = $(this.dom_textbox).text().trim().replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').split(/\s+/g);
+        var wrds_without_pauses = r2.speak.removeStrayPunctuation(r2.speak.removePauseMarkers($(this.dom_textbox).text())).trim().split(/\s+/g);
+        var wrds = r2.speak.removeStrayPunctuation($(this.dom_textbox).text().trim()).split(/\s+/g);
+        //var wrds_without_pauses = $(this.dom_textbox).text().replace(/♦/g, '').replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').trim().split(/\s+/g);
+        //var wrds = $(this.dom_textbox).text().trim().replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').split(/\s+/g);
         var tks = $.extend(true, [], this._last_tts_talkens);
         if (wrds_without_pauses.length !== tks.length) {
             if (this._dynamic_setup) {

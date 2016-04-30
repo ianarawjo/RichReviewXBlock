@@ -19,6 +19,14 @@
 
         var pub_speak = {};
 
+        pub_speak.removePauseMarkers = (txt) => {
+            return txt.replace(/♦/g, '');
+        };
+        pub_speak.removeStrayPunctuation = (txt) => {
+            // replace all isolated punctuation marks; replace all punctuation attached to a pause marker with the marker (' ♦,' => ' ♦')
+            return txt.replace(/\s[.,-\/#!?$%\^&\*;:{}=\-_`~'()]\s/g, ' ').replace(/\s♦[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/g, ' ♦');
+        };
+
         // Really special thanks to Tim @ SO:
         // http://stackoverflow.com/a/13950376
         var saveSelection, restoreSelection;
@@ -472,7 +480,7 @@
                 console.log('edited: ', edited);
 
                 // Repair punctuation, pause markers, + capitalization
-                var wrds = new_transcript.trim().split(/\s+/);
+                var wrds = r2.speak.removeStrayPunctuation(new_transcript.trim()).split(/\s+/);
                 for (let w = 0; w < wrds.length; w++) { // isolate pause markers from attachments to any words
                     if (wrds[w] === '♦') continue;
                     let space_char_i = wrds[w].indexOf('♦');
