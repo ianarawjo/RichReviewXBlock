@@ -13,6 +13,7 @@
         /** update and draw callback */
         pub.tick = function(){
             requestAnimFrame(pub.tick);
+            r2.userStudyTimer.tick();
 
             try {
                 update();
@@ -465,6 +466,8 @@
                     return "The webapp is now uploading your data. Please wait for seconds, and retry.";
                 }
             };
+
+            r2.userStudyTimer.init();
 
             // enable bootstrap tooltips
             $(function () {

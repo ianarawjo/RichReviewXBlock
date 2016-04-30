@@ -807,6 +807,17 @@ a:active {
   height: 54px;
 }
 
+#user_study_timer {
+  position: absolute;
+  right: 40px;
+  top: 20px;
+  background: white;
+  border: solid 1px lightgray;
+  padding: 4px;
+  font-size: 20px;
+  color: lightgray;
+}
+
 /* Gmail style scrollbar */
  ::-webkit-scrollbar {
    width: 12px

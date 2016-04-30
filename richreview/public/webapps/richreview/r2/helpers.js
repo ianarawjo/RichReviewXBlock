@@ -2220,4 +2220,24 @@
 
     }());
 
+    r2.userStudyTimer = (function(){
+        var pub_ut = {};
+        var init_time = 0;
+
+        pub_ut.init = function(){
+            init_time = new Date().getTime();
+        };
+        pub_ut.tick = function() {
+            var t = (new Date().getTime()) - init_time;
+            t/=1000;
+            var m = Math.floor(t/60);
+            var s = Math.floor(t%60);
+            s = s < 10 ? '0'+s : s;
+            $('#user_study_timer').children('span').text(
+                 m + ':' + s
+            );
+        };
+        return pub_ut;
+    }())
+
 }(window.r2 = window.r2 || {}));
