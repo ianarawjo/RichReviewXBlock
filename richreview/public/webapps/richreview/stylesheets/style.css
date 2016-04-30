@@ -421,8 +421,7 @@ a:active {
   background-color: rgba(205, 92, 92, 0.85);
   color: transparent;
   border: solid 0.1em rgb(205, 92, 92);
-  border-radius: 1em;
-  min-width: 0.80em;
+  min-width: 0.5em;
 }
 .blink_me {
   animation: blinker 1.5s linear infinite;
@@ -806,6 +805,17 @@ a:active {
 #uploading_indicator_stack{
   width: 35px;
   height: 54px;
+}
+
+#user_study_timer {
+  position: absolute;
+  right: 40px;
+  top: 20px;
+  background: white;
+  border: solid 1px lightgray;
+  padding: 4px;
+  font-size: 20px;
+  color: lightgray;
 }
 
 /* Gmail style scrollbar */

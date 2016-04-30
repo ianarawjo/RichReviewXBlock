@@ -512,6 +512,13 @@
                 var span_opacity =
                     talken_data.data[0].conf*(CONST.SPAN_OPACITY_RANGE.upper-CONST.SPAN_OPACITY_RANGE.low)
                     +CONST.SPAN_OPACITY_RANGE.low;
+                var cutoff = 0.5;
+                if(talken_data.data[0].conf > cutoff){
+                    span_opacity = (talken_data.data[0].conf-cutoff)/(1.0-cutoff);
+                }
+                else{
+                    span_opacity = 0;
+                }
                 $vt_span.css('color', 'rgba(0, 0, 0, '+span_opacity+')');
                 $vt_span_wrapper.append($vt_span);
 
