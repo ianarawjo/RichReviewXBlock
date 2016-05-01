@@ -21,7 +21,8 @@ class ConfigFile(object):
 
     def setDefault(self):
         self.config.add_section('UserStudyLogAnalyzer')
-        self.config.set(CONFIG_SECTION, 'LogPath', '~/Dropbox/UIST16-Interviews/Pilot2')
+        self.config.set(CONFIG_SECTION, 'logpath', './Dropbox/UIST16-Interviews/TestAnalyzer')
+        self.config.set(CONFIG_SECTION, 'pattern', 'par[0-9]+')
 
     def save(self, filepath):
         with open(filepath, 'wb') as f:
@@ -43,20 +44,27 @@ class All(object):
 
 class Participant(object):
     def __init__(self, path):
-        dirs = [dir for dir in os.listdir(path) if os.path.isdir(os.path.join(path, dir))]
-        if len(dirs) == 0:
-            self.sessions = self.loadByTime(path)
+        self.sessions = {}
+        conds = ['ns', 'ss']
+        for cond in conds:
+            cond_path = os.path.join(path, cond)
+            dirs = [dir for dir in os.listdir(cond_path) if os.path.isdir(os.path.join(cond_path, dir))]
+            if len(dirs) == 0:
+                self.sessions[cond] = self.loadByTime(cond_path, cond)
 
-        else:
-            self.sessions = self.loadByDir(path, dirs)
+            else:
+                self.sessions[cond] = self.loadByDir(cond_path, cond, dirs)
 
-    def loadByTime(self, path):
+    def loadByTime(self, path, cond):
         print path
         js_files = [item for item in os.listdir(path) if os.path.splitext(item)[1] == '.json']
         js_files.sort()
-        return [Session(path, js) for js in js_files]
+        if cond == 'ns':
+            return [NewSpeakSession(path, js) for js in js_files]
+        elif cond == 'ss':
+            return [SimpleSpeechSession(path, js) for js in js_files]
 
-    def loadByDir(self, path, dirs):
+    def loadByDir(self, path, cond, dirs):
         print path
         js_paths = [
             [(dir, file) for file in os.listdir(os.path.join(path, dir)) if os.path.splitext(file)[1] == '.json']
@@ -66,21 +74,140 @@ class Participant(object):
             if len(js_path) != 1:
                 raise Exception('NotSingleJsonSession', path, js_path)
         js_paths = [js_path[0] for js_path in js_paths]
-        return [Session(os.path.join(path, js[0]), js[1]) for js in js_paths]
+
+        if cond == 'ns':
+            return [NewSpeakSession(os.path.join(path, js[0]), js[1]) for js in js_paths]
+        elif cond == 'ss':
+            return [SimpleSpeechSession(os.path.join(path, js[0]), js[1]) for js in js_paths]
 
 class Session(object):
     def __init__(self, dir_path, file_path):
         print '    ', dir_path, file_path
+        self.base_annots = {}
         with open(os.path.join(dir_path, file_path)) as f:
             self.data = simplejson.loads(f.read())
         self.preprocess()
 
     def preprocess(self):
         # preprocess before the analysis if needs be
+        l = [datum['annotid'] for datum in self.data if datum['type'] == 'recordingStop']
+
+        for base_annot in l:
+            self.base_annots[base_annot['_id']] = base_annot
+
+    def getRawAudioMeasures(self):
+        """
+        # of baseline recordings
+        Word error rate
+        Recording length (t)
+        # of words
+        Use of gesture
+        """
+        rtn = {}
+
+        l = [datum['annotid'] for datum in self.data if datum['type'] == 'recordingStop']
+        for base_annot in l:
+            rtn[base_annot['_id']] = {
+                WER: 0,
+                rec_leng: 0,
+                n_gesture: 0,
+                n_words: 0 # override
+            }
+
+        return rtn
+
+    def getEndResultMeasures(self):
+        """
+        Word error rate
+        Recording length (t)
+        # of words
+        Use of gesture
+        # of pauses
+        """
+        return {
+            WER: 0,
+            rec_leng: 0,
+            n_gesture: 0,
+            n_words: 0 # override
+        }
+
+    def getNumOperations(self):
+        """
+        Navigation
+        # of baseline recordings
+        # of pauses
+            Baseline pauses + their length.
+        Audio editing
+        # of pause deletion
+        # of non-pause deletion
+        # of copy/cut/paste operations
+        Transcription editing
+
+                :return:
+        """
+        return {
+            n_base_recs: 0,
+            n_pauses: 0, #override
+            n_deleted_pauses: 0, #override
+            n_deleted_nonpauses: 0, #override
+            n_copy: 0, #override
+            n_cut: 0, #override
+            n_paste: 0, #override
+            n_caption_fix: 0 #override
+        }
+
+    def getTimeForOperations(self):
+        """
+        Modes:
+        idle, recording, replaying, ns-editing, ss-editing-audio, ss-editing-trans
+        :return:
+        """
+        return { #no need to override
+            idle: 0,
+            rec: 0,
+            replaying: 0,
+            ns-editing: 0,
+            ss-editing-audio: 0,
+            ss-editing-trans: 0
+        }
+
+class SimpleSpeechSession(Session):
+
+    def __init__(self, dir_path, file_path):
+        super(SimpleSpeechSession,self).__init__(dir_path, file_path)
+
+    def preprocess(self):
+        super(SimpleSpeechSession,self).preprocess()
+
+    def getRawAudioMeasures(self):
         pass
 
-    def getNumEdits(self):
-        return 0
+    def getEndResultMeasures(self):
+        pass
+
+    def getNumOperations(self):
+        pass
+
+
+class NewSpeakSession(Session):
+
+    def __init__(self, dir_path, file_path):
+        super(NewSpeakSession,self).__init__(dir_path, file_path)
+
+    def preprocess(self):
+        super(NewSpeakSession,self).preprocess()
+
+    def getRawAudioMeasures(self):
+        rtn = super(NewSpeakSession,self).getRawAudioMeasures()
+        #note that rtn is a dictionary of each baseline_annot
+        return rtn
+
+    def getEndResultMeasures(self):
+        pass
+
+    def getNumOperations(self):
+        pass
+
 
 if __name__ == '__main__':
     try:

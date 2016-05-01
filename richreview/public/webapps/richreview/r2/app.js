@@ -423,7 +423,8 @@
             r2.localLog.event('initSystem', 'null', {
                 docid: r2App.url_queries.get('docid'),
                 access_code: r2App.url_queries.get('access_code'),
-                groupid: r2App.url_queries.get('groupid')
+                groupid: r2App.url_queries.get('groupid'),
+                ui: r2.speechUi.mode
             });
 
             // render ticks
