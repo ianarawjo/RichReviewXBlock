@@ -115,6 +115,7 @@
             r2App.annots[annotid] = r2App.cur_recording_annot;
 
             r2.localLog.event('recordingBgn', annotid);
+            r2.localLog.event('mode-switch', annotid, {mode: 'recording'});
 
             /* set context */
             r2App.cur_recording_anchor_piece = anchor_piece;
@@ -285,6 +286,7 @@
         var run = function(to_upload, funcOn){
             // stop recording mode
             r2App.mode = r2App.AppModeEnum.IDLE;
+            r2.localLog.event('mode-switch', r2App.cur_recording_annot.GetId(), {mode: 'idle'});
 
             /* end audio recording */
             r2.audioRecorder.EndRecording().then(

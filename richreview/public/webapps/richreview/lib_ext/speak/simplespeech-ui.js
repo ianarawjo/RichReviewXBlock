@@ -97,7 +97,15 @@
         };
 
         pub.bgnCommenting = function(){
-            r2.localLog.event('bgn-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+            r2.localLog.event(
+                'base-recording-bgn',
+                annotid_copy,
+                {
+                    base_annot_id: r2App.cur_recording_annot.GetId(),
+                    idx:insert_pos,
+                    talkenData: pub.getTalkenData()
+                }
+            );
 
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
@@ -124,10 +132,17 @@
         };
 
         pub.doneCommentingAsync = function(){
-            r2.localLog.event('simplespeech-doneCommentingAsync', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
-
             insertRecordingIndicator.dismiss();
             insert_pos-=1;
+
+            r2.localLog.event(
+                'base-recording-end',
+                annotid_copy,
+                {
+                    idx:insert_pos,
+                    transcription: base_data_buf
+                }
+            );
 
             flushBaseDataBuf();
 
@@ -140,7 +155,7 @@
             r2App.is_recording_or_transcribing = false;
 
             r2.localLog.event(
-                'simplespeech-endCommenting', annotid_copy, {'data': pub.getTalkenData()}
+                'base-recording-post-insert', annotid_copy, {'talkenData': pub.getTalkenData()}
             );
         };
 
@@ -173,10 +188,11 @@
         };
 
         pub.synthesizeNewAnnot = function(_annot_id){
+            r2.localLog.event('mode-switch', annotid_copy, {mode: 'idle'});
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
-                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url, all_text: getAllText()});
+                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url});
                     r2.localLog.editedBlobURL(result.url, _annot_id);
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob, result.buffer);
                     return null;
@@ -186,7 +202,11 @@
                     r2.localLog.event('synth-gesture', _annot_id);
                     r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture()).then(
                         function(){
-                            r2.localLog.event('end-synthesis', annotid_copy, {'annot': r2App.annots[annotid_copy]}); // fixMe
+                            r2.localLog.event(
+                                'end-synthesis',
+                                annotid_copy,
+                                {'annot': r2App.annots[annotid_copy]}
+                            );
                             return null;
                         }
                     );
@@ -823,9 +843,11 @@
             ];
 
             if(key_enable_default.indexOf(e.keyCode) > -1){
+                r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
             }
             else {
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         op.remove(
                             carret.idx_bgn,
@@ -841,6 +863,7 @@
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('remove-collapsed', annotid_copy, {'range':[carret.idx_bgn-1, carret.idx_end]});
                         op.remove(
@@ -858,6 +881,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('copy-err', annotid_copy, {'reason':'caret is collapsed'});
                     }
@@ -871,6 +895,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('cut-err', annotid_copy, {'reason':'caret is collapsed'});
                     }
@@ -888,6 +913,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(!carret.is_collapsed){
                         r2.localLog.event('paste-remove', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end], 'copied_text':getCopiedText()});
                         op.remove(
@@ -903,6 +929,7 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                        r2.localLog.event('mode-switch', annotid_copy, {mode: 'idle'});
                         r2.localLog.event('cmd-stop-space', annotid_copy, {'input': 'key-space'});
                         r2.rich_audio.stop();
                     }
@@ -976,6 +1003,7 @@
          */
 
         var popupTranscription = function(idx_bgn, idx_end, force_select_all){
+            r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-trans'});
             force_select_all = typeof force_select_all === 'undefined' ? false : force_select_all;
             var select_all = true;
             if(idx_bgn === idx_end){ // when collapsed

@@ -8,16 +8,19 @@
     r2.rich_audio = (function(){
         var pub = {};
         pub.play = function(annot_id, time, onLoadingBgn, onLoadingEnd) {
+            r2.localLog.event('mode-switch', annot_id, {mode: 'replay'});
             r2.localLog.event('play', annot_id, {'url': r2App.annots[annot_id].GetAudioFileUrl()});
             r2.audioPlayer.play(
                 annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time, onLoadingBgn, onLoadingEnd
             );
         };
         pub.stop = function(){
+            r2.localLog.event('mode-switch', r2App.cur_annot_id, {mode: 'idle'});
             r2.localLog.event('stop', r2App.cur_annot_id);
             r2.audioPlayer.stop();
         };
         pub.jump = function(annot_id, time){
+            r2.localLog.event('jump', r2App.cur_annot_id);
             r2.audioPlayer.jump(annot_id, r2App.annots[annot_id].GetAudioFileUrl(), time);
         };
         return pub;
