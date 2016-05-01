@@ -2079,6 +2079,8 @@
         this.recording_mode = true;
         this._prev_pre = null;
 
+        r2.localLog.event('cmd-insertion', this._annotid, {'input': 'key-enter', 'cursor_pos': this.insert_range});
+
         this.updateSpeakCtrl();
 
         // Save the cursor position, flatten the div, and then restore it.
