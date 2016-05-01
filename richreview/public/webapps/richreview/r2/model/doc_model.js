@@ -1221,7 +1221,7 @@
         function getSelectionJSON() {
             var sel = r2.speak.saveSelection(_tb[0]);
             var range = [sel.start, sel.end];
-            return {'selectionText':(sel.start === sel.end ? '' : _tb.text().substring(sel.start, sel.end)), 'selectionRange':range};
+            return {'selected_text':(sel.start === sel.end ? '' : _tb.text().substring(sel.start, sel.end)), 'range':range};
         }
         var getCursorTTSTalkenOffset = function() {
             var sel = r2.speak.saveSelection(_tb[0]);
@@ -1325,6 +1325,7 @@
             //    e.preventDefault();
             //}
 
+            r2.localLog.event('mode-switch', annotId, {mode: 'ns-editing-text'});
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
 
             if (e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
@@ -1339,7 +1340,7 @@
                     }
 
                      // INSERT RECORDING
-                    r2.localLog.event('cmd-audio-insert', annotId, {'input': 'key-enter'});
+                    r2.localLog.event('cmd-insertion', annotId, {'input': 'key-enter', 'cursor_pos':getSelectionJSON().range.start});
                     r2.recordingCtrl.set(
                         this._parent,
                         { // option
@@ -1356,20 +1357,39 @@
             }
             else if (r2App.mode === r2App.AppModeEnum.RECORDING) {
                 r2.recordingCtrl.stop(); // stop recording if any key other is hit while recording
+                r2.localLog.event('cmd-stop', annotId, {'input': e.keyCode});
                 e.preventDefault();
             } else {
                 if (r2.keyboard.modifier_key_dn) {
-                    if (e.keyCode === r2.keyboard.CONST.KEY_C)
-                        r2.localLog.event('copy', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
-                    else if (e.keyCode === r2.keyboard.CONST.KEY_X)
-                        r2.localLog.event('cut', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
-                    else if (e.keyCode === r2.keyboard.CONST.KEY_V)
-                        r2.localLog.event('paste', annotId, {'text':_tb.text(), 'selection':getSelectionJSON()});
+                    var selJSON = getSelectionJSON();
+                    if (e.keyCode === r2.keyboard.CONST.KEY_C) {
+                        if (selJSON.range[0] === selJSON.range[1])
+                            r2.localLog.event('copy-err', annotId, {'reason':'caret is collapsed'});
+                        else
+                            r2.localLog.event('copy', annotId, $.extend(selJSON, {'text':_tb.text()}));
+                    } else if (e.keyCode === r2.keyboard.CONST.KEY_X) {
+                        if (selJSON.range[0] === selJSON.range[1])
+                            r2.localLog.event('cut-err', annotId, {'reason':'caret is collapsed'});
+                        else
+                            r2.localLog.event('cut', annotId, $.extend(selJSON, {'text':_tb.text()}));
+                    }
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_V) {
+                        var pasteJSON = {'range':selJSON.range, 'copied_text':selJSON.selected_text};
+                        if (selJSON.range[0] != selJSON.range[1])
+                            r2.localLog.event('paste-remove', annotId, pasteJSON);
+                        r2.localLog.event('paste', annotId, $.extend(pasteJSON, {'text':_tb.text()}));
+                    }
                 } else {
 
                     // Highlight gesture at cursor position.
-                    if(isArrowKey(e.keyCode)) // move the playhead
+                    if(isArrowKey(e.keyCode)) { // move the playhead
                         highlightGestureAtCursorPos();
+
+                        r2.localLog.event('caret-change', annotId, getSelectionJSON());
+                    }
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_DEL || e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
+                        r2.localLog.event('op-remove', annotId, getSelectionJSON());
+                    }
                 }
             }
 
@@ -1503,6 +1523,8 @@
     r2.PieceNewSpeak.prototype.renderAudio = function() {
         if (this.speak_ctrl.needsRender()) {
 
+            r2.localLog.event('mode-switch', this.GetAnnotId(), {mode: 'idle'});
+
             // We need to get this immediately b/c they might changed WHILE the call below is processing!
             // (at which point the correspondance between TTS audio transcript and textbox transcript may not be exact.)
             //this._last_tts_talkens = null;
@@ -1528,6 +1550,8 @@
                     this._last_tts_audio_url = tts_talkens[0].audio.url;
                 }
                 else this._last_tts_audio_url = null;
+
+                r2.localLog.event('rendered-audio', annotId, {'url':this._last_tts_audio_url});
 
                 // Handle common errors
                 if (!tts_talkens || tts_talkens.length === 0) {
@@ -1565,9 +1589,14 @@
                 this._last_tts_talkens = gesynth_tks;
 
                 // Resynthesize gestures for this annotation for new TTS audio...
-                r2.localLog.event('synth-gesture', annotId, {'talkensToSynth':gesynth_tks});
+                r2.localLog.event('synth-gesture', annotId);
                 console.warn('gesynth ----> ', gesynth_tks);
                 r2.gestureSynthesizer.run(annotId, gesynth_tks);
+                r2.localLog.event(
+                    'end-synthesis',
+                    annotId,
+                    {'annot': r2App.annots[annotId]}
+                );
 
                 this._is_rendering = false;
                 if (this.afterAudioRender) {
@@ -1822,7 +1851,19 @@
 
                 $(this.dom_textbox).text(pre_text + temp_texts + post_text);
                 this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
-                r2.localLog.event('appendVoice', this.annotids[this.annotids.length-1], {'words':words, 'url':this._last_audio_url});
+
+                r2.localLog.event(
+                    'base-recording-end',
+                    this.GetAnnotId(),
+                    {
+                        idx:this.insert_idx,
+                        transcription: this.speak_ctrl.getTalkenData(this._last_words),
+                        talkenIdx:this.insert_word_idx_before_rec
+                    }
+                );
+                r2.localLog.event(
+                    'base-recording-post-insert', this.GetAnnotId(), {'talkenData': this.speak_ctrl.getTalkenData()}
+                );
 
                 this._last_text = null;
                 this._last_words = null;
@@ -2098,6 +2139,17 @@
 
         } else this.insert_idx = -1;
 
+        r2.localLog.event(
+            'base-recording-bgn',
+            this.GetAnnotId(),
+            {
+                base_annot_id: recording_annot_id,
+                idx:this.insert_idx,
+                talkenData: this.speak_ctrl.getTalkenData(),
+                talkenIdx:this.insert_word_idx_before_rec
+            }
+        );
+
         // Insert blinking 'live recording' indicator.
         if (!this.LIVE_CAPTIONING) {
 
@@ -2168,6 +2220,19 @@
             }
             this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
             r2.localLog.event('insertVoice', this.annotids[this.annotids.length-1], {'words':this._last_words, 'url':audioURL});
+
+            r2.localLog.event(
+                'base-recording-end',
+                this.GetAnnotId(),
+                {
+                    idx:this.insert_idx,
+                    transcription: this.speak_ctrl.getTalkenData(this._last_words, this.annotids[this.annotids.length-1]),
+                    talkenIdx:this.insert_word_idx_before_rec
+                }
+            );
+            r2.localLog.event(
+                'base-recording-post-insert', this.GetAnnotId(), {'talkenData': this.speak_ctrl.getTalkenData()}
+            );
 
             this._last_words = null;
             this._last_audio_url = null;

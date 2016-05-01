@@ -627,6 +627,22 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.getCompiledTalkens = function () {
                 return edited;
             };
+            pub.getTalkenData = function (tks) {
+                if (typeof tks === 'undefined') tks = edited;
+                var data = [];
+                tks.forEach(function (tk) {
+                    data.push({ word: tk.word,
+                        data: [{
+                            word: tk.word,
+                            bgn: tk.bgn,
+                            end: tk.end,
+                            conf: tk.conf, // TODO: confidence
+                            annotid: tk.audio ? tk.audio.annotId : null
+                        }]
+                    });
+                });
+                return data;
+            };
             pub.needsRender = function () {
                 return _needsrender;
             };

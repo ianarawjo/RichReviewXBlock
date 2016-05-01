@@ -156,7 +156,7 @@
 
             r2App.is_recording_or_transcribing = false;
 
-            r2.localLog.event(
+            r2.localLog.event( // ???
                 'base-recording-post-insert', annotid_copy, {'talkenData': pub.getTalkenData()}
             );
         };
