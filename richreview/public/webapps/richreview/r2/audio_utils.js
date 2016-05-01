@@ -102,6 +102,7 @@
                 processCmd();
             }, false);
             m_audio.addEventListener('pause', function() {
+                r2.localLog.event('mode-switch', 'null', {mode: 'undefined'});
                 console.log(" >>>>>> paused");
                 processCmd();
             }, false);

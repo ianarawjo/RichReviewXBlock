@@ -162,14 +162,24 @@ class Session(object):
         idle, recording, replaying, ns-editing, ss-editing-audio, ss-editing-trans
         :return:
         """
-        return { #no need to override
-            idle: 0,
-            rec: 0,
-            replaying: 0,
-            ns-editing: 0,
-            ss-editing-audio: 0,
-            ss-editing-trans: 0
+
+        l = [datum for datum in self.data if datum['type'] == 'mode-switch']
+        accum = { #no need to override
+            'idle': 0,
+            'recording': 0,
+            'replay': 0,
+            'ns-editing': 0,
+            'ss-editing-audio': 0,
+            'ss-editing-trans': 0
         }
+
+        for i in xrange(len(l)-1):
+            if l[i]['data']['mode'] == 'undefined':
+                accum[l[i+1]['data']['mode']] += (l[i+1]['time']-l[i]['time'])/1000.
+            else:
+                accum[l[i]['data']['mode']] += (l[i+1]['time']-l[i]['time'])/1000.
+
+        return accum
 
 class SimpleSpeechSession(Session):
 
@@ -178,6 +188,7 @@ class SimpleSpeechSession(Session):
 
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
+        self.getTimeForOperations();
 
     def getRawAudioMeasures(self):
         pass

@@ -15,7 +15,7 @@
             );
         };
         pub.stop = function(){
-            r2.localLog.event('mode-switch', r2App.cur_annot_id, {mode: 'idle'});
+            r2.localLog.event('mode-switch', r2App.cur_annot_id, {mode: 'undefined'});
             r2.localLog.event('stop', r2App.cur_annot_id);
             r2.audioPlayer.stop();
         };

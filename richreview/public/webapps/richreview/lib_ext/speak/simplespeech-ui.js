@@ -135,12 +135,14 @@
             insertRecordingIndicator.dismiss();
             insert_pos-=1;
 
+            r2.localLog.event('mode-switch', r2App.cur_annot_id, {mode: 'undefined'});
             r2.localLog.event(
                 'base-recording-end',
                 annotid_copy,
                 {
                     idx:insert_pos,
-                    transcription: base_data_buf
+                    transcription: base_data_buf,
+                    talkenData: pub.getTalkenData()
                 }
             );
 
@@ -202,6 +204,7 @@
                     r2.localLog.event('synth-gesture', _annot_id);
                     r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture()).then(
                         function(){
+                            r2.localLog.event('mode-switch', r2App.cur_annot_id, {mode: 'undefined'});
                             r2.localLog.event(
                                 'end-synthesis',
                                 annotid_copy,
@@ -843,7 +846,7 @@
             ];
 
             if(key_enable_default.indexOf(e.keyCode) > -1){
-                r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
+                r2.localLog.event('mode-switch', annotid_copy, {mode: 'undefined'});
             }
             else {
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
@@ -929,7 +932,7 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
-                        r2.localLog.event('mode-switch', annotid_copy, {mode: 'idle'});
+                        r2.localLog.event('mode-switch', annotid_copy, {mode: 'undefined'});
                         r2.localLog.event('cmd-stop-space', annotid_copy, {'input': 'key-space'});
                         r2.rich_audio.stop();
                     }
