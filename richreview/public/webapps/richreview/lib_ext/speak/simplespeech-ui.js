@@ -86,9 +86,9 @@
                     word: data[0],
                     data: [{
                         word: data[0],
-                        bgn: data[1],
-                        end: data[2],
-                        conf: data[3], // confidence
+                        bgn: data[1].toFixed(4),
+                        end: data[2].toFixed(4),
+                        conf: data[3].toFixed(4), // confidence
                         annotid: base_annotid
                     }]
                 };
@@ -97,7 +97,15 @@
         };
 
         pub.bgnCommenting = function(){
-            r2.localLog.event('bgn-commenting', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
+            r2.localLog.event(
+                'base-recording-bgn',
+                annotid_copy,
+                {
+                    base_annot_id: r2App.cur_recording_annot.GetId(),
+                    idx:insert_pos,
+                    talkenData: pub.getTalkenData()
+                }
+            );
 
             is_recording_and_synthesizing = true;
             r2App.is_recording_or_transcribing = true;
@@ -124,10 +132,17 @@
         };
 
         pub.doneCommentingAsync = function(){
-            r2.localLog.event('simplespeech-doneCommentingAsync', annotid_copy, {'range':[insert_pos], 'all_text':getAllText()}); // fixMe
-
             insertRecordingIndicator.dismiss();
             insert_pos-=1;
+
+            r2.localLog.event(
+                'base-recording-end',
+                annotid_copy,
+                {
+                    idx:insert_pos,
+                    transcription: base_data_buf
+                }
+            );
 
             flushBaseDataBuf();
 
@@ -140,7 +155,7 @@
             r2App.is_recording_or_transcribing = false;
 
             r2.localLog.event(
-                'simplespeech-endCommenting', annotid_copy, {'data': pub.getTalkenData()}
+                'base-recording-post-insert', annotid_copy, {'talkenData': pub.getTalkenData()}
             );
         };
 
@@ -176,7 +191,7 @@
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
-                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url, all_text: getAllText()});
+                    r2.localLog.event('rendered-audio', _annot_id, {'url':result.url});
                     r2.localLog.editedBlobURL(result.url, _annot_id);
                     r2App.annots[_annot_id].SetRecordingAudioFileUrl(result.url, result.blob, result.buffer);
                     return null;
@@ -186,7 +201,11 @@
                     r2.localLog.event('synth-gesture', _annot_id);
                     r2.gestureSynthesizer.run(_annot_id, talkenRenderer.getCtrlTalkens_Gesture()).then(
                         function(){
-                            r2.localLog.event('end-synthesis', annotid_copy, {'annot': r2App.annots[annotid_copy]}); // fixMe
+                            r2.localLog.event(
+                                'end-synthesis',
+                                annotid_copy,
+                                {'annot': r2App.annots[annotid_copy]}
+                            );
                             return null;
                         }
                     );
@@ -324,14 +343,14 @@
                 var t = 0;
                 $textbox.children().each(function(){
                     this.rendered_data = {};
-                    this.rendered_data.bgn = t;
+                    this.rendered_data.bgn = t.toFixed(4);
                     this.talken_data.data.forEach(function(datum){
                         datum.audio_url = r2App.annots[datum.annotid].GetAudioFileUrl();
-                        datum.rendered_bgn = t;
+                        datum.rendered_bgn = t.toFixed(4);
                         t += datum.end - datum.bgn;
-                        datum.rendered_end = t;
+                        datum.rendered_end = t.toFixed(4);
                     });
-                    this.rendered_data.end = t;
+                    this.rendered_data.end = t.toFixed(4);
                 });
                 invalidated = false;
             };

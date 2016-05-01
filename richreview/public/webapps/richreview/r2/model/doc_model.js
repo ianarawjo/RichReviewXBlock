@@ -1173,6 +1173,8 @@
 
         this.setInnerHtml(inner_html);
 
+        r2.localLog.addTargetPiece(this);
+
         return dom;
     };
     r2.PieceNewSpeak.prototype.GetAnnotId = function(){
@@ -2423,6 +2425,16 @@
             }
         }
     };
+    r2.PieceNewSpeak.prototype.LogData = function(){
+        r2.localLog.event(
+            'end-result',
+            this._annotid,
+            {
+                rendered_annot: r2App.annots[this._annotid],
+                data: null // fixMe
+            }
+        );
+    };
 
 
     /*
@@ -2697,9 +2709,12 @@
     };
     r2.PieceSimpleSpeech.prototype.LogData = function(){
         r2.localLog.event(
-            'simplespeech-piece-LogData',
+            'end-result',
             this._annotid,
-            {'data': this.simplespeech.getTalkenData()}
+            {
+                rendered_annot: r2App.annots[this._annotid],
+                data: this.simplespeech.getTalkenData()
+            }
         );
     };
 

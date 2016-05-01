@@ -565,7 +565,7 @@
 
         pub.wasDownloaded = function(){
             return was_downloaded;
-        }
+        };
 
         function downloadFiles(url_arr) {
             url_arr.forEach(function(url) {
