@@ -426,6 +426,7 @@
                 groupid: r2App.url_queries.get('groupid'),
                 ui: r2.speechUi.mode
             });
+            r2.localLog.event('mode-switch', 'null', {mode: 'idle'});
 
             // render ticks
             window.requestAnimFrame = (function () {

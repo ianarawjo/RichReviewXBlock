@@ -497,6 +497,7 @@
         var base_urls = [];
         var target_pieces = [];
         var was_downloaded = false;
+        var last_mode = '';
 
         pub.text = function(text, annotid){
             var data = text;
@@ -515,7 +516,16 @@
 
         pub.event = function(eventType, annotId, json) {
             if (typeof json === 'undefined') json = {};
-            push(getTemplate(eventType, annotId, json));
+            if(eventType === 'mode-switch'){
+                if(last_mode !== json.mode){
+                    push(getTemplate(eventType, annotId, json));
+                    last_mode = json.mode;
+                    console.log('r2.localLogger mode switch:', json.mode);
+                }
+            }
+            else{
+                push(getTemplate(eventType, annotId, json));
+            }
         };
 
         pub.addTargetPiece = function(piece){

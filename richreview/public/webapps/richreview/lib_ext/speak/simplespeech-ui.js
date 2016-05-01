@@ -86,9 +86,9 @@
                     word: data[0],
                     data: [{
                         word: data[0],
-                        bgn: data[1].toFixed(4),
-                        end: data[2].toFixed(4),
-                        conf: data[3].toFixed(4), // confidence
+                        bgn: data[1],
+                        end: data[2],
+                        conf: data[3], // confidence
                         annotid: base_annotid
                     }]
                 };
@@ -188,6 +188,7 @@
         };
 
         pub.synthesizeNewAnnot = function(_annot_id){
+            r2.localLog.event('mode-switch', annotid_copy, {mode: 'idle'});
             pub.bgn_streaming();
             return r2.audioSynthesizer.run(talkenRenderer.getCtrlTalkens()).then(
                 function(result){
@@ -343,14 +344,14 @@
                 var t = 0;
                 $textbox.children().each(function(){
                     this.rendered_data = {};
-                    this.rendered_data.bgn = t.toFixed(4);
+                    this.rendered_data.bgn = t;
                     this.talken_data.data.forEach(function(datum){
                         datum.audio_url = r2App.annots[datum.annotid].GetAudioFileUrl();
-                        datum.rendered_bgn = t.toFixed(4);
+                        datum.rendered_bgn = t;
                         t += datum.end - datum.bgn;
-                        datum.rendered_end = t.toFixed(4);
+                        datum.rendered_end = t;
                     });
-                    this.rendered_data.end = t.toFixed(4);
+                    this.rendered_data.end = t;
                 });
                 invalidated = false;
             };
@@ -842,9 +843,11 @@
             ];
 
             if(key_enable_default.indexOf(e.keyCode) > -1){
+                r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
             }
             else {
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         op.remove(
                             carret.idx_bgn,
@@ -860,6 +863,7 @@
                     e.preventDefault();
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('remove-collapsed', annotid_copy, {'range':[carret.idx_bgn-1, carret.idx_end]});
                         op.remove(
@@ -877,6 +881,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_C){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('copy-err', annotid_copy, {'reason':'caret is collapsed'});
                     }
@@ -890,6 +895,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_X){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
                         r2.localLog.event('cut-err', annotid_copy, {'reason':'caret is collapsed'});
                     }
@@ -907,6 +913,7 @@
                     e.preventDefault();
                 }
                 else if(r2.keyboard.modifier_key_dn && e.keyCode === r2.keyboard.CONST.KEY_V){
+                    r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(!carret.is_collapsed){
                         r2.localLog.event('paste-remove', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end], 'copied_text':getCopiedText()});
                         op.remove(
@@ -922,6 +929,7 @@
                 }
                 else if(e.keyCode === r2.keyboard.CONST.KEY_SPACE){
                     if(r2App.mode === r2App.AppModeEnum.REPLAYING){
+                        r2.localLog.event('mode-switch', annotid_copy, {mode: 'idle'});
                         r2.localLog.event('cmd-stop-space', annotid_copy, {'input': 'key-space'});
                         r2.rich_audio.stop();
                     }
@@ -995,6 +1003,7 @@
          */
 
         var popupTranscription = function(idx_bgn, idx_end, force_select_all){
+            r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-trans'});
             force_select_all = typeof force_select_all === 'undefined' ? false : force_select_all;
             var select_all = true;
             if(idx_bgn === idx_end){ // when collapsed
