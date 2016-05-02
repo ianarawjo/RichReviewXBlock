@@ -134,83 +134,37 @@ class Session(object):
 
     def getNumOperations(self):
         """
-        n_base_recs: # of base recordings
-        t_total_base_recs: total length of base recordings
-        n_total_pauses: # of total pauses in base recordings
-        n_total_nonpauses: # of total nonpause tokens in base recordings
-        n_total_tokens: # of total tokens in base recordings
-        t_total_pauses: total length of pauses in base recordings
-        n_deleted_pauses: # of delted pauses
-        n_deleted_nonpauses: # of deleted nonpauses
-        n_deleted_tokens: n_deleted_pauses + n_deleted_nonpauses
-        t_total_deleted_pauses: total length of the deleted pauses
-        n_copy: # of copy operations
-        n_cut: # of cut operations
-        n_paste: # of paste operations
-        n_caption_fix: # of trascription editing
+        # non overriding measures are calculated in this function
+            n_base_recs: # of base recordings
+            t_total_base_recs: total length of base recordings
+
+        # overriding measures have to be implemented in the derived Session classes
+            n_total_pauses: # of total pauses in base recordings
+            n_total_nonpauses: # of total nonpause tokens in base recordings
+            n_total_tokens: # of total tokens in base recordings
+            t_total_pauses: total length of pauses in base recordings
+            n_deleted_pauses: # of delted pauses
+            n_deleted_nonpauses: # of deleted nonpauses
+            n_deleted_tokens: n_deleted_pauses + n_deleted_nonpauses
+            t_total_deleted_pauses: total length of the deleted pauses
+            n_copy: # of copy operations
+            n_cut: # of cut operations
+            n_paste: # of paste operations
+            n_caption_fix: # of trascription editing
         """
 
         def getTimeTotalBaseRec():
             return sum([datum['annotid']['_duration'] for datum in self.data if datum['type'] == 'recordingStop'])/1000.
 
-        def getTotalPauses():
-            n = 0
-            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
-            for token_data in recordings:
-                for i in xrange(len(token_data)-1):
-                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
-                    if t_gap > 0.03:
-                        n += 1
-            return n
-
-        def getTotalNonpauses():
-            n = 0
-            l = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
-            for token_data in l:
-                for token_datum in token_data:
-                    n += 1
-            return n
-
-        def getTimeTotalPauseLength():
-            t = 0
-            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
-            for token_data in recordings:
-                for i in xrange(len(token_data)-1):
-                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
-                    if t_gap > 0.03:
-                        t += t_gap
-            return t
-
-        def getTotalDeletedPauses():
-            return 0
-
-        def getTotalDeletedNonpauses():
-            return 0
-
-        def getTimeTotalDeletedPauses():
-            return 0
-
         map_measurename_to_logtype = {
             'n_base_recs': 'recordingStop',
-            't_total_base_recs': getTimeTotalBaseRec,
-            'n_total_pauses': getTotalPauses, #override
-            'n_total_nonpauses': getTotalNonpauses, #override
-            'n_total_tokens': None, #override
-            't_total_pauses': getTimeTotalPauseLength, #override
-            'n_deleted_pauses': getTotalDeletedPauses, #override
-            'n_deleted_nonpauses': getTotalDeletedNonpauses, #override
-            'n_deleted_tokens': None, #override
-            't_total_deleted_pauses': getTimeTotalDeletedPauses, #override
-            'n_copy': 'copy', #override
-            'n_cut': 'cut', #override
-            'n_paste': 'paste', #override
-            'n_caption_fix': 'cmd-edit-transcript-done' #override
+            't_total_base_recs': getTimeTotalBaseRec
         }
 
         rtn = {}
         for measurename in map_measurename_to_logtype:
             v = map_measurename_to_logtype[measurename]
-            if isinstance(v, basestring):
+            if isinstance(v, basestring): #when it's a string
                 rtn[measurename] = sum([1 for datum in self.data if datum['type'] == map_measurename_to_logtype[measurename]])
             elif hasattr(v, '__call__'): #when it's a function
                 rtn[measurename] = v()
@@ -218,8 +172,6 @@ class Session(object):
                 pass # otherwise it's None
 
         return rtn
-
-
 
     def getTimeForOperations(self):
         """
@@ -263,6 +215,90 @@ class SimpleSpeechSession(Session):
 
     def getNumOperations(self):
         rtn = super(SimpleSpeechSession,self).getNumOperations()
+
+        def getTotalPauses():
+            n = 0
+            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
+                    if t_gap > 0.03:
+                        n += 1
+            return n
+
+        def getTotalNonpauses():
+            n = 0
+            l = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in l:
+                for token_datum in token_data:
+                    n += 1
+            return n
+
+        def getTimeTotalPauseLength():
+            t = 0
+            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
+                    if t_gap > 0.03:
+                        t += t_gap
+            return t
+
+        def getTotalDeletedPauses():
+            n = 0
+            ops = [datum['data']['selected_text']['list'] for datum in self.data if datum['type'] == 'op-delete']
+            for deleted_tolkens in ops:
+                for token in deleted_tolkens:
+                    if token['word'] in [u'\xa0', ' ']:
+                        n += 1
+            return n
+
+        def getTotalDeletedNonpauses():
+            n = 0
+            ops = [datum['data']['selected_text']['list'] for datum in self.data if datum['type'] == 'op-delete']
+            for deleted_tolkens in ops:
+                for token in deleted_tolkens:
+                    if not token['word'] in [u'\xa0', ' ']:
+                        n += 1
+            return n
+
+        def getTimeTotalDeletedPauses():
+            t = 0
+            ops = [datum['data']['selected_text']['list'] for datum in self.data if datum['type'] == 'op-delete']
+            for deleted_tolkens in ops:
+                for token in deleted_tolkens:
+                    if token['word'] in [u'\xa0', ' ']:
+                        t += token['data'][-1]['rendered_end']-token['data'][0]['rendered_bgn']
+            return t
+
+        map_measurename_to_logtype = {
+            'n_total_pauses': getTotalPauses, #override
+            'n_total_nonpauses': getTotalNonpauses, #override
+            'n_total_tokens': None, #override
+            't_total_pauses': getTimeTotalPauseLength, #override
+            'n_deleted_pauses': getTotalDeletedPauses, #override
+            'n_deleted_nonpauses': getTotalDeletedNonpauses, #override
+            'n_deleted_tokens': None, #override
+            't_total_deleted_pauses': getTimeTotalDeletedPauses, #override
+            'n_copy': 'copy', #override
+            'n_cut': 'cut', #override
+            'n_paste': 'paste', #override
+            'n_caption_fix': 'cmd-edit-transcript-done' #override
+        }
+
+        for measurename in map_measurename_to_logtype:
+            v = map_measurename_to_logtype[measurename]
+            if isinstance(v, basestring): #when it's a string
+                rtn[measurename] = sum([1 for datum in self.data if datum['type'] == map_measurename_to_logtype[measurename]])
+            elif hasattr(v, '__call__'): #when it's a function
+                rtn[measurename] = v()
+            else:
+                pass # otherwise it's None
+
+        # None
+        rtn['n_total_tokens'] = rtn['n_total_nonpauses'] + rtn['n_total_pauses']
+        rtn['n_deleted_tokens'] = rtn['n_deleted_nonpauses'] + rtn['n_deleted_pauses']
+
         return rtn
 
 
