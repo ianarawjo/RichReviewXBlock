@@ -102,22 +102,25 @@ class Session(object):
 
     def getRawAudioMeasures(self):
         """
-        # of baseline recordings
-        Word error rate
-        Recording length (t)
-        # of words
-        Use of gesture
-        """
-        rtn = {}
+        # non overriding measures are calculated in this function
+            rec_len: length of each base recording
+            n_gesture: number of gestures in each base recording
 
-        l = [datum['annotid'] for datum in self.data if datum['type'] == 'recordingStop']
-        for base_annot in l:
-            rtn[base_annot['_id']] = {
-                WER: 0,
-                rec_len: 0,
-                n_gesture: 0,
-                n_words: 0 # override
-            }
+        # overriding measures have to be implemented in the derived Session classes
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (both in SimpleSpeech and NewSpeak)
+        """
+
+        def getFromAnnot(annot):
+            rtn_annot = {}
+            rtn_annot['rec_len'] = annot['_duration']/1000.
+            rtn_annot['n_gesture'] = len(annot['_spotlights'])
+            return rtn_annot
+
+        rtn = {}
+        base_annots = [datum['annotid'] for datum in self.data if datum['type'] == 'recordingStop']
+        for base_annot in base_annots:
+            rtn[base_annot['_id']] = getFromAnnot(base_annot)
 
         return rtn
 
@@ -210,11 +213,42 @@ class SimpleSpeechSession(Session):
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
         print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        print '        - getNumOperations:      ', self.getNumOperations()
         print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        print '        - getNumOperations:      ', self.getNumOperations()
+        print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
-        pass
+        """
+        # non overriding measures are calculated in this function
+            rec_len: length of each base recording
+            n_gesture: number of gestures in each base recording
+
+        # overriding measures have to be implemented in the derived Session classes
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (both in SimpleSpeech and NewSpeak)
+        """
+        rtn = super(SimpleSpeechSession,self).getRawAudioMeasures()
+
+        def getNumWordsFromTokenData(token_data):
+            return sum([1 for word in token_data['transcription']])
+
+        def getWerFromDatum(datum, annotid):
+            return Utils.getWER(
+                ' '.join([word['word'] for word in datum['data']['transcription']]),
+                self.base_annots[annotid]['_audiofileurl']
+            )
+
+        data = [datum for datum in self.data if datum['type'] == 'base-recording-end']
+        for datum in data:
+            transcription = datum['data']['transcription']
+            if len(transcription) > 0:
+                annotid = transcription[0]['data'][0]['annotid']
+                rtn[annotid]['n_words'] = getNumWordsFromTokenData(datum['data'])
+                rtn[annotid]['WER'] = getWerFromDatum(datum, annotid)
+            else:
+                raise Exception('BaseRecordingWithNoTranscription')
+        return rtn
+
 
     def getEndResultMeasures(self):
         """
