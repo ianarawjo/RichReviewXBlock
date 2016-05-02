@@ -2496,7 +2496,7 @@
             this._annotid,
             {
                 rendered_annot: r2App.annots[this._annotid],
-                data: null // fixMe
+                data: this.speak_ctrl.getTalkenData()
             }
         );
     };
