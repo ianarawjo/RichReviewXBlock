@@ -118,43 +118,108 @@ class Session(object):
 
     def getEndResultMeasures(self):
         """
-        Word error rate
         Recording length (t)
         # of words
-        Use of gesture
         # of pauses
+        Word error rate
+        Use of gesture
         """
         return {
-            WER: 0,
             rec_leng: 0,
             n_gesture: 0,
+            n_pauses: 0,
+            WER: 0,
             n_words: 0 # override
         }
 
     def getNumOperations(self):
         """
-        Navigation
-        # of baseline recordings
-        # of pauses
-            Baseline pauses + their length.
-        Audio editing
-        # of pause deletion
-        # of non-pause deletion
-        # of copy/cut/paste operations
-        Transcription editing
-
-                :return:
+        n_base_recs: # of base recordings
+        t_total_base_recs: total length of base recordings
+        n_total_pauses: # of total pauses in base recordings
+        n_total_nonpauses: # of total nonpause tokens in base recordings
+        n_total_tokens: # of total tokens in base recordings
+        t_total_pauses: total length of pauses in base recordings
+        n_deleted_pauses: # of delted pauses
+        n_deleted_nonpauses: # of deleted nonpauses
+        n_deleted_tokens: n_deleted_pauses + n_deleted_nonpauses
+        t_total_deleted_pauses: total length of the deleted pauses
+        n_copy: # of copy operations
+        n_cut: # of cut operations
+        n_paste: # of paste operations
+        n_caption_fix: # of trascription editing
         """
-        return {
-            n_base_recs: 0,
-            n_pauses: 0, #override
-            n_deleted_pauses: 0, #override
-            n_deleted_nonpauses: 0, #override
-            n_copy: 0, #override
-            n_cut: 0, #override
-            n_paste: 0, #override
-            n_caption_fix: 0 #override
+
+        def getTimeTotalBaseRec():
+            return sum([datum['annotid']['_duration'] for datum in self.data if datum['type'] == 'recordingStop'])/1000.
+
+        def getTotalPauses():
+            n = 0
+            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
+                    if t_gap > 0.03:
+                        n += 1
+            return n
+
+        def getTotalNonpauses():
+            n = 0
+            l = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in l:
+                for token_datum in token_data:
+                    n += 1
+            return n
+
+        def getTimeTotalPauseLength():
+            t = 0
+            recordings = [datum['data']['transcription'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    t_gap = token_data[i+1]['data'][0]['bgn'] - token_data[i]['data'][0]['end']
+                    if t_gap > 0.03:
+                        t += t_gap
+            return t
+
+        def getTotalDeletedPauses():
+            return 0
+
+        def getTotalDeletedNonpauses():
+            return 0
+
+        def getTimeTotalDeletedPauses():
+            return 0
+
+        map_measurename_to_logtype = {
+            'n_base_recs': 'recordingStop',
+            't_total_base_recs': getTimeTotalBaseRec,
+            'n_total_pauses': getTotalPauses, #override
+            'n_total_nonpauses': getTotalNonpauses, #override
+            'n_total_tokens': None, #override
+            't_total_pauses': getTimeTotalPauseLength, #override
+            'n_deleted_pauses': getTotalDeletedPauses, #override
+            'n_deleted_nonpauses': getTotalDeletedNonpauses, #override
+            'n_deleted_tokens': None, #override
+            't_total_deleted_pauses': getTimeTotalDeletedPauses, #override
+            'n_copy': 'copy', #override
+            'n_cut': 'cut', #override
+            'n_paste': 'paste', #override
+            'n_caption_fix': 'cmd-edit-transcript-done' #override
         }
+
+        rtn = {}
+        for measurename in map_measurename_to_logtype:
+            v = map_measurename_to_logtype[measurename]
+            if isinstance(v, basestring):
+                rtn[measurename] = sum([1 for datum in self.data if datum['type'] == map_measurename_to_logtype[measurename]])
+            elif hasattr(v, '__call__'): #when it's a function
+                rtn[measurename] = v()
+            else:
+                pass # otherwise it's None
+
+        return rtn
+
+
 
     def getTimeForOperations(self):
         """
@@ -182,13 +247,13 @@ class Session(object):
         return accum
 
 class SimpleSpeechSession(Session):
-
     def __init__(self, dir_path, file_path):
         super(SimpleSpeechSession,self).__init__(dir_path, file_path)
 
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
-        self.getTimeForOperations();
+        self.getTimeForOperations()
+        print '        - getNumOperations:', self.getNumOperations()
 
     def getRawAudioMeasures(self):
         pass
@@ -197,7 +262,8 @@ class SimpleSpeechSession(Session):
         pass
 
     def getNumOperations(self):
-        pass
+        rtn = super(SimpleSpeechSession,self).getNumOperations()
+        return rtn
 
 
 class NewSpeakSession(Session):

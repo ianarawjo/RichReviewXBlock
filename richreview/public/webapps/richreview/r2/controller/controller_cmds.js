@@ -615,7 +615,7 @@
                         console.log(f.name, f.type);
                         promises.push(readWav(f));
                     }
-                    else if(f.type === 'application/json'){
+                    else if(f.type === 'application/json' || f.name.substr(f.name.lastIndexOf('.') + 1) === 'json'){
                         console.log(f.name, f.type);
                         promises.push(readJson(f));
                     }
@@ -680,7 +680,7 @@
                 if(datum.type === 'audio/wav'){
                     data.wav[datum.name.replace(/\.wav$/, '')] = datum; // remove extension
                 }
-                else if(datum.type === 'application/json'){
+                else if(datum.type === 'application/json' || datum.name.substr(datum.name.lastIndexOf('.') + 1) === 'json'){
                     data.meta.push(datum)
                 }
             });
@@ -745,7 +745,7 @@
                     r2App.annots[annot.GetId()] = annot;
                     console.log(i, datum.data.blob_url, data.wav[audio_filename].url);
                 }
-                else if(datum.type === 'simplespeech-piece-LogData'){
+                else if(datum.type === 'end-result' || datum.type === 'simplespeech-piece-LogData'){
                     var piece = r2App.doc.SearchPieceByAnnotId(datum.annotid);
                     if(piece){
                         piece.piece.SetData(datum.data.data);
