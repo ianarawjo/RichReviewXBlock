@@ -805,17 +805,6 @@
             };
         }
 
-        function getAllText(){
-            var l = [];
-            $textbox.children('span').each(function() {
-                l.push(this.talken_data);
-            });
-            return {
-                text: l.map(function(datum){return datum.word;}).join(' '),
-                list: l
-            };
-        }
-
         function getCopiedText(){
             var l = [];
             if(copied_ctrl_talkens){
@@ -852,12 +841,30 @@
                 if(e.keyCode === r2.keyboard.CONST.KEY_DEL) {
                     r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
+                        r2.localLog.event(
+                            'op-delete',
+                            annotid_copy,
+                            {
+                                'range': [carret.idx_bgn,carret.idx_end+1],
+                                'selected_text': getSelectedTextRange(carret.idx_bgn,carret.idx_end+1),
+                                'option': 'KEY_DEL_COLLAPSED'
+                            }
+                        );
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end+1
                         );
                     }
                     else{
+                        r2.localLog.event(
+                            'op-delete',
+                            annotid_copy,
+                            {
+                                'range': [carret.idx_bgn,carret.idx_end],
+                                'selected_text': getSelectedTextRange(carret.idx_bgn,carret.idx_end),
+                                'option': 'KEY_DEL_NOT_COLLAPSED'
+                            }
+                        );
                         op.remove(
                             carret.idx_bgn,
                             carret.idx_end
@@ -868,13 +875,30 @@
                 else if(e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
                     r2.localLog.event('mode-switch', annotid_copy, {mode: 'ss-editing-audio'});
                     if(carret.is_collapsed){
-                        r2.localLog.event('remove-collapsed', annotid_copy, {'range':[carret.idx_bgn-1, carret.idx_end]});
+                        r2.localLog.event(
+                            'op-delete',
+                            annotid_copy,
+                            {
+                                'range': [carret.idx_bgn-1,carret.idx_end],
+                                'selected_text': getSelectedTextRange(carret.idx_bgn-1,carret.idx_end),
+                                'option': 'KEY_BSPACE_COLLAPSED'
+                            }
+                        );
                         op.remove(
                             carret.idx_bgn-1,
                             carret.idx_end
                         );
                     }
                     else{
+                        r2.localLog.event(
+                            'op-delete',
+                            annotid_copy,
+                            {
+                                'range': [carret.idx_bgn-1,carret.idx_end],
+                                'selected_text': getSelectedTextRange(carret.idx_bgn-1,carret.idx_end),
+                                'option': 'KEY_BSPACE_NOT_COLLAPSED'
+                            }
+                        );
                         r2.localLog.event('remove-not-collapsed', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end], 'selected_text':getSelectedText()});
                         op.remove(
                             carret.idx_bgn,
