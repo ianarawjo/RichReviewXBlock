@@ -2,11 +2,16 @@ import ConfigParser, os
 import traceback
 import re
 import json
-
 import simplejson
 
 CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
+
+class Utils(object):
+    @staticmethod
+    def getWER(edited_str, wav_filename):
+        wav_filename = wav_filename[wav_filename.rfind('/')+1:]
+        return 0.0
 
 class ConfigFile(object):
     def __init__(self, filepath):
@@ -109,7 +114,7 @@ class Session(object):
         for base_annot in l:
             rtn[base_annot['_id']] = {
                 WER: 0,
-                rec_leng: 0,
+                rec_len: 0,
                 n_gesture: 0,
                 n_words: 0 # override
             }
@@ -118,19 +123,19 @@ class Session(object):
 
     def getEndResultMeasures(self):
         """
-        Recording length (t)
-        # of words
-        # of pauses
-        Word error rate
-        Use of gesture
+        # non overriding measures are calculated in this function
+            None
+
+        # overriding measures have to be implemented in the derived Session classes
+            rec_len: total length of the final recording
+            n_gesture: number of gestures
+            n_pauses: number of pauses
+            t_pauses: total length of the pauses
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (only in SimpleSpeech)
         """
-        return {
-            rec_leng: 0,
-            n_gesture: 0,
-            n_pauses: 0,
-            WER: 0,
-            n_words: 0 # override
-        }
+
+        return {}
 
     def getNumOperations(self):
         """
@@ -204,14 +209,60 @@ class SimpleSpeechSession(Session):
 
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
-        self.getTimeForOperations()
-        print '        - getNumOperations:', self.getNumOperations()
+        print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        print '        - getNumOperations:      ', self.getNumOperations()
+        print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
 
     def getRawAudioMeasures(self):
         pass
 
     def getEndResultMeasures(self):
-        pass
+        """
+        # non overriding measures are calculated in this function
+            None
+
+        # overriding measures have to be implemented in the derived Session classes
+            rec_len: total length of the final recording
+            n_gesture: number of gestures
+            n_pauses: number of pauses
+            t_pauses: total length of the pauses
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (only in SimpleSpeech)
+        """
+        rtn = super(SimpleSpeechSession,self).getEndResultMeasures()
+
+        #setup
+        l = [datum['data'] for datum in self.data if datum['type'] == 'end-result']
+        l = sorted(l, key=lambda k: k['rendered_annot']['_duration'])
+        datum = l[-1] # get the end result of the longest duration
+
+        #get rec_len: total length of the final recording
+        rtn['rec_len'] = datum['rendered_annot']['_duration']/1000.
+
+        #get n_gesture: number of gestures
+        rtn['n_gesture'] = len(datum['rendered_annot']['_spotlights'])
+
+        #get n_pauses: number of pauses
+        rtn['n_pauses'] = sum([1 for token in datum['data'] if token['word'] in [u'\xa0', ' ']])
+
+        #get t_pauses: total length of the pauses
+        t = 0
+        for token in datum['data']:
+            if  token['word'] in [u'\xa0', ' ']:
+                t += token['data'][-1]['rendered_end']-token['data'][0]['rendered_bgn']
+        rtn['t_pauses'] = t
+
+        #get n_words: number of total words (non-pause tokens)
+        rtn['n_words'] = sum([1 for token in datum['data'] if not token['word'] in [u'\xa0', ' ']])
+
+        #get WER: Word error rate after user editing (only in SimpleSpeech)
+        rtn['WER'] = Utils.getWER(
+            ' '.join([token['word'] for token in datum['data'] if not token['word'] in [u'\xa0', ' ']]),
+            datum['rendered_annot']['_audiofileurl']
+        )
+
+        return rtn
+
 
     def getNumOperations(self):
         rtn = super(SimpleSpeechSession,self).getNumOperations()
@@ -300,7 +351,6 @@ class SimpleSpeechSession(Session):
         rtn['n_deleted_tokens'] = rtn['n_deleted_nonpauses'] + rtn['n_deleted_pauses']
 
         return rtn
-
 
 class NewSpeakSession(Session):
 
