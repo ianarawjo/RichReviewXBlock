@@ -8,10 +8,19 @@ CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
 
 class Utils(object):
+    path_transcription = ''
+
     @staticmethod
     def getWER(edited_str, wav_filename):
-        wav_filename = wav_filename[wav_filename.rfind('/')+1:]
-        return 0.0
+        wav_filename = wav_filename[wav_filename.rfind('/')+1:]+'.txt'
+        try:
+            with open(os.path.join(Utils.path_transcription, wav_filename)) as f:
+                edited = [w.replace(".","").replace("'","").replace(",","").upper() for w in edited_str.split()]
+                perfect = [w.replace(".","").replace("'","").replace(",","").upper() for w in f.read().split()]
+            return levenshtein(edited, perfect)/float(max(len(edited), len(perfect)))
+        except Exception as e:
+            print 'trnascription file not found (', wav_filename, ')', edited_str,
+            return -1
 
 class ConfigFile(object):
     def __init__(self, filepath):
@@ -27,7 +36,9 @@ class ConfigFile(object):
     def setDefault(self):
         self.config.add_section('UserStudyLogAnalyzer')
         self.config.set(CONFIG_SECTION, 'logpath', './Dropbox/UIST16-Interviews/TestAnalyzer')
+        self.config.set(CONFIG_SECTION, 'transcriptionpath', './Dropbox/UIST16-Interviews/TestAnalyzer/transcription')
         self.config.set(CONFIG_SECTION, 'pattern', 'par[0-9]+')
+
 
     def save(self, filepath):
         with open(filepath, 'wb') as f:
@@ -406,10 +417,32 @@ class NewSpeakSession(Session):
         pass
 
 
+# from https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance
+def levenshtein(s1, s2):
+    if len(s1) < len(s2):
+        return levenshtein(s2, s1)
+
+    # len(s1) >= len(s2)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1 # j+1 instead of j since previous_row and current_row are one character longer
+            deletions = current_row[j] + 1       # than s2
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
 if __name__ == '__main__':
     try:
         configFile = ConfigFile(CONFIG_FILE_PATH)
-        all = All(configFile.get('LogPath'), configFile.get('pattern'))
+        Utils.path_transcription = configFile.get('transcriptionpath')
+        all = All(configFile.get('logpath'), configFile.get('pattern'))
     except Exception as e:
         if e.args[0] == 'LogFilePathNotFound':
             print '>>> Exception'
