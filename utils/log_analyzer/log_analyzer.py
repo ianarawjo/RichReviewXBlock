@@ -414,8 +414,105 @@ class NewSpeakSession(Session):
         pass
 
     def getNumOperations(self):
-        pass
+        rtn = super(SimpleSpeechSession,self).getNumOperations()
 
+        def onlyUnique(obj_arr):
+            return obj_arr # fixMe
+        def getSnapshots():
+            ls = [datum['data']['snapshot'] for datum in self.data if datum['type'] == 'base-recording-post-insert' or datum['type'] == 'base-recording-pre-insert'] # snapshots whenever the edited tks are flattened
+            ls.extend([datum['data']['snapshot'] for datum in self.data if datum['type'] == 'end-result']) # the final snapshot
+            return ls
+        def getNumEditOpsOfType(op_type, ops):
+            return sum([1 for op in ops if op['type'] == op_type])
+        def sumEditOpsProperty(ops, prop):
+            return sum(map(lambda x: x[prop], ops))
+        def getNumEditOpsList(ops):
+            n_unchanged = getNumEditOpsOfType('unchanged', ops)
+            n_ins = getNumEditOpsOfType('ins', ops)
+            n_del = getNumEditOpsOfType('del', ops)
+            n_repl = getNumEditOpsOfType('repl', ops)
+            n_unknown = getNumEditOpsOfType('unknown', ops)
+            return [n_unchanged, n_ins, n_del, n_repl, n_unknown]
+        def listsum(list_of_lists): # sum items in a list of lists, returning a single list
+            return reduce(lambda prev, curr: [(x+y) for x,y in zip(prev,curr)], list_of_lists)
+
+        # (1) Extract all talken snapshots
+        snapshots = onlyUnique(getSnapshots())
+
+        # (2) Compute differential diff between each snapshot, marking what was deleted and what was added.
+        #     (a) use type of op info (e.g. 'inserted' vs 'base-recording-end')
+        #     (b) calc # of inserts + their avg position relative to the existing text (from 0 to 1)
+        txt_op_summaries = []
+        pause_op_summaries = []
+        for snap in snapshots:
+            edit_ops = snap['edit_ops']
+            pause_ops = snap['pause_ops']
+            del_pause_len = sumEditOpsProperty(filter(lambda op: op['type']=='del'), 'time')
+            txt_op_summaries.append(getNumEditOpsList(edit_ops))
+            pause_op_summaries.append(getNumEditOpsList(pause_ops).extend([del_pause_len])
+
+        # (3) Add up these operations to determine total # of operations.
+        txt_op_totals = listsum(txt_op_summaries)
+        pause_op_totals = listsum(pause_op_summaries)
+
+        def getCumulativeBasePauses():
+            n = 0
+            recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    if token['word'] in [u'\xa0', ' ']:
+                        n += 1
+            return n
+        def getCumulativeBaseNonpauses():
+            n = 0
+            recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    if not token['word'] in [u'\xa0', ' ']:
+                        n += 1
+            return n
+        def getTotalBasePauseLength():
+            n = 0
+            recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
+            for token_data in recordings:
+                for i in xrange(len(token_data)-1):
+                    if token['word'] in [u'\xa0', ' ']:
+                        n += float(token['data'][0]['end'])
+            return n
+        def getTotalDeletedPauses():
+            return pause_op_totals[2] # total num of DEL pause ops
+        def getTotalDeletedNonpauses():
+            return txt_op_totals[2] # total num of DEL talkens over all snapshots
+        def getTimeTotalDeletedPauses():
+            return pause_op_totals[5]
+
+        map_measurename_to_logtype = {
+            'n_total_pauses': getCumulativeBasePauses, #override
+            'n_total_nonpauses': getCumulativeBaseNonpauses, #override
+            'n_total_tokens': None, #override
+            't_total_pauses': getTotalBasePauseLength, #override
+            'n_deleted_pauses': getTotalDeletedPauses, #override
+            'n_deleted_nonpauses': getTotalDeletedNonpauses, #override
+            'n_deleted_tokens': None, #override
+            't_total_deleted_pauses': getTimeTotalDeletedPauses, #override
+            'n_copy': 'copy', #override
+            'n_cut': 'cut', #override
+            'n_paste': 'paste', #override
+        }
+
+        for measurename in map_measurename_to_logtype:
+            v = map_measurename_to_logtype[measurename]
+            if isinstance(v, basestring): #when it's a string
+                rtn[measurename] = sum([1 for datum in self.data if datum['type'] == map_measurename_to_logtype[measurename]])
+            elif hasattr(v, '__call__'): #when it's a function
+                rtn[measurename] = v()
+            else:
+                pass # otherwise it's None
+
+        rtn['n_total_tokens'] = rtn['n_total_nonpauses'] + rtn['n_total_pauses']
+        rtn['n_deleted_tokens'] = rtn['n_deleted_nonpauses'] + rtn['n_deleted_pauses']
+
+        return rtn
 
 # from https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance
 def levenshtein(s1, s2):

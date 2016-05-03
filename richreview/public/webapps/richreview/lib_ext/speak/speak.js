@@ -422,6 +422,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             var base = [];
             var ops = [];
             var edited = [];
+            var edited_pause_data = [];
             var _needsupdate = false;
             var _needsrender = true;
             var _stitching = false;
@@ -479,7 +480,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
                 if (ts.length === 0) {
                     console.log("Error @ voiceInsert: Nothing to insert.");
-                    return false;
+                    return null;
                 }
 
                 // Generate talkens for timestamps and audioURL
@@ -491,17 +492,17 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     index = base.length;
                 } else if (index < 0) {
                     console.log("Error @ voiceInsert: Invalid index " + index + ".");
-                    return false;
+                    return null;
                 } else if (talkens.length === 0) {
                     console.log("Error @ voiceInsert: No talkens generated.");
-                    return false;
+                    return null;
                 }
 
                 // Insert talkens at index in list of stored talkens
                 utils.injectArray(base, talkens, index);
 
                 _needsupdate = true;
-                return true;
+                return talkens;
             };
             pub.appendVoice = function (ts, annotId) {
                 return pub.insertVoice(base.length, ts, annotId);
@@ -591,14 +592,20 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     }
                 }
                 console.log('wrds: ', wrds);
+                edited_pause_data = [];
                 for (var i = 0; i < wrds.length; i++) {
                     if (wrds[i].length === 0) continue;
 
                     if (wrds[i] === '♦') {
-                        if (i > 0 && edited[i - 1].pauseAfter > 0) {} else if (i < edited.length) {
-                            if (edited[i].pauseBefore > 0) {} else {
+                        if (i > 0 && edited[i - 1].pauseAfter > 0) {
+                            edited_pause_data.push({ 'type': EditType.UNCHANGED, 'time': edited[i - 1].pauseAfter });
+                        } else if (i < edited.length) {
+                            if (edited[i].pauseBefore > 0) {
+                                edited_pause_data.push({ 'type': EditType.UNCHANGED, 'time': edited[i].pauseBefore });
+                            } else {
                                 // this token has been artifically inserted.
                                 edited[i].setPauseBefore(300); // generic ms pause
+                                edited_pause_data.push({ 'type': EditType.INS, 'time': 300 });
                             }
                         }
                         wrds.splice(i, 1); // remove the pause marker
@@ -613,8 +620,16 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                     if (i < wrds.length - 1) {
                         if (wrds[i + 1] !== '♦') {
                             // remove pauses in talkens from deleted pause markers
+                            var del_pause = false;
+                            if (edited[i].pauseAfter > 0) {
+                                edited_pause_data.push({ 'type': EditType.DEL, 'time': edited[i].pauseAfter });
+                                del_pause = true;
+                            }
                             edited[i].setPauseAfter(0);
-                            if (i + 1 < edited.length) edited[i + 1].setPauseBefore(0);
+                            if (i + 1 < edited.length) {
+                                if (!del_pause && edited[i + 1].pauseBefore > 0) edited_pause_data.push({ 'type': EditType.DEL, 'time': edited[i + 1].pauseBefore });
+                                edited[i + 1].setPauseBefore(0);
+                            }
                         }
                     }
                 }
@@ -627,10 +642,52 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             pub.getCompiledTalkens = function () {
                 return edited;
             };
+            pub.getSnapshotData = function () {
+                var bs = pub.getTalkenData(base);
+                var os = pub.getOpsData(ops);
+                var pause_os = pub.getPauseData(edited_pause_data);
+                var es = pub.getTalkenData(edited);
+                return {
+                    'base_talkens': bs,
+                    'edit_ops': os,
+                    'edited_talkens': es,
+                    'pause_ops': pause_os
+                };
+            };
+            pub.getPauseData = function (pauseOps) {
+                var data = [];
+                var types = ['unchanged', 'ins', 'del', 'repl', 'unknown'];
+                pauseOps.forEach(function (op) {
+                    data.push({ 'op': types[op.type], 'time': op.time });
+                });
+                return data;
+            };
+            pub.getOpsData = function (os) {
+                var data = [];
+                var types = ['unchanged', 'ins', 'del', 'repl', 'unknown'];
+                os.forEach(function (op) {
+                    data.push({ 'op': types[op.type], 'text': op.text });
+                });
+                return data;
+            };
             pub.getTalkenData = function (tks) {
                 if (typeof tks === 'undefined') tks = edited;
+                var genpause = function genpause(secs, tk) {
+                    return { word: ' ',
+                        data: [{
+                            word: ' ',
+                            bgn: 0,
+                            end: secs,
+                            conf: 100,
+                            annotid: tk.audio ? tk.audio.annotId : null
+                        }]
+                    };
+                };
                 var data = [];
                 tks.forEach(function (tk) {
+
+                    if (tk.pauseBefore > 0 && (data.length === 0 || data[data.length - 1].word.trim().length > 0)) data.push(genpause(tk.pauseBefore, tk));
+
                     data.push({ word: tk.word,
                         data: [{
                             word: tk.word,
@@ -640,6 +697,8 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                             annotid: tk.audio ? tk.audio.annotId : null
                         }]
                     });
+
+                    if (tk.pauseAfter > 0) data.push(genpause(tk.pauseAfter, tk));
                 });
                 return data;
             };
@@ -686,6 +745,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 var j = 0;
                 for (var i = 0; i < edits.length; i++) {
                     var e = edits[i];
+
+                    // if (j < ts.length && ts[j].pauseBefore > 0 && (ops_with_pauses.length === 0 || ops_with_pauses[ops_with_pauses.length-1].text != ' '))
+                    //     ops_with_pauses.push(new EditOp(' ', EditType.UNCHANGED)); // insert pause op 'before'
+                    // ops_with_pauses.push(new EditOp(e.text, e.type)); // insert this op
+                    // if (j < ts.length && ts[j].pauseAfter > 0)
+                    //     ops_with_pauses.push(new EditOp(' ', EditType.UNCHANGED)); // insert pause op 'after'
 
                     console.log(" :: For edit ", e);
 

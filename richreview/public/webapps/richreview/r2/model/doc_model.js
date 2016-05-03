@@ -1587,6 +1587,11 @@
                     });
                 }
                 this._last_tts_talkens = gesynth_tks;
+                this._last_tts_snapshot = {
+                    'annot': r2App.annots[annotId],
+                    'edited_tks':this.speak_ctrl.getTalkenData(edited_talkens),
+                    'tts_tks':this.speak_ctrl.getTalkenData(tts_talkens)
+                };
 
                 // Resynthesize gestures for this annotation for new TTS audio...
                 r2.localLog.event('synth-gesture', annotId);
@@ -1595,7 +1600,7 @@
                 r2.localLog.event(
                     'end-synthesis',
                     annotId,
-                    {'annot': r2App.annots[annotId]}
+                    $.extend({}, this._last_tts_snapshot)
                 );
 
                 this._is_rendering = false;
@@ -1849,20 +1854,24 @@
                 clearTimeout(this._waiting_for_watson_timeout);
                 $(this.dom_textbox).children('.nsui-spinner').remove();
 
+                r2.localLog.event(
+                    'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+                );
+
                 $(this.dom_textbox).text(pre_text + temp_texts + post_text);
-                this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
+                var inserted_tks = this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]); // We have to append talkens b/c words might already have been set in onEndRecording. (since setCaptionFinal is called multiple times...)
 
                 r2.localLog.event(
                     'base-recording-end',
                     this.GetAnnotId(),
                     {
                         idx:this.insert_idx,
-                        transcription: this.speak_ctrl.getTalkenData(this._last_words),
+                        talkenData: this.speak_ctrl.getTalkenData(inserted_tks),
                         talkenIdx:this.insert_word_idx_before_rec
                     }
                 );
                 r2.localLog.event(
-                    'base-recording-post-insert', this.GetAnnotId(), {'talkenData': this.speak_ctrl.getTalkenData()}
+                    'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
                 );
 
                 this._last_text = null;
@@ -2145,7 +2154,7 @@
             {
                 base_annot_id: recording_annot_id,
                 idx:this.insert_idx,
-                talkenData: this.speak_ctrl.getTalkenData(),
+                snapshot: this.speak_ctrl.getSnapshotData(),
                 talkenIdx:this.insert_word_idx_before_rec
             }
         );
@@ -2218,7 +2227,12 @@
                 if (this._last_text) $(this.dom_textbox).text(this._last_text);
                 $(this.dom_textbox).children('.nsui-spinner').remove();
             }
-            this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
+
+            r2.localLog.event(
+                'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+            );
+
+            var inserted_tks = this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
             r2.localLog.event('insertVoice', this.annotids[this.annotids.length-1], {'words':this._last_words, 'url':audioURL});
 
             r2.localLog.event(
@@ -2226,12 +2240,12 @@
                 this.GetAnnotId(),
                 {
                     idx:this.insert_idx,
-                    transcription: this.speak_ctrl.getTalkenData(this._last_words, this.annotids[this.annotids.length-1]),
+                    talkenData:this.speak_ctrl.getTalkenData(inserted_tks),
                     talkenIdx:this.insert_word_idx_before_rec
                 }
             );
             r2.localLog.event(
-                'base-recording-post-insert', this.GetAnnotId(), {'talkenData': this.speak_ctrl.getTalkenData()}
+                'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
             );
 
             this._last_words = null;
@@ -2491,12 +2505,14 @@
         }
     };
     r2.PieceNewSpeak.prototype.LogData = function(){
+        this.updateSpeakCtrl(); // recompile talkens before taking snapshot
         r2.localLog.event(
             'end-result',
             this._annotid,
             {
                 rendered_annot: r2App.annots[this._annotid],
-                data: this.speak_ctrl.getTalkenData()
+                snapshot: this.speak_ctrl.getSnapshotData(),
+                final_tts_tks: this._last_tts_snapshot ? $.extend({}, this._last_tts_snapshot) : []
             }
         );
     };
