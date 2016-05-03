@@ -161,6 +161,8 @@
                 $(this).toggleClass('old-recording', false);
             });
 
+            getCarret();
+
             r2App.is_recording_or_transcribing = false;
 
             r2.localLog.event( // ???
