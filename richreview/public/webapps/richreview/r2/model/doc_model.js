@@ -1551,7 +1551,8 @@
                 }
                 else this._last_tts_audio_url = null;
 
-                r2.localLog.event('rendered-audio', annotId, {'url':this._last_tts_audio_url});
+                r2.localLog.event('rendered-audio-tts', annotId, {'url':this._last_tts_audio_url});
+                r2.localLog.editedBlobURL(this._last_tts_audio_url, annotId);
 
                 // Handle common errors
                 if (!tts_talkens || tts_talkens.length === 0) {
@@ -1600,7 +1601,7 @@
                 r2.localLog.event(
                     'end-synthesis',
                     annotId,
-                    $.extend({}, this._last_tts_snapshot)
+                    $.extend({}, this._last_tts_snapshot, {'snapshot':this.speak_ctrl.getSnapshotData(), 'text_snapshot':$(this.dom_textbox).text()})
                 );
 
                 this._is_rendering = false;
@@ -1855,7 +1856,7 @@
                 $(this.dom_textbox).children('.nsui-spinner').remove();
 
                 r2.localLog.event(
-                    'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+                    'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData(), 'text_snapshot':$(this.dom_textbox).text()}
                 );
 
                 $(this.dom_textbox).text(pre_text + temp_texts + post_text);
@@ -1871,7 +1872,7 @@
                     }
                 );
                 r2.localLog.event(
-                    'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+                    'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData(), 'text_snapshot':$(this.dom_textbox).text()}
                 );
 
                 this._last_text = null;
@@ -2155,7 +2156,8 @@
                 base_annot_id: recording_annot_id,
                 idx:this.insert_idx,
                 snapshot: this.speak_ctrl.getSnapshotData(),
-                talkenIdx:this.insert_word_idx_before_rec
+                talkenIdx:this.insert_word_idx_before_rec,
+                'text_snapshot':$(this.dom_textbox).text()
             }
         );
 
@@ -2229,7 +2231,7 @@
             }
 
             r2.localLog.event(
-                'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+                'base-recording-pre-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData(), 'text_snapshot':$(this.dom_textbox).text()}
             );
 
             var inserted_tks = this.insertVoice(this.insert_word_idx_before_rec, this._last_words, this.annotids[this.annotids.length-1]);
@@ -2245,7 +2247,7 @@
                 }
             );
             r2.localLog.event(
-                'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData()}
+                'base-recording-post-insert', this.GetAnnotId(), {'snapshot': this.speak_ctrl.getSnapshotData(), 'text_snapshot':$(this.dom_textbox).text()}
             );
 
             this._last_words = null;
@@ -2512,6 +2514,7 @@
             {
                 rendered_annot: r2App.annots[this._annotid],
                 snapshot: this.speak_ctrl.getSnapshotData(),
+                'text_snapshot':$(this.dom_textbox).text(),
                 final_tts_tks: this._last_tts_snapshot ? $.extend({}, this._last_tts_snapshot) : []
             }
         );

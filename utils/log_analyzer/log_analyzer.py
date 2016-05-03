@@ -1,8 +1,8 @@
 import ConfigParser, os
 import traceback
 import re
-import json
-import simplejson
+import json as simplejson
+#import simplejson
 
 CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
@@ -19,7 +19,7 @@ class Utils(object):
                 perfect = [w.replace(".","").replace("'","").replace(",","").upper() for w in f.read().split()]
             return levenshtein(edited, perfect)/float(max(len(edited), len(perfect)))
         except Exception as e:
-            print 'trnascription file not found (', wav_filename, ')', edited_str,
+            print 'transcription file not found (', wav_filename, ')', edited_str,
             return -1
 
 class ConfigFile(object):
@@ -35,10 +35,9 @@ class ConfigFile(object):
 
     def setDefault(self):
         self.config.add_section('UserStudyLogAnalyzer')
-        self.config.set(CONFIG_SECTION, 'logpath', './Dropbox/UIST16-Interviews/TestAnalyzer')
-        self.config.set(CONFIG_SECTION, 'transcriptionpath', './Dropbox/UIST16-Interviews/TestAnalyzer/transcription')
+        self.config.set(CONFIG_SECTION, 'logpath', '../../../../Dropbox/UIST16-Interviews/TestAnalyzer')
+        self.config.set(CONFIG_SECTION, 'transcriptionpath', '../../../../Dropbox/UIST16-Interviews/TestAnalyzer/transcription')
         self.config.set(CONFIG_SECTION, 'pattern', 'par[0-9]+')
-
 
     def save(self, filepath):
         with open(filepath, 'wb') as f:
@@ -419,8 +418,10 @@ class NewSpeakSession(Session):
         def onlyUnique(obj_arr):
             return obj_arr # fixMe
         def getSnapshots():
-            ls = [datum['data']['snapshot'] for datum in self.data if datum['type'] == 'base-recording-post-insert' or datum['type'] == 'base-recording-pre-insert'] # snapshots whenever the edited tks are flattened
-            ls.extend([datum['data']['snapshot'] for datum in self.data if datum['type'] == 'end-result']) # the final snapshot
+            ['base-recording-pre-insert', 'base-recording-post-insert', 'end-result']
+            ls = [(datum['data']['snapshot'], datum['time']) for datum in self.data if datum['type'] in logtypes] # snapshots whenever the edited tks are flattened
+            ls = sorted(ls, key=lambda x:x[1])
+            ls = [x for (x,y) in ls]
             return ls
         def getNumEditOpsOfType(op_type, ops):
             return sum([1 for op in ops if op['type'] == op_type])
@@ -449,7 +450,7 @@ class NewSpeakSession(Session):
             pause_ops = snap['pause_ops']
             del_pause_len = sumEditOpsProperty(filter(lambda op: op['type']=='del'), 'time')
             txt_op_summaries.append(getNumEditOpsList(edit_ops))
-            pause_op_summaries.append(getNumEditOpsList(pause_ops).extend([del_pause_len])
+            pause_op_summaries.append(getNumEditOpsList(pause_ops).extend([del_pause_len]))
 
         # (3) Add up these operations to determine total # of operations.
         txt_op_totals = listsum(txt_op_summaries)
@@ -480,11 +481,50 @@ class NewSpeakSession(Session):
                         n += float(token['data'][0]['end'])
             return n
         def getTotalDeletedPauses():
-            return pause_op_totals[2] # total num of DEL pause ops
+
+            def getTextSnapshots():
+                logtypes = ['base-recording-post-insert', 'base-recording-bgn', 'end-synthesis', 'end-result']
+                ls = [(datum['data']['text_snapshot'], datum['time'], datum['type']) for datum in self.data if datum['type'] in logtypes]
+                ls = sorted(ls, key=lambda x:x[1]) # sort by time
+                ls = [(t[0], map(lambda x:x=='base-recording-post-insert', t[2])) for t in ls] # keep track of when talkens are flattened (change in the ground truth)
+                return ls
+            def numTempPauses(s):
+                return s.count('\xe2')
+            def numPeriods(s):
+                return s.count('.')
+            def numOtherPunctuation(s):
+                punc_regex = re.compile('[,-\/#!?$%\^&\*;:{}=\-_`~\'()]')
+                return re.findall(punc_regex, s)
+
+            prev_set = False
+            prev = [0, 0, 0] # [num of pauses, num of periods, num of other punctuation]
+            delta_deleted = [0, 0, 0]
+            t_deleted = [0, 0, 0]
+            for i in xrange(len(text_snapshots)-1):
+                txt = text_snapshots[i]
+                if txt[1]:
+                    prev = [numTempPauses(txt), numPeriods(txt), numOtherPunctuation(txt)]
+                    t_deleted = [(delta_deleted[k]+t_deleted[k]) for k in xrange(len(delta_deleted))] # add this to the total
+                    delta_deleted = [0, 0, 0]
+                    prev_set = True
+                else:
+                    curr = [numTempPauses(txt), numPeriods(txt), numOtherPunctuation(txt)]
+                    if prev_set is False:
+                        prev = curr
+                        prev_set = True
+                        continue
+                    else:
+                        delta_deleted = [(curr[k]-prev[k]) for k in xrange(len(prev))] # calculate how many pauses were removed between snapshots
+
+            t_deleted = [(delta_deleted[k]+t_deleted[k]) for k in xrange(len(delta_deleted))] # add final delta to total, if any
+
+            return t_deleted
+
+            # return pause_op_totals[2] # total num of DEL pause ops
         def getTotalDeletedNonpauses():
             return txt_op_totals[2] # total num of DEL talkens over all snapshots
         def getTimeTotalDeletedPauses():
-            return pause_op_totals[5]
+            pass # this is just not feasible, nor does it make much sense for NS (see our discussion about difference in rendered audio pause length)
 
         map_measurename_to_logtype = {
             'n_total_pauses': getCumulativeBasePauses, #override

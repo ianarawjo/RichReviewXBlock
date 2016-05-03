@@ -529,13 +529,14 @@
                     if (i < wrds.length-1) {
                         if (wrds[i+1] !== '♦') { // remove pauses in talkens from deleted pause markers
                             var del_pause = false;
-                            if (edited[i].pauseAfter > 0) {
+                            var no_punct_before = wrds[i].indexOf(/[.,-\/#!?$%\^&\*;:{}=\-_`~'()]/) === -1;
+                            if (edited[i].pauseAfter > 0 && no_punct_before) {
                                 edited_pause_data.push({'type':EditType.DEL, 'time':edited[i].pauseAfter});
                                 del_pause = true;
                             }
                             edited[i].setPauseAfter(0);
                             if (i+1 < edited.length) {
-                                if (!del_pause && edited[i+1].pauseBefore > 0)
+                                if (!del_pause && edited[i+1].pauseBefore > 0 && no_punct_before)
                                     edited_pause_data.push({'type':EditType.DEL, 'time':edited[i+1].pauseBefore});
                                 edited[i+1].setPauseBefore(0);
                             }
@@ -587,7 +588,7 @@
                         data: [{
                             word: ' ',
                             bgn: 0,
-                            end: secs,
+                            end: secs / 1000.0,
                             conf: 100,
                             annotid: tk.audio ? tk.audio.annotId : null
                         }]
