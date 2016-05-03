@@ -63,11 +63,6 @@
             }
             else if(recording_residual){
                 var channel_buffer = event.inputBuffer.getChannelData(0);
-
-                recording_t_buf = (new Date()).getTime();
-                var d = r2.audioRecorder.RECORDER_SOURCE_SAMPLE_RATE*(recording_t_buf-recording_t_cmd)/1000;
-                channel_buffer = channel_buffer.slice(d);
-
                 recording_captured += channel_buffer.length;
 
                 worker.postMessage({

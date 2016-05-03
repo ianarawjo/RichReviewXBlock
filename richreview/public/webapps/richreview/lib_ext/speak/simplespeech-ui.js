@@ -51,22 +51,29 @@
             // Setup event handlers
             $textbox[0].addEventListener('keyup', function(e) {
                 checkCarretPositionUpdate(e);
-                //r2.localLog.event('keyup', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end]});
+                r2.localLog.event('keyup', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end]});
             });
-            $textbox[0].addEventListener('click', function(e) {
-                checkCarretPositionUpdate(e);
-                //r2.localLog.event('click', annotid_copy, {'range':[carret.idx_bgn, carret.idx_end]});
-            });
+
             $textbox[0].addEventListener('focus', function(e) {
-                checkCarretPositionUpdate(e);
                 r2.localLog.event('focus', annotid_copy);
+                document.addEventListener('selectionchange', selectionCb);
             });
             $textbox[0].addEventListener('blur', function(e) {
                 r2.localLog.event('blur', annotid_copy);
+                document.removeEventListener('selectionchange', selectionCb);
             });
 
             $textbox[0].addEventListener('keydown', onKeyDown);
             $textbox[0].addEventListener('keypress', onKeyPress);
+            $textbox[0].addEventListener('dragstart', function(e){
+                e.preventDefault();
+                setCarret(carret.idx_anchor);
+                getCarret();
+            });
+
+            function selectionCb(e){
+                checkCarretPositionUpdate(e);
+            }
         }
 
 
@@ -153,6 +160,8 @@
             $textbox.children('span').each(function(idx) {
                 $(this).toggleClass('old-recording', false);
             });
+
+            getCarret();
 
             r2App.is_recording_or_transcribing = false;
 
