@@ -348,7 +348,7 @@
             return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
         };
 
-        pub.dampenPauseLength = function(seconds) {
+        pub.dampPauseLength = function(seconds) {
             return 0.9 / (1.0 + Math.exp(-5 * seconds)) - 0.45;
         };
 
