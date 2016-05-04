@@ -63,10 +63,12 @@ class Participant(object):
         conds = ['ns', 'ss']
         for cond in conds:
             cond_path = os.path.join(path, cond)
+            if not os.path.isdir(cond_path):
+                print("Skipping path " + cond_path + ": Not a directory.")
+                continue
             dirs = [dir for dir in os.listdir(cond_path) if os.path.isdir(os.path.join(cond_path, dir))]
             if len(dirs) == 0:
                 self.sessions[cond] = self.loadByTime(cond_path, cond)
-
             else:
                 self.sessions[cond] = self.loadByDir(cond_path, cond, dirs)
 
@@ -203,7 +205,7 @@ class Session(object):
             'idle': 0,
             'recording': 0,
             'replay': 0,
-            'ns-editing': 0,
+            'ns-editing-text': 0,
             'ss-editing-audio': 0,
             'ss-editing-trans': 0
         }
@@ -417,18 +419,18 @@ class NewSpeakSession(Session):
         pass
 
     def getNumOperations(self):
-        rtn = super(SimpleSpeechSession,self).getNumOperations()
+        rtn = super(NewSpeakSession,self).getNumOperations()
 
         def onlyUnique(obj_arr):
             return obj_arr # fixMe
         def getSnapshots():
-            ['base-recording-pre-insert', 'base-recording-post-insert', 'end-result']
+            logtypes = ['base-recording-pre-insert', 'base-recording-post-insert', 'end-result']
             ls = [(datum['data']['snapshot'], datum['time']) for datum in self.data if datum['type'] in logtypes] # snapshots whenever the edited tks are flattened
             ls = sorted(ls, key=lambda x:x[1])
             ls = [x for (x,y) in ls]
             return ls
         def getNumEditOpsOfType(op_type, ops):
-            return sum([1 for op in ops if op['type'] == op_type])
+            return sum([1 for op in ops if op['op'] == op_type])
         def sumEditOpsProperty(ops, prop):
             return sum(map(lambda x: x[prop], ops))
         def getNumEditOpsList(ops):
@@ -439,7 +441,12 @@ class NewSpeakSession(Session):
             n_unknown = getNumEditOpsOfType('unknown', ops)
             return [n_unchanged, n_ins, n_del, n_repl, n_unknown]
         def listsum(list_of_lists): # sum items in a list of lists, returning a single list
-            return reduce(lambda prev, curr: [(x+y) for x,y in zip(prev,curr)], list_of_lists)
+            if not list_of_lists or len(list_of_lists) == 0:
+                return None
+            elif len(list_of_lists) == 1:
+                return list_of_lists
+            else:
+                return reduce((lambda prev,curr: [(t[0]+t[1]) for t in zip(prev,curr)]), list_of_lists)
 
         # (1) Extract all talken snapshots
         snapshots = onlyUnique(getSnapshots())
@@ -452,19 +459,24 @@ class NewSpeakSession(Session):
         for snap in snapshots:
             edit_ops = snap['edit_ops']
             pause_ops = snap['pause_ops']
-            del_pause_len = sumEditOpsProperty(filter(lambda op: op['type']=='del'), 'time')
+            #del_pause_len = sumEditOpsProperty(filter(lambda op: op['type']=='del', pause_ops), 'time')
             txt_op_summaries.append(getNumEditOpsList(edit_ops))
-            pause_op_summaries.append(getNumEditOpsList(pause_ops).extend([del_pause_len]))
+            pause_op_summaries.append(getNumEditOpsList(pause_ops))#.extend([del_pause_len]))
 
         # (3) Add up these operations to determine total # of operations.
         txt_op_totals = listsum(txt_op_summaries)
         pause_op_totals = listsum(pause_op_summaries)
+
+        if not txt_op_totals or len(txt_op_totals) == 0:
+            print("Error: No talken operations found in JSON.")
+            return
 
         def getCumulativeBasePauses():
             n = 0
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
                 for i in xrange(len(token_data)-1):
+                    token = token_data[i]
                     if token['word'] in [u'\xa0', ' ']:
                         n += 1
             return n
@@ -473,6 +485,7 @@ class NewSpeakSession(Session):
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
                 for i in xrange(len(token_data)-1):
+                    token = token_data[i]
                     if not token['word'] in [u'\xa0', ' ']:
                         n += 1
             return n
@@ -481,6 +494,7 @@ class NewSpeakSession(Session):
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
                 for i in xrange(len(token_data)-1):
+                    token = token_data[i]
                     if token['word'] in [u'\xa0', ' ']:
                         n += float(token['data'][0]['end'])
             return n
@@ -493,20 +507,22 @@ class NewSpeakSession(Session):
                 ls = [(t[0], map(lambda x:x=='base-recording-post-insert', t[2])) for t in ls] # keep track of when talkens are flattened (change in the ground truth)
                 return ls
             def numTempPauses(s):
-                return s.count('\xe2')
+                return s.count(u'\xe2')
             def numPeriods(s):
                 return s.count('.')
             def numOtherPunctuation(s):
-                punc_regex = re.compile('[,-\/#!?$%\^&\*;:{}=\-_`~\'()]')
-                return re.findall(punc_regex, s)
+                return re.findall('[,-\/#!?$%\^&\*;:\{\}=\-_`~\'()]', s)
+
+            text_snapshots = getTextSnapshots()
 
             prev_set = False
             prev = [0, 0, 0] # [num of pauses, num of periods, num of other punctuation]
             delta_deleted = [0, 0, 0]
             t_deleted = [0, 0, 0]
             for i in xrange(len(text_snapshots)-1):
-                txt = text_snapshots[i]
-                if txt[1]:
+                snapobj = text_snapshots[i]
+                txt = snapobj[0]
+                if snapobj[1]:
                     prev = [numTempPauses(txt), numPeriods(txt), numOtherPunctuation(txt)]
                     t_deleted = [(delta_deleted[k]+t_deleted[k]) for k in xrange(len(delta_deleted))] # add this to the total
                     delta_deleted = [0, 0, 0]
@@ -522,7 +538,7 @@ class NewSpeakSession(Session):
 
             t_deleted = [(delta_deleted[k]+t_deleted[k]) for k in xrange(len(delta_deleted))] # add final delta to total, if any
 
-            return t_deleted
+            return t_deleted[0] # just return # of deleted temporary pauses, for now
 
             # return pause_op_totals[2] # total num of DEL pause ops
         def getTotalDeletedNonpauses():
