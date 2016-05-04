@@ -1403,8 +1403,10 @@
                         r2.localLog.event('op-remove', annotId, sel);
 
                         // deleted period
-                        if (getCharBeforeCaret(sel.range[0]) === '.') {
+                        if (sel.range[0] === sel.range[1] && getCharBeforeCaret(sel.range[0]) === '.') {
                             r2.localLog.event('deleted-period', annotId, $.extend(sel, {'text':_tb.text()}));
+                        } else if (sel.selected_text.indexOf('.') > -1) {
+                            r2.localLog.event('deleted-period-in-sel', annotId, $.extend(sel, {'text':_tb.text()}));
                         }
                     }
                     else if (e.keyCode === 190) { // Inserted period.
