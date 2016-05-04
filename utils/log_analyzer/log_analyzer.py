@@ -580,19 +580,25 @@ class NewSpeakSession(Session):
                         n += float(token['data'][0]['end'])
             return n
         def getTotalDeletedPauses():
+            DEBUG_PRINT = False
+
+            def _print(s):
+                if DEBUG_PRINT: print(s)
 
             def getTextSnapshots():
                 logtypes = ['base-recording-post-insert', 'base-recording-bgn', 'end-synthesis', 'end-result']
                 ls = [(datum['data']['text_snapshot'], datum['time'], datum['type']) for datum in self.data if datum['type'] in logtypes]
                 ls = sorted(ls, key=lambda x:x[1]) # sort by time
-                ls = [(t[0], map(lambda x:x=='base-recording-post-insert', t[2])) for t in ls] # keep track of when talkens are flattened (change in the ground truth)
+                ls = [(t[0], t[2]=='base-recording-post-insert') for t in ls] # keep track of when talkens are flattened (change in the ground truth)
+                _print('text snaps')
+                _print(ls)
                 return ls
             def numTempPauses(s):
-                return s.count(u'\xe2')
+                return s.count(u'\u2666')
             def numPeriods(s):
                 return s.count('.')
             def numOtherPunctuation(s):
-                return re.findall('[,-\/#!?$%\^&\*;:\{\}=\-_`~\'()]', s)
+                return len(re.findall('[,-\/#!?$%\^&\*;:\{\}=\-_`~\'()]', s))
 
             text_snapshots = getTextSnapshots()
 
@@ -610,14 +616,19 @@ class NewSpeakSession(Session):
                     prev_set = True
                 else:
                     curr = [numTempPauses(txt), numPeriods(txt), numOtherPunctuation(txt)]
+                    _print("prev: " + str(prev))
+                    _print("curr: " + str(curr))
                     if prev_set is False:
                         prev = curr
                         prev_set = True
                         continue
                     else:
-                        delta_deleted = [(curr[k]-prev[k]) for k in xrange(len(prev))] # calculate how many pauses were removed between snapshots
+                        delta_deleted = [-(curr[k]-prev[k]) for k in xrange(len(prev))] # calculate how many pauses were removed between snapshots
+                        _print("delta: " + str(delta_deleted))
 
             t_deleted = [(delta_deleted[k]+t_deleted[k]) for k in xrange(len(delta_deleted))] # add final delta to total, if any
+
+            _print("Deleted pauses: " + str(t_deleted))
 
             return t_deleted[0] # just return # of deleted temporary pauses, for now
 
