@@ -406,17 +406,98 @@ class NewSpeakSession(Session):
     def preprocess(self):
         super(NewSpeakSession,self).preprocess()
         print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
         print '        - getNumOperations:      ', self.getNumOperations()
-        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
+        print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
+        """
+        # non overriding measures are calculated in this function
+            rec_len: length of each base recording
+            n_gesture: number of gestures in each base recording
+
+        # overriding measures have to be implemented in the derived Session classes
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (both in SimpleSpeech and NewSpeak)
+        """
         rtn = super(NewSpeakSession,self).getRawAudioMeasures()
-        #note that rtn is a dictionary of each baseline_annot
+
+        def getWordsFromTokenData(token_data):
+            return [word for word in token_data['talkenData'] if not word['word'] in [u'\xa0', ' ']]
+
+        def getNumWordsFromTokenData(token_data):
+            return len(getWordsFromTokenData(token_data))
+
+        def getWerFromDatum(datum, annotid):
+            wrds = getWordsFromTokenData(datum['data'])
+            return Utils.getWER(
+                ' '.join([word['word'] for word in wrds]),
+                self.base_annots[annotid]['_audiofileurl']
+            )
+
+        data = [datum for datum in self.data if datum['type'] == 'base-recording-end']
+        for datum in data:
+            transcription = datum['data']['talkenData']
+            if len(transcription) > 0:
+                annotid = transcription[0]['data'][0]['annotid']
+                rtn[annotid]['n_words'] = getNumWordsFromTokenData(datum['data'])
+                rtn[annotid]['WER'] = getWerFromDatum(datum, annotid)
+            else:
+                raise Exception('BaseRecordingWithNoTranscription')
         return rtn
 
+
     def getEndResultMeasures(self):
-        pass
+        """
+        # non overriding measures are calculated in this function
+            None
+
+        # overriding measures have to be implemented in the derived Session classes
+            rec_len: total length of the final recording
+            n_gesture: number of gestures
+            n_pauses: number of pauses
+            t_pauses: total length of the pauses
+            n_words: number of total words (non-pause tokens)
+            WER: Word error rate after user editing (only in SimpleSpeech)
+        """
+        rtn = super(NewSpeakSession,self).getEndResultMeasures()
+
+        #setup
+        l = [datum['data'] for datum in self.data if datum['type'] == 'end-result']
+        if len(l) == 0:
+            print("Skipping getEndResultMeasures @ NS: No end-result found.")
+            return
+
+        l = sorted(l, key=lambda k: k['rendered_annot']['_duration'])
+        datum = l[-1] # get the end result of the longest duration
+
+        #get rec_len: total length of the final recording
+        rtn['rec_len'] = datum['rendered_annot']['_duration']/1000.
+
+        #get n_gesture: number of gestures
+        rtn['n_gesture'] = len(datum['rendered_annot']['_spotlights'])
+
+        #get n_pauses: number of pauses
+        edited_tks = datum['snapshot']['edited_talkens']
+        rtn['n_pauses'] = sum([1 for token in edited_tks if token['word'] in [u'\xa0', ' ']])
+
+        #get t_pauses: total length of the pauses
+        t = 0
+        for token in edited_tks:
+            if token['word'] in [u'\xa0', ' ']:
+                t += token['data'][0]['end']
+        rtn['t_pauses'] = t
+
+        #get n_words: number of total words (non-pause tokens)
+        rtn['n_words'] = sum([1 for token in edited_tks if not token['word'] in [u'\xa0', ' ']])
+
+        #get WER: Word error rate after user editing (only in SimpleSpeech)
+        rtn['WER'] = Utils.getWER(
+            ' '.join([token['word'] for token in edited_tks if not token['word'] in [u'\xa0', ' ']]),
+            datum['rendered_annot']['_audiofileurl']
+        )
+
+        return rtn
 
     def getNumOperations(self):
         rtn = super(NewSpeakSession,self).getNumOperations()
