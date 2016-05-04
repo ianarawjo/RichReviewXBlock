@@ -1038,7 +1038,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 var wrd = words[i];
                 if (breaks[i] > 0 && i < words.length - 1) {
                     ssml += wrd;
-                    ssml += '<break time="' + breaks[i].toString() + 'ms"></break> ';
+                    ssml += '<break time="' + Math.round(r2.util.dampPauseLength(breaks[i] / 1000.0) * 1000.0).toString() + 'ms"></break> ';
                 } else ssml += wrd + ' ';
             }
 
@@ -1201,7 +1201,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
                 });
                 c += t.end - t.bgn;
                 if (t.pauseAfter > 0) {
-                    var pausesnip = { 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.min(t.pauseAfter / 1000.0, 1.0) };
+                    var pausesnip = { 'url': 'static_audio/pauseResource.wav', 't_bgn': 0, 't_end': Math.min(r2.util.dampPauseLength(t.pauseAfter / 1000.0), 1.0) };
                     c += pausesnip.t_end;
                     snippets.push(pausesnip);
                 }

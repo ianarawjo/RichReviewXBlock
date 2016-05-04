@@ -2289,9 +2289,10 @@
         if (idx > 0) {
             this.speak_ctrl.flatten(); // edited becomes base
         }
-        this.speak_ctrl.insertVoice(idx, words, annotId); // for now
+        var inserted_tks = this.speak_ctrl.insertVoice(idx, words, annotId); // for now
         this.updateSpeakCtrl();
         this.renderAudio();
+        return inserted_tks;
     };
     r2.PieceNewSpeak.prototype.appendVoice = function(words, annotId) {
         if (words.length === 0) return;
