@@ -1223,6 +1223,10 @@
             var range = [sel.start, sel.end];
             return {'selected_text':(sel.start === sel.end ? '' : _tb.text().substring(sel.start, sel.end)), 'range':range};
         }
+        function getCharBeforeCaret(crt) {
+            if (crt === 0) return '';
+            else           return _tb.text().substring(crt-1, crt);
+        }
         var getCursorTTSTalkenOffset = function() {
             var sel = r2.speak.saveSelection(_tb[0]);
             if (!this._last_tts_talkens) return 0;
@@ -1380,6 +1384,12 @@
                             r2.localLog.event('paste-remove', annotId, pasteJSON);
                         r2.localLog.event('paste', annotId, $.extend(pasteJSON, {'text':_tb.text()}));
                     }
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_Z) {
+                        r2.localLog.event('undo', annotId, $.extend(selJSON, {'text':_tb.text()}));
+                    }
+                    else if (e.keyCode === r2.keyboard.CONST.KEY_Y) {
+                        r2.localLog.event('redo', annotId, $.extend(selJSON, {'text':_tb.text()}));
+                    }
                 } else {
 
                     // Highlight gesture at cursor position.
@@ -1389,7 +1399,16 @@
                         r2.localLog.event('caret-change', annotId, getSelectionJSON());
                     }
                     else if (e.keyCode === r2.keyboard.CONST.KEY_DEL || e.keyCode === r2.keyboard.CONST.KEY_BSPACE) {
-                        r2.localLog.event('op-remove', annotId, getSelectionJSON());
+                        var sel = getSelectionJSON();
+                        r2.localLog.event('op-remove', annotId, sel);
+
+                        // deleted period
+                        if (getCharBeforeCaret(sel.range[0]) === '.') {
+                            r2.localLog.event('deleted-period', annotId, $.extend(sel, {'text':_tb.text()}));
+                        }
+                    }
+                    else if (e.keyCode === 190) { // Inserted period.
+                        r2.localLog.event('inserted-period', annotId, $.extend(getSelectionJSON(), {'text':_tb.text()}));
                     }
                 }
             }
