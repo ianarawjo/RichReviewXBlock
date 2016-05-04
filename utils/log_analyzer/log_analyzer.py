@@ -1,8 +1,8 @@
 import ConfigParser, os
 import traceback
 import re
-import json as simplejson
-#import simplejson
+import json
+import simplejson
 
 CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
@@ -403,6 +403,10 @@ class NewSpeakSession(Session):
 
     def preprocess(self):
         super(NewSpeakSession,self).preprocess()
+        print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        print '        - getNumOperations:      ', self.getNumOperations()
+        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
         rtn = super(NewSpeakSession,self).getRawAudioMeasures()
