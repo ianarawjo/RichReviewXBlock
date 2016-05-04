@@ -1748,6 +1748,12 @@
         else {
 
             if (!words || words.length === 0) return;
+            if (!this.recording_mode && !this._waiting_for_watson) {
+                // we shouldn't be here
+                console.warn(' >>> missed insertion <<< ', words);
+                r2.localLog.event('missed-insertion', this._annotid, {'words':words});
+                return;
+            }
 
             var txt = $(this.dom_textbox).text();
             var i;
