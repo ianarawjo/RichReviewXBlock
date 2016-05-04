@@ -157,6 +157,7 @@ class Session(object):
         # non overriding measures are calculated in this function
             n_base_recs: # of base recordings
             t_total_base_recs: total length of base recordings
+            n_replays: number of replays
 
         # overriding measures have to be implemented in the derived Session classes
             n_total_pauses: # of total pauses in base recordings
@@ -178,7 +179,8 @@ class Session(object):
 
         map_measurename_to_logtype = {
             'n_base_recs': 'recordingStop',
-            't_total_base_recs': getTimeTotalBaseRec
+            't_total_base_recs': getTimeTotalBaseRec,
+            'n_replays': 'play'
         }
 
         rtn = {}
