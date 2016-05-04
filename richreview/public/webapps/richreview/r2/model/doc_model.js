@@ -1325,7 +1325,8 @@
             //    e.preventDefault();
             //}
 
-            r2.localLog.event('mode-switch', annotId, {mode: 'ns-editing-text'});
+            if (r2App.mode != r2App.AppModeEnum.REPLAYING && r2App.mode != r2App.AppModeEnum.RECORDING && this.recording_mode !== true)
+                r2.localLog.event('mode-switch', annotId, {mode: 'ns-editing-text'});
             r2.localLog.event('keydown', annotId, {'key':e.keyCode, 'text':_tb.text(), 'selection':getSelectionJSON()});
 
             if (e.keyCode === r2.keyboard.CONST.KEY_ENTER) {
