@@ -558,7 +558,7 @@ class NewSpeakSession(Session):
             n = 0
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
-                for i in xrange(len(token_data)-1):
+                for i in xrange(len(token_data)): # skip the final token, because a pause at the end of a sentence is meaningless
                     token = token_data[i]
                     if token['word'] in [u'\xa0', ' ']:
                         n += 1
@@ -567,7 +567,7 @@ class NewSpeakSession(Session):
             n = 0
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
-                for i in xrange(len(token_data)-1):
+                for i in xrange(len(token_data)):
                     token = token_data[i]
                     if not token['word'] in [u'\xa0', ' ']:
                         n += 1
@@ -576,7 +576,7 @@ class NewSpeakSession(Session):
             n = 0
             recordings = [datum['data']['talkenData'] for datum in self.data if datum['type'] == 'base-recording-end']
             for token_data in recordings:
-                for i in xrange(len(token_data)-1):
+                for i in xrange(len(token_data)):
                     token = token_data[i]
                     if token['word'] in [u'\xa0', ' ']:
                         n += float(token['data'][0]['end'])

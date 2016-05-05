@@ -554,10 +554,20 @@
                 return edited;
             };
             pub.getSnapshotData = () => {
+
+                function rm_trailing_pause(arr) {
+                    if (arr && arr.length > 1 && arr[arr.length-1].word === ' ')
+                        arr.splice(-1, 1); // Remove trailing pauses.
+                }
+
                 var bs = pub.getTalkenData(base);
                 var os = pub.getOpsData(ops);
                 var pause_os = pub.getPauseData(edited_pause_data);
                 var es = pub.getTalkenData(edited);
+
+                rm_trailing_pause(bs);
+                rm_trailing_pause(es);
+
                 return {
                     'base_talkens':bs,
                     'edit_ops':os,
