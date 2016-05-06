@@ -1412,6 +1412,9 @@
                     else if (e.keyCode === 190) { // Inserted period.
                         r2.localLog.event('inserted-period', annotId, $.extend(getSelectionJSON(), {'text':_tb.text()}));
                     }
+                    else if (e.keyCode === 189) { // prevent hyphens
+                        e.preventDefault();
+                    }
                 }
             }
 
