@@ -3,6 +3,7 @@ import traceback
 import re
 import json
 import simplejson
+import numpy as np
 
 CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
@@ -19,7 +20,7 @@ class Utils(object):
                 perfect = [w.replace(".","").replace("'","").replace(",","").upper() for w in f.read().split()]
             return levenshtein(edited, perfect)/float(max(len(edited), len(perfect)))
         except Exception as e:
-            print 'transcription file not found (', wav_filename, ')', edited_str,
+            #print 'transcription file not found (', wav_filename, ')', edited_str,
             return -1
 
 class ConfigFile(object):
@@ -35,9 +36,10 @@ class ConfigFile(object):
 
     def setDefault(self):
         self.config.add_section('UserStudyLogAnalyzer')
-        self.config.set(CONFIG_SECTION, 'logpath', '../../../../Dropbox/UIST16-Interviews/TestAnalyzer')
-        self.config.set(CONFIG_SECTION, 'transcriptionpath', '../../../../Dropbox/UIST16-Interviews/TestAnalyzer/transcription')
-        self.config.set(CONFIG_SECTION, 'pattern', 'par[0-9]+')
+        self.config.set(CONFIG_SECTION, 'logpath', '../../../../Dropbox/UIST16-Interviews/Final')
+        #self.config.set(CONFIG_SECTION, 'logpath', '../../../../Dropbox/UIST16-Interviews/TestAnalyzer')
+        self.config.set(CONFIG_SECTION, 'transcriptionpath', '../../../../Dropbox/UIST16-Interviews/Final/transcription')
+        self.config.set(CONFIG_SECTION, 'pattern', 'par[0-9]+|test|f[1-9]+')
 
     def save(self, filepath):
         with open(filepath, 'wb') as f:
@@ -56,10 +58,58 @@ class All(object):
         for dir in dirs:
             if re.match(pattern, dir) != None:
                 self.participants.append(Participant(os.path.join(path, dir)))
+        self.getStats()
+
+    def getStats(self):
+        data = {}
+        conds = ['ns', 'ss']
+        num_participants = len(self.participants)
+
+        for part in self.participants:
+            p_stats = part.getStats()
+
+            # Add the stats for this participant to the ongoing total.
+            for measure in p_stats: # i.e. optimes, rawaudio, endresult, numops
+                if not measure in data:
+                    data[measure] = {}
+
+                for cond in conds: # ns or ss
+                    if not cond in data[measure]:
+                        data[measure][cond] = {}
+
+                    for session in p_stats[measure][cond]: # this is an element of an array
+                        for stat in session:
+                            print('measure ' + measure + ' in cond ' + cond + ' stat: ' + str(stat))
+                            if not stat in data[measure][cond]:
+                                data[measure][cond][stat] = [session[stat]] # initialize this stat in a list
+                            else:
+                                data[measure][cond][stat].append(session[stat]) # add stat to list. DOESNT DISTINGUISH BY SESSION!
+
+        # Calculate means from totals
+        for measure in data:
+            for cond in data[measure]:
+
+                stats = [stat for stat in data[measure][cond]]
+
+                # Crunch stats over the data in this condition:
+                for stat in stats:
+                    data[measure][cond]['std'] = np.std(data[measure][cond][stat])
+                    data[measure][cond]['mean'] = np.mean(data[measure][cond][stat])
+                    data[measure][cond]['sum'] = np.sum(data[measure][cond][stat])
+
+                    print('measure ' + stat + ' in cond ' + cond + ': std is ' + str(data[measure][cond]['std']))
+                    print('measure ' + stat + ' in cond ' + cond + ': mean is ' + str(data[measure][cond]['mean']))
+                    print('measure ' + stat + ' in cond ' + cond + ': total is ' + str(data[measure][cond]['sum']))
+                    print('\n')
+
+
+        # for now
+        #print(data)
 
 class Participant(object):
     def __init__(self, path):
         self.sessions = {}
+        self.name = os.path.basename(os.path.normpath(path))
         conds = ['ns', 'ss']
         for cond in conds:
             cond_path = os.path.join(path, cond)
@@ -71,6 +121,29 @@ class Participant(object):
                 self.sessions[cond] = self.loadByTime(cond_path, cond)
             else:
                 self.sessions[cond] = self.loadByDir(cond_path, cond, dirs)
+
+    def getStats(self):
+        if len(self.sessions) != 2:
+            print("Cannot crunch ttest for participant: # of sessions != 2.")
+
+        rtn = {}
+        rtn['optimes'] = {}
+        #rtn['rawaudio'] = {}
+        rtn['endresult'] = {}
+        rtn['numops'] = {}
+
+        conds = ['ns', 'ss']
+
+        ''' Get operation times:
+             > E.g. { 'optimes':{ 'ss':..., 'ns':... }, ... }
+        '''
+        for cond in conds:
+            rtn['optimes'][cond] = [session.getTimeForOperations() for session in self.sessions[cond]]
+            #rtn['rawaudio'][cond] = [session.getRawAudioMeasures() for session in self.sessions[cond]]
+            rtn['endresult'][cond] = [session.getEndResultMeasures() for session in self.sessions[cond]]
+            rtn['numops'][cond] = [session.getNumOperations() for session in self.sessions[cond]]
+
+        return rtn
 
     def loadByTime(self, path, cond):
         print path
@@ -226,10 +299,10 @@ class SimpleSpeechSession(Session):
 
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
-        print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
-        print '        - getNumOperations:      ', self.getNumOperations()
-        print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
+        #print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        #print '        - getNumOperations:      ', self.getNumOperations()
+        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
         """
@@ -260,7 +333,11 @@ class SimpleSpeechSession(Session):
                 rtn[annotid]['n_words'] = getNumWordsFromTokenData(datum['data'])
                 rtn[annotid]['WER'] = getWerFromDatum(datum, annotid)
             else:
-                raise Exception('BaseRecordingWithNoTranscription')
+                # Should this really be an exception? It's possible they just didn't record anything.
+                #raise Exception('BaseRecordingWithNoTranscription')
+                #rtn[annotid]['n_words'] = 0
+                #rtn[annotid]['WER'] = None
+                pass
         return rtn
 
 
@@ -407,10 +484,10 @@ class NewSpeakSession(Session):
 
     def preprocess(self):
         super(NewSpeakSession,self).preprocess()
-        print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
-        print '        - getNumOperations:      ', self.getNumOperations()
-        print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
+        #print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        #print '        - getNumOperations:      ', self.getNumOperations()
+        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
         """
@@ -445,7 +522,8 @@ class NewSpeakSession(Session):
                 rtn[annotid]['n_words'] = getNumWordsFromTokenData(datum['data'])
                 rtn[annotid]['WER'] = getWerFromDatum(datum, annotid)
             else:
-                raise Exception('BaseRecordingWithNoTranscription')
+                pass
+                #raise Exception('BaseRecordingWithNoTranscription')
         return rtn
 
 
