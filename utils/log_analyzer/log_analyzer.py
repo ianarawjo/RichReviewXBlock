@@ -1,9 +1,11 @@
 import ConfigParser, os
 import traceback
+import subprocess
 import re
 import json
 import simplejson
 import numpy as np
+import scipy.stats as scistats
 
 CONFIG_FILE_PATH = 'setting.cfg'
 CONFIG_SECTION = 'UserStudyLogAnalyzer'
@@ -12,15 +14,33 @@ class Utils(object):
     path_transcription = ''
 
     @staticmethod
-    def getWER(edited_str, wav_filename):
-        wav_filename = wav_filename[wav_filename.rfind('/')+1:]+'.txt'
+    def getWER(edited_str, wav_filename, audio_dir):
+        txt_filename = wav_filename[wav_filename.rfind('/')+1:]+'.txt'
+        audio_filepath = os.path.join(audio_dir,wav_filename[wav_filename.rfind('/')+1:])+'.wav'
+        empty_trans = False
         try:
-            with open(os.path.join(Utils.path_transcription, wav_filename)) as f:
+            with open(os.path.join(Utils.path_transcription, txt_filename)) as f:
+                all_lines = f.read()
+                if all_lines[:2] == '-1':
+                    empty_trans = True
+                    raise Exception('File not yet transcribed.')
                 edited = [w.replace(".","").replace("'","").replace(",","").upper() for w in edited_str.split()]
-                perfect = [w.replace(".","").replace("'","").replace(",","").upper() for w in f.read().split()]
+                perfect = [w.replace(".","").replace("'","").replace(",","").upper() for w in all_lines.split()]
             return levenshtein(edited, perfect)/float(max(len(edited), len(perfect)))
         except Exception as e:
-            #print 'transcription file not found (', wav_filename, ')', edited_str,
+            print 'please complete transcript for (', txt_filename, ')', edited_str
+            if not empty_trans:
+                with open(os.path.join(Utils.path_transcription, txt_filename), 'w') as f:
+                    f.write('-1')
+            os.system('open ' + os.path.join(Utils.path_transcription, txt_filename))
+
+            repl = ''
+            raw_input("Press Enter to play sound " + audio_filepath + " when ready...")
+            while len(repl) < 2:
+                os.system('afplay ' + audio_filepath)
+                repl = raw_input(" > Press Enter to replay. Press any other key + ENTER to continue.")
+
+            #input("Press Enter to continue...")
             return -1
 
 class ConfigFile(object):
@@ -77,30 +97,89 @@ class All(object):
                     if not cond in data[measure]:
                         data[measure][cond] = {}
 
+                    avg_stats = {} # To reduce noise in the t-test, average this stat for each participant before appending.
                     for session in p_stats[measure][cond]: # this is an element of an array
+
                         for stat in session:
-                            print('measure ' + measure + ' in cond ' + cond + ' stat: ' + str(stat))
-                            if not stat in data[measure][cond]:
-                                data[measure][cond][stat] = [session[stat]] # initialize this stat in a list
+                            #print('measure ' + measure + ' in cond ' + cond + ' stat: ' + str(stat))
+
+                            if session[stat] == None:
+                                print(" > Skipping stat " + stat + ": NoneType error.")
+                                continue
+
+                            if not stat in avg_stats:
+                                avg_stats[stat] = [session[stat]]
                             else:
-                                data[measure][cond][stat].append(session[stat]) # add stat to list. DOESNT DISTINGUISH BY SESSION!
+                                avg_stats[stat].append(session[stat])
+
+                    if measure == 'rawaudio':
+                        flattened = {}
+                        for base_annot in avg_stats:
+                            #if len(avg_stats[base_annot]) > 0:
+                            #    print("More than one set of stats in base_annot! ")
+                            for i in xrange(len(avg_stats[base_annot])):
+                                for stat in avg_stats[base_annot][i]:
+                                    if not stat in flattened: flattened[stat] = []
+                                    flattened[stat].append(avg_stats[base_annot][i][stat])
+                        avg_stats = flattened
+
+                    for stat in avg_stats:
+
+                        # don't average the number of ops or end results...
+                        if measure == 'numops' or measure == 'endresult':
+                            #print(" > stat " + stat + ": " + str(avg_stats[stat]))
+
+                            if not stat in data[measure][cond]:
+                                data[measure][cond][stat] = avg_stats[stat] # initialize this stat in a list
+                            else:
+                                data[measure][cond][stat].extend(avg_stats[stat]) # add stat to list. DOESNT DISTINGUISH BY SESSION!
+                            continue
+
+                        p_avg = sum(avg_stats[stat]) / len(avg_stats[stat])
+                        if not stat in data[measure][cond]:
+                            data[measure][cond][stat] = [p_avg] # initialize this stat in a list
+                        else:
+                            data[measure][cond][stat].append(p_avg) # add stat to list. DOESNT DISTINGUISH BY SESSION!
 
         # Calculate means from totals
+        ttest = {}
         for measure in data:
+            ttest[measure] = {}
+
             for cond in data[measure]:
 
+                ttest[measure][cond] = {}
+                other_cond = 'ns' if cond == 'ss' else 'ss'
                 stats = [stat for stat in data[measure][cond]]
 
                 # Crunch stats over the data in this condition:
                 for stat in stats:
-                    data[measure][cond]['std'] = np.std(data[measure][cond][stat])
-                    data[measure][cond]['mean'] = np.mean(data[measure][cond][stat])
-                    data[measure][cond]['sum'] = np.sum(data[measure][cond][stat])
+                    if not stat in data[measure][other_cond]:
+                        print (' Skipping stat in cond ' + cond + ': Not found in other condition, ' + other_cond + '.')
+                        continue
+                    if not stat in ttest[measure][cond]:
+                        ttest[measure][cond][stat] = []
 
-                    print('measure ' + stat + ' in cond ' + cond + ': std is ' + str(data[measure][cond]['std']))
-                    print('measure ' + stat + ' in cond ' + cond + ': mean is ' + str(data[measure][cond]['mean']))
-                    print('measure ' + stat + ' in cond ' + cond + ': total is ' + str(data[measure][cond]['sum']))
-                    print('\n')
+                    ttest[measure][cond][stat].extend(data[measure][cond][stat])
+
+        # Perform ttests
+        for measure in ttest:
+
+            for stat in ttest[measure]['ns']:
+
+                #    print('computing ttest for ' + measure + ' > ' + stat + ':: ', ttest[measure]['ns'][stat], '\n', ttest[measure]['ss'][stat])
+
+                rst = scistats.ttest_rel(ttest[measure]['ns'][stat], ttest[measure]['ss'][stat])
+                print(measure + ' > ' + stat + ':')
+                print(' | t-test result is ' + str(rst))
+                print(' | NewSpeak mean is ' + str(np.average(ttest[measure]['ns'][stat])))
+                print(' | NewSpeak std is ' + str(np.std(ttest[measure]['ns'][stat])))
+                print(' | SimpleSpeech mean is ' + str(np.average(ttest[measure]['ss'][stat])))
+                print(' | SimpleSpeech std is ' + str(np.std(ttest[measure]['ss'][stat])))
+                if rst[1] < 0.05: # if the p-value is < 1%, reject the null hypothesis
+                    print(' | RESULT: ->>  variation in ' + stat + ' over conditions is statistically significant!')
+                elif rst[1] < 0.1:
+                    print(' | RESULT: ->>  variation in ' + stat + ' over conditions is trendy!')
 
 
         # for now
@@ -117,6 +196,7 @@ class Participant(object):
                 print("Skipping path " + cond_path + ": Not a directory.")
                 continue
             dirs = [dir for dir in os.listdir(cond_path) if os.path.isdir(os.path.join(cond_path, dir))]
+            print("Reading dir " + str(dirs))
             if len(dirs) == 0:
                 self.sessions[cond] = self.loadByTime(cond_path, cond)
             else:
@@ -128,7 +208,7 @@ class Participant(object):
 
         rtn = {}
         rtn['optimes'] = {}
-        #rtn['rawaudio'] = {}
+        rtn['rawaudio'] = {}
         rtn['endresult'] = {}
         rtn['numops'] = {}
 
@@ -139,7 +219,7 @@ class Participant(object):
         '''
         for cond in conds:
             rtn['optimes'][cond] = [session.getTimeForOperations() for session in self.sessions[cond]]
-            #rtn['rawaudio'][cond] = [session.getRawAudioMeasures() for session in self.sessions[cond]]
+            rtn['rawaudio'][cond] = [session.getRawAudioMeasures() for session in self.sessions[cond]]
             rtn['endresult'][cond] = [session.getEndResultMeasures() for session in self.sessions[cond]]
             rtn['numops'][cond] = [session.getNumOperations() for session in self.sessions[cond]]
 
@@ -149,6 +229,8 @@ class Participant(object):
         print path
         js_files = [item for item in os.listdir(path) if os.path.splitext(item)[1] == '.json']
         js_files.sort()
+        print("loadByTime: skipping first log file: " + str(js_files[0]))
+        js_files = js_files[1:]
         if cond == 'ns':
             return [NewSpeakSession(path, js) for js in js_files]
         elif cond == 'ss':
@@ -176,6 +258,7 @@ class Session(object):
         self.base_annots = {}
         with open(os.path.join(dir_path, file_path)) as f:
             self.data = simplejson.loads(f.read())
+        self.dir_path = dir_path
         self.preprocess()
 
     def preprocess(self):
@@ -299,10 +382,10 @@ class SimpleSpeechSession(Session):
 
     def preprocess(self):
         super(SimpleSpeechSession,self).preprocess()
-        #print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
-        #print '        - getNumOperations:      ', self.getNumOperations()
-        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
+        # print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        # print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        # print '        - getNumOperations:      ', self.getNumOperations()
+        # print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
         """
@@ -322,7 +405,8 @@ class SimpleSpeechSession(Session):
         def getWerFromDatum(datum, annotid):
             return Utils.getWER(
                 ' '.join([word['word'] for word in datum['data']['transcription']]),
-                self.base_annots[annotid]['_audiofileurl']
+                self.base_annots[annotid]['_audiofileurl'],
+                self.dir_path
             )
 
         data = [datum for datum in self.data if datum['type'] == 'base-recording-end']
@@ -331,6 +415,7 @@ class SimpleSpeechSession(Session):
             if len(transcription) > 0:
                 annotid = transcription[0]['data'][0]['annotid']
                 rtn[annotid]['n_words'] = getNumWordsFromTokenData(datum['data'])
+                #print(datum)
                 rtn[annotid]['WER'] = getWerFromDatum(datum, annotid)
             else:
                 # Should this really be an exception? It's possible they just didn't record anything.
@@ -363,6 +448,7 @@ class SimpleSpeechSession(Session):
 
         #get rec_len: total length of the final recording
         rtn['rec_len'] = datum['rendered_annot']['_duration']/1000.
+        print("rec_len @ SS: " + str(rtn['rec_len']))
 
         #get n_gesture: number of gestures
         rtn['n_gesture'] = len(datum['rendered_annot']['_spotlights'])
@@ -383,7 +469,8 @@ class SimpleSpeechSession(Session):
         #get WER: Word error rate after user editing (only in SimpleSpeech)
         rtn['WER'] = Utils.getWER(
             ' '.join([token['word'] for token in datum['data'] if not token['word'] in [u'\xa0', ' ']]),
-            datum['rendered_annot']['_audiofileurl']
+            datum['rendered_annot']['_audiofileurl'],
+            self.dir_path
         )
 
         return rtn
@@ -391,6 +478,34 @@ class SimpleSpeechSession(Session):
 
     def getNumOperations(self):
         rtn = super(SimpleSpeechSession,self).getNumOperations()
+
+        # Get position of insertion
+        def getRecBgnRightAfterTime(time):
+            recbgn = None
+            data = [datum for datum in self.data if datum['type'] == 'base-recording-bgn']
+            for datum in data:
+                if datum['time'] < time:
+                    continue
+                else:
+                    recbgn = datum
+                    break
+            return recbgn
+
+        rtn['n_insert_end'] = 0
+        rtn['n_insert_mid'] = 0
+        data = [datum for datum in self.data if datum['type'] == 'cmd-insertion']
+        for datum in data:
+            insert_idx = datum['data']['cursor_pos']
+            talkens = getRecBgnRightAfterTime(datum['time'])['data']['talkenData']
+            if insert_idx == 0 and len(talkens) == 0:
+                continue # skip first insertion
+
+            if insert_idx >= len(talkens) - 1:
+                print(' >>>> inserted in at end ' + str(insert_idx))
+                rtn['n_insert_end'] += 1
+            else:
+                print(' >>>> inserted in middle at ' + str(insert_idx) + ' of ' + str(len(talkens)))
+                rtn['n_insert_mid'] += 1
 
         def getTotalPauses():
             n = 0
@@ -484,10 +599,10 @@ class NewSpeakSession(Session):
 
     def preprocess(self):
         super(NewSpeakSession,self).preprocess()
-        #print '        - getTimeForOperations:  ', self.getTimeForOperations()
-        #print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
-        #print '        - getNumOperations:      ', self.getNumOperations()
-        #print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
+        # print '        - getTimeForOperations:  ', self.getTimeForOperations()
+        # print '        - getEndResultMeasures:  ', self.getEndResultMeasures()
+        # print '        - getNumOperations:      ', self.getNumOperations()
+        # print '        - getRawAudioMeasures:   ', self.getRawAudioMeasures()
 
     def getRawAudioMeasures(self):
         """
@@ -499,7 +614,27 @@ class NewSpeakSession(Session):
             n_words: number of total words (non-pause tokens)
             WER: Word error rate after user editing (both in SimpleSpeech and NewSpeak)
         """
-        rtn = super(NewSpeakSession,self).getRawAudioMeasures()
+
+        def getFromAnnot(annot):
+            rtn_annot = {}
+
+            wav_file_path = self.dir_path + "/" + os.path.basename(annot['_audiofileurl']) + '.wav'
+            process = subprocess.Popen(['ffmpeg',  '-i', wav_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout, stderr = process.communicate()
+
+            matches = re.search(r"Duration:\s{1}(?P<hours>\d+?):(?P<minutes>\d+?):(?P<seconds>\d+\.\d+?),", stdout, re.DOTALL).groupdict()
+            rtn_annot['rec_len'] = float(matches['minutes']) * 60.0 + float(matches['seconds'])
+            print("getRawAudioMeasures -> rec_len @ NS: " + str(rtn_annot['rec_len']) + " | " + wav_file_path)
+
+            rtn_annot['n_gesture'] = len(annot['_spotlights'])
+            return rtn_annot
+
+        rtn = {}
+        base_annots = [datum['annotid'] for datum in self.data if datum['type'] == 'recordingStop']
+        for base_annot in base_annots:
+            rtn[base_annot['_id']] = getFromAnnot(base_annot)
+
+        #rtn = super(NewSpeakSession,self).getRawAudioMeasures()
 
         def getWordsFromTokenData(token_data):
             return [word for word in token_data['talkenData'] if not word['word'] in [u'\xa0', ' ']]
@@ -511,7 +646,8 @@ class NewSpeakSession(Session):
             wrds = getWordsFromTokenData(datum['data'])
             return Utils.getWER(
                 ' '.join([word['word'] for word in wrds]),
-                self.base_annots[annotid]['_audiofileurl']
+                self.base_annots[annotid]['_audiofileurl'],
+                self.dir_path
             )
 
         data = [datum for datum in self.data if datum['type'] == 'base-recording-end']
@@ -548,11 +684,24 @@ class NewSpeakSession(Session):
             print("Skipping getEndResultMeasures @ NS: No end-result found.")
             return
 
-        l = sorted(l, key=lambda k: k['rendered_annot']['_duration'])
+        def srt_by_dur(k):
+            if (len(k['rendered_annot']['_audiofileurl']) > 0):
+                return k['rendered_annot']['_duration']
+            else:
+                return 0 # skip empty results
+        l = sorted(l, key=srt_by_dur)
         datum = l[-1] # get the end result of the longest duration
 
         #get rec_len: total length of the final recording
-        rtn['rec_len'] = datum['rendered_annot']['_duration']/1000.
+        # rtn['rec_len'] = datum['rendered_annot']['_duration']/1000. # this is in error for some reason. instead we must get the duration of the audio directly.
+
+        wav_file_path = self.dir_path + "/" + os.path.basename(os.path.normpath(datum['rendered_annot']['_audiofileurl']) + '.wav')
+        process = subprocess.Popen(['ffmpeg',  '-i', wav_file_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout, stderr = process.communicate()
+
+        matches = re.search(r"Duration:\s{1}(?P<hours>\d+?):(?P<minutes>\d+?):(?P<seconds>\d+\.\d+?),", stdout, re.DOTALL).groupdict()
+        rtn['rec_len'] = float(matches['minutes']) * 60.0 + float(matches['seconds'])
+        print("rec_len @ NS: " + str(rtn['rec_len']) + " | " + wav_file_path)
 
         #get n_gesture: number of gestures
         rtn['n_gesture'] = len(datum['rendered_annot']['_spotlights'])
@@ -572,15 +721,31 @@ class NewSpeakSession(Session):
         rtn['n_words'] = sum([1 for token in edited_tks if not token['word'] in [u'\xa0', ' ']])
 
         #get WER: Word error rate after user editing (only in SimpleSpeech)
-        rtn['WER'] = Utils.getWER(
-            ' '.join([token['word'] for token in edited_tks if not token['word'] in [u'\xa0', ' ']]),
-            datum['rendered_annot']['_audiofileurl']
-        )
+        # rtn['WER'] = Utils.getWER(
+        #     ' '.join([token['word'] for token in edited_tks if not token['word'] in [u'\xa0', ' ']]),
+        #     datum['rendered_annot']['_audiofileurl'],
+        #     self.dir_path
+        # )
 
         return rtn
 
     def getNumOperations(self):
         rtn = super(NewSpeakSession,self).getNumOperations()
+
+        # Get position of insertion
+        rtn['n_insert_end'] = 0
+        rtn['n_insert_mid'] = 0
+        data = [datum for datum in self.data if datum['type'] == 'base-recording-bgn']
+        for datum in data:
+            text_snapshot = datum['data']['text_snapshot']
+            insert_idx = datum['data']['idx']
+            if insert_idx == -1: continue
+            elif insert_idx >= len(text_snapshot) - 1:
+                print(' >>>> NS inserted at end ' + str(insert_idx))
+                rtn['n_insert_end'] += 1
+            else:
+                print(' >>>> NS inserted in middle at ' + str(insert_idx) + ' of ' + str(len(text_snapshot)))
+                rtn['n_insert_mid'] += 1
 
         def onlyUnique(obj_arr):
             return obj_arr # fixMe
